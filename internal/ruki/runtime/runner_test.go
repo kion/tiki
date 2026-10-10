@@ -986,6 +986,9 @@ func TestRunQueryDeleteValidatorRejection(t *testing.T) {
 	if !strings.Contains(err.Error(), "partially failed") {
 		t.Errorf("expected 'partially failed' error, got: %v", err)
 	}
+	if !strings.Contains(err.Error(), "deletes forbidden") {
+		t.Errorf("expected rejection reason in error, got: %v", err)
+	}
 	// tiki should still exist
 	if s.GetTiki("TIKI-AAA001") == nil {
 		t.Error("tiki should not have been deleted")

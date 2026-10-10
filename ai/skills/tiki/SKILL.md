@@ -13,12 +13,15 @@ hard-coded workflow fields — the names, types, allowed values, and defaults be
 built-in workflow, which is what a project gets when no `workflow.yaml` overrides it. A different
 resolved workflow declares a different field set. All fields beyond `id` and `title` are optional.
 
-The applicable `workflow.yaml` is resolved by the project's lookup chain (user config
-`~/.config/tiki/workflow.yaml`, then a `workflow.yaml` in the cwd, last match wins; a built-in workflow
-when neither exists). **The field names, types, values, and defaults in this skill describe that
-built-in workflow — they are examples, not guarantees.** The project you are working in may define
-different ones. Before relying on any field or value below, read the applicable `workflow.yaml` (check the
-cwd and `~/.config/tiki/` for one; if neither exists the built-in applies and this skill's tables hold).
+The applicable `workflow.yaml` is resolved by the project's lookup chain: a `workflow.yaml` in the cwd if
+there is one, otherwise the user config `~/.config/tiki/workflow.yaml` (`$XDG_CONFIG_HOME/tiki/` when
+that is set). Only the winning file is loaded. When the user config file is missing, any `tiki` run
+writes the built-in workflow there, so in practice one of the two always exists. **The field names,
+types, values, defaults, and rules in this skill describe that built-in workflow — they are examples,
+not guarantees.** The project you are working in may define different ones, and the user may have edited
+their copy. Before relying on any field, value, or rule below, read the applicable `workflow.yaml` with
+the Read tool: its `fields:` section declares the fields and values, and its `triggers:` section declares
+the rules that refuse changes or change other tikis.
 
 - A tiki's identity is its `id:` frontmatter field, independent of the filename: a bare 6-character
   uppercase alphanumeric value (e.g. `X7F4K2`). Locate, reference, and update a tiki by this `id`, not by
@@ -44,11 +47,15 @@ All CRUD operations go through `tiki exec '<ruki-statement>'`. `ruki` is the que
 statements in this skill cover routine work; run `tiki exec --help` for the invocation reference. For full
 `ruki` syntax (operators, builtins, custom-field and extraction rules), fetch the language reference at
 https://github.com/boolean-maybe/tiki/blob/main/docs/ruki/index.md and the pages it links.
-Running a statement handles validation, triggers, file persistence, and git staging automatically. Never
-manually edit tiki files or run `git add` / `git rm` for tracked workflow tikis — `tiki exec` does it
-all. (Notes-only tikis with no workflow fields can be edited directly with Read/Write/Edit; the
-frontmatter `id:` must be preserved unchanged. Resolve their path from the id via
-`select filepath where id = "..."` rather than assuming a filename.)
+Running a statement handles validation, triggers, and file persistence. Never manually edit tracked
+workflow tikis — go through `tiki exec` so validation and triggers run. (Notes-only tikis with no
+workflow fields can be edited directly with Read/Write/Edit; the frontmatter `id:` must be preserved
+unchanged. Resolve their path from the id via `select filepath where id = "..."` rather than assuming a
+filename.)
+
+`tiki exec` only writes files — it never stages, unstages, or commits anything in git. A created tiki is
+left untracked and a deleted one shows as an unstaged deletion. Leave staging and committing to the user
+unless they ask you to do it.
 
 ## Field reference
 
@@ -81,19 +88,45 @@ These seven fields exist regardless of workflow and cannot be redeclared by a `w
 | Field (built-in example) | Type (example) | Built-in values (example) |
 |---|---|---|
 | `status` | enum | `inbox`, `ready`, `inProgress`, `done` (default `inbox`) |
-| `type` | enum | `story` (default), `bug`, `spike` |
+| `type` | enum | `story` (default), `bug`, `spike`, `project` (groups tikis via its `dependsOn`) |
 | `priority` | enum | `"high"`, `"medium-high"`, `"medium"` (default), `"medium-low"`, `"low"` — pass the key as a string |
 | `points` | enum | `"1"`, `"3"` (default), `"7"`, `"11"` — pass the key as a string |
 | `assignee` | user | free text; ruki still treats it as `string` |
-| `tags` | list&lt;string&gt; | e.g. `["bug", "urgent"]` |
+| `tags` | list&lt;string&gt; | e.g. `["bug", "urgent"]` (default `["idea"]`) |
 | `dependsOn` | list&lt;ref&gt; | bare tiki ids, e.g. `["ABC123", "DEF456"]` |
 | `due` | date | `YYYY-MM-DD` (a date, not a timestamp) — compare against date literals, not `now()` |
 | `recurrence` | recurrence | set with a constructor: `daily()`, `weekly("monday")` (full lowercase day name), `monthly(1)` (day 1–31). Stored as cron; a raw cron string is rejected on assignment |
 
 The `ruki` examples throughout this skill use these built-in values (e.g. `status="done"`,
 `priority="high"`) purely as illustrations — substitute the values your project's `workflow.yaml` actually
-defines. The built-in workflow also guards some status transitions with triggers — see the Update
-section.
+defines.
+
+### Workflow rules (triggers) — EXAMPLE ONLY, not guaranteed
+
+A `workflow.yaml` can declare triggers in its `triggers:` section. Some refuse a change; others change
+other tikis as a side effect. Like the fields above, these are declared per workflow — read the
+applicable `triggers:` section rather than relying on this list. The built-in workflow declares:
+
+Rules that refuse a change (the statement reports `updated 0 tikis (1 failed)` or `deleted 0 tikis
+(1 failed)` with the reason, and exits with code 4):
+
+- a tiki can move to `done` only from `inProgress` (a tiki that is already `done` can still be edited)
+- a tiki cannot move to `done` while any tiki in its `dependsOn` is not `done`
+- a tiki needs an `assignee` before it can move to `inProgress` (tikis of `type = "project"` are exempt)
+- an `inProgress` tiki cannot be deleted — move it to another status first
+
+Rules that change other tikis:
+
+- deleting a tiki removes its id from every other tiki's `dependsOn`
+- when a non-project tiki becomes `done`, every `project` tiki that lists it in `dependsOn` and whose
+  `dependsOn` tikis are now all `done` is set to `done` too — but only if that project is `inProgress`,
+  because the "only from `inProgress`" rule applies to it as well
+- completing a tiki that has a `recurrence` creates a new tiki for the next occurrence (same title,
+  priority, tags and recurrence; `status = "inbox"`; `due` set to the next date)
+
+A side effect that a refusal rule blocks fails silently: the original statement still reports success.
+Mention these side effects to the user when a statement you run triggers them, and verify with a
+`select` when the outcome matters.
 
 ## Query
 
@@ -127,9 +160,10 @@ tiki exec 'create title="Sprint review" recurrence=weekly("monday")'            
 ```
 
 Output: `created <ID>` (bare 6-char id).
-Defaults: `status` from the `default: true` status in `workflow.yaml`, `type` from the `default: true`
-type (or the first type), `priority` from the `default: true` priority value
-(typically `"medium"` in the built-in workflow).
+Defaults: every enum field takes its `default: true` value from `workflow.yaml` (`type` falls back to the
+first type), and any field with a field-level `default:` gets that value. In the built-in workflow a new
+tiki gets `status = "inbox"`, `type = "story"`, `priority = "medium"`, `points = "3"`, and
+`tags = ["idea"]` unless the statement sets them.
 
 ### Create from file
 
@@ -157,10 +191,10 @@ tiki exec 'update where id = "X7F4K2" set recurrence=empty'                # cle
 
 Output: `updated N tikis`. `set status=` accepts only values the applicable `workflow.yaml` declares (the
 built-in workflow's are `inbox`, `ready`, `inProgress`, `done`). A workflow may also guard transitions
-with triggers, which report `updated 0 tikis (1 failed)` with a reason when they refuse. The built-in
-workflow enforces two such guards: a tiki must have an `assignee` before it can move to `inProgress`, and
-must be `inProgress` before it can move to `done`. Satisfy the precondition first (an assignee and the
-status change can be set in the same statement), or read the failure reason and act on it.
+with triggers, which report `updated 0 tikis (1 failed)` with a reason when they refuse — see
+"Workflow rules (triggers)" above for the built-in ones. Satisfy the
+precondition first (e.g. an assignee and the status change can be set in the same statement), or read
+the failure reason and act on it.
 
 Assigning a field writes that key into the tiki's frontmatter — this is also how a notes-only tiki
 becomes a tracked one (`set status = "..."`).
@@ -181,7 +215,10 @@ tiki exec 'delete where id = "X7F4K2"'                          # by ID
 tiki exec 'delete where status = "inbox"'                        # bulk (any workflow status value)
 ```
 
-Output: `deleted N tikis`. Delete works on any tiki regardless of which fields it carries.
+Output: `deleted N tikis`. Delete works on any tiki regardless of which fields it carries, unless a
+workflow trigger refuses it (the built-in workflow refuses to delete an `inProgress` tiki). Deleting also
+fires the workflow's delete triggers — in the built-in workflow, the deleted id is removed from every
+other tiki's `dependsOn`.
 
 ## Dependencies
 
@@ -228,7 +265,7 @@ tiki exec 'select createdAt, createdBy where id = "X7F4K2"'
 
 ## Important
 
-- `tiki exec` handles `git add` and `git rm` automatically — never do manual git staging for tikis
+- `tiki exec` never touches git — don't stage, unstage, or commit tiki files unless the user asks
 - Never commit without user permission
 - An id is exactly 6 characters, uppercase letters and digits only (e.g. `X7F4K2`); a value of any other
   shape is rejected. Ids are assigned by tiki on create — obtain one from a query or `created` output,

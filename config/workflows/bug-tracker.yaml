@@ -330,7 +330,7 @@ triggers:
   - description: bugs must pass through review before verification
     ruki: >
       before update
-        where new.status = "verified" and old.status != "inReview"
+        where new.status = "verified" and old.status != "inReview" and old.status != "verified"
         deny "bugs must pass through review before verification"
   - description: per-assignee WIP limit of 3 in-progress bugs
     ruki: >

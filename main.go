@@ -330,7 +330,8 @@ func runExec(args []string) int {
 func printExecUsage() {
 	fmt.Print(`Usage: tiki exec [options] [--] '<ruki-statement>'
 
-Execute a ruki statement and exit. Requires an initialized project.
+Execute a ruki statement and exit. Operates on tikis under the current
+directory; no setup is needed. Never stages or commits anything in git.
 
 Options:
   --format <table|json>    Output format (default: table)

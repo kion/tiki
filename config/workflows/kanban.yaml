@@ -346,16 +346,12 @@ triggers:
   - description: tasks must pass through in-progress before completion
     ruki: >
       before update
-        where new.status = "done" and old.status != "inProgress"
+        where new.status = "done" and old.status != "inProgress" and old.status != "done"
         deny "tasks must be in-progress before marking done"
   - description: remove deleted task from dependency lists
     ruki: >
       after delete
         update where old.id in dependsOn set dependsOn = dependsOn - [old.id]
-  - description: clean up completed tasks after 24 hours
-    ruki: >
-      every 1day
-        delete where status = "done" and updatedAt < now() - 1day
   - description: tasks must have an assignee before starting
     ruki: >
       before update

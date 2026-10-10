@@ -31,7 +31,7 @@ type TikiStore struct {
 	tikis          map[string]*tiki.Tiki
 	listeners      map[int]store.ChangeListener
 	nextListenerID int
-	gitUtil        git.GitOps        // git utility for auto-staging modified files
+	gitUtil        git.GitOps        // git utility for reading history (authors, timestamps, user, branch)
 	identity       *identityResolver // resolves current Tiki identity (config→git→OS)
 	diagnostics    *LoadDiagnostics  // rejections from the most recent load/reload cycle
 }

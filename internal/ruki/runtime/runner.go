@@ -238,10 +238,14 @@ func persistCreate(ctx context.Context, gate *service.TikiMutationGate, cr *ruki
 func persistDelete(ctx context.Context, gate *service.TikiMutationGate, dr *ruki.DeleteResult, out io.Writer, json bool) error {
 	readStore := gate.ReadStore()
 	var succeeded, failed int
+	var firstErr error
 	for _, doc := range dr.Deleted {
 		tk := tiki.UnwrapDoc(doc)
 		if err := gate.DeleteTiki(ctx, tk); err != nil {
 			failed++
+			if firstErr == nil {
+				firstErr = err
+			}
 		} else if readStore.GetTiki(tk.ID()) != nil {
 			// store silently failed to delete
 			failed++
@@ -254,6 +258,9 @@ func persistDelete(ctx context.Context, gate *service.TikiMutationGate, dr *ruki
 		return werr
 	}
 
+	if failed > 0 && firstErr != nil {
+		return fmt.Errorf("delete partially failed: %d of %d tikis failed: %w", failed, succeeded+failed, firstErr)
+	}
 	if failed > 0 {
 		return fmt.Errorf("delete partially failed: %d of %d tikis failed", failed, succeeded+failed)
 	}
