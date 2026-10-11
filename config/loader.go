@@ -61,8 +61,6 @@ type Config struct {
 		Name string `mapstructure:"name"` // backend name — only "tiki" supported
 	} `mapstructure:"store"`
 
-	// Live reload configuration — watch the document root and refresh views
-	// when files change outside the app
 	LiveReload struct {
 		Enabled bool `mapstructure:"enabled"`
 	} `mapstructure:"liveReload"`
@@ -148,7 +146,7 @@ func setDefaults() {
 	// Store defaults
 	viper.SetDefault("store.name", "tiki")
 
-	// Live reload defaults — off; also lets TIKI_LIVERELOAD_ENABLED bind
+	// without a default, TIKI_LIVERELOAD_ENABLED never reaches the config struct
 	viper.SetDefault("liveReload.enabled", false)
 
 	// Identity defaults — empty so env overrides (TIKI_IDENTITY_*) bind correctly
@@ -221,8 +219,6 @@ func readWorkflowFile(path string) (*workflowFileData, error) {
 	return &wf, nil
 }
 
-// GetLiveReloadEnabled reports whether live reload should start enabled
-// (config liveReload.enabled, env TIKI_LIVERELOAD_ENABLED, flag --live-reload).
 func GetLiveReloadEnabled() bool {
 	return viper.GetBool("liveReload.enabled")
 }

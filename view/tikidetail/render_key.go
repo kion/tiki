@@ -9,11 +9,8 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// renderKey identifies what a detail render depends on in the store: the
-// tiki shown and every tiki it may reference (dependency lists, ids in the
-// description). The store replaces a tiki object whenever it changes, so an
-// unchanged key means a re-render would show the same content — and can be
-// skipped, keeping scroll position and focus when unrelated tikis change.
+// The store replaces a tiki object whenever it changes,
+// so comparing pointers tells whether a re-render would show anything new.
 type renderKey struct {
 	shown *tikipkg.Tiki
 	refs  map[string]*tikipkg.Tiki
@@ -43,9 +40,7 @@ func (k renderKey) equal(o renderKey) bool {
 	return true
 }
 
-// referencedIDs collects every token in the tiki's field values and body that
-// is shaped like a document id. Over-inclusive on purpose: a false positive
-// costs at most an extra re-render when that id appears in the store.
+// Over-inclusive on purpose: a false positive costs at most an extra re-render.
 func referencedIDs(tk *tikipkg.Tiki) map[string]struct{} {
 	ids := map[string]struct{}{}
 	var collect func(v interface{})

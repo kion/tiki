@@ -54,7 +54,6 @@ type TestApp struct {
 	actionPalette      *palette.ActionPalette
 	pages              *tview.Pages
 
-	// live reload (see SetupLiveReload)
 	liveReload     *livereload.Service
 	liveUpdates    chan func()
 	liveStop       chan struct{}
@@ -707,13 +706,8 @@ func (ta *TestApp) NavigateToTiki(tikiID string, maxSteps int) bool {
 	return false
 }
 
-// SetupLiveReload wires a live reload service over the test document dir the
-// way the TUI does (Ctrl-L toggle, busy predicate, statusline), with short
-// batching delays. It is not enabled; press Ctrl-L or call
-// LiveReload().SetEnabled(true).
-//
-// TestApp never runs the tview event loop, so the UI updates the service
-// queues are collected and run on the test goroutine by PumpLiveReload.
+// TestApp never runs the tview event loop,
+// so queued UI updates are run on the test goroutine by PumpLiveReload.
 func (ta *TestApp) SetupLiveReload() *livereload.Service {
 	concrete, ok := ta.TikiStore.(*tikistore.TikiStore)
 	if !ok {
@@ -747,12 +741,8 @@ func (ta *TestApp) SetupLiveReload() *livereload.Service {
 	return ta.liveReload
 }
 
-// LiveReload returns the service wired by SetupLiveReload.
 func (ta *TestApp) LiveReload() *livereload.Service { return ta.liveReload }
 
-// PumpLiveReload runs queued live reload UI updates on the test goroutine
-// (redrawing after each) until cond holds or timeout passes, and reports
-// whether cond held.
 func (ta *TestApp) PumpLiveReload(timeout time.Duration, cond func() bool) bool {
 	deadline := time.After(timeout)
 	for !cond() {
@@ -768,5 +758,4 @@ func (ta *TestApp) PumpLiveReload(timeout time.Duration, cond func() bool) bool 
 	return true
 }
 
-// LiveReloadUpdatesRun counts the live reload UI updates PumpLiveReload ran.
 func (ta *TestApp) LiveReloadUpdatesRun() int { return ta.liveUpdatesRun }

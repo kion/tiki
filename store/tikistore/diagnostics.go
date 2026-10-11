@@ -83,7 +83,6 @@ func (d *LoadDiagnostics) record(path string, reason LoadReason, msg string) {
 	d.rejections = append(d.rejections, LoadRejection{Path: path, Reason: reason, Message: msg})
 }
 
-// hasPath reports whether path (in any form) has a recorded rejection.
 func (d *LoadDiagnostics) hasPath(path string) bool {
 	if d == nil {
 		return false
@@ -99,7 +98,6 @@ func (d *LoadDiagnostics) hasPath(path string) bool {
 	return false
 }
 
-// hasReason reports whether any rejection has the given reason.
 func (d *LoadDiagnostics) hasReason(reason LoadReason) bool {
 	if d == nil {
 		return false

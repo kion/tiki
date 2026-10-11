@@ -136,8 +136,7 @@ func (s *TikiStore) updateTikiCore(tk *tikipkg.Tiki, _ bool) error {
 		tk.SetPath(old.Path())
 	}
 	if tk.LoadedMtime.IsZero() {
-		// the loaded file state is one stamp: the save conflict check
-		// compares both
+		// the save conflict check compares both
 		tk.LoadedMtime = old.LoadedMtime
 		tk.LoadedSize = old.LoadedSize
 	}

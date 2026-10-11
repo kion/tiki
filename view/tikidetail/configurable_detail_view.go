@@ -77,10 +77,7 @@ type ConfigurableDetailView struct {
 	onEditModeChange  func(bool)                   // controller-side notifier (registry derivation)
 	editTikiSource    func() *tikipkg.Tiki         // returns editing copy during edit mode
 
-	// live-refresh state: the store dependencies of the last render, so
-	// store notifications that do not affect this view skip the rebuild
-	// (keeping scroll and focus), and the external-change report made for
-	// the current edit so it fires once per change.
+	// skipping rebuilds that wouldn't change anything keeps scroll and focus
 	lastRenderKey         renderKey
 	rendered              bool
 	onExternalChange      func()
@@ -216,15 +213,10 @@ func (cv *ConfigurableDetailView) OnFocus() {
 	cv.refresh()
 }
 
-// SetExternalChangeHandler registers a callback fired (once per change) when
-// the tiki being edited in edit mode changes or disappears in the store —
-// e.g. another process rewrote its file — so the user learns before saving
-// that the save will conflict.
 func (cv *ConfigurableDetailView) SetExternalChangeHandler(handler func()) {
 	cv.onExternalChange = handler
 }
 
-// onStoreChange re-renders only when something this view shows changed.
 func (cv *ConfigurableDetailView) onStoreChange() {
 	if cv.editMode {
 		cv.checkExternalEdit()
@@ -235,8 +227,6 @@ func (cv *ConfigurableDetailView) onStoreChange() {
 	cv.refresh()
 }
 
-// checkExternalEdit reports when the store's copy of the tiki being edited
-// no longer matches the file state the editing copy was cloned from.
 func (cv *ConfigurableDetailView) checkExternalEdit() {
 	if cv.onExternalChange == nil || cv.editTikiSource == nil {
 		return
@@ -250,7 +240,7 @@ func (cv *ConfigurableDetailView) checkExternalEdit() {
 		return
 	}
 	if cv.externalReported && cv.externalReportedStore == stored {
-		return // this change was already reported
+		return
 	}
 	cv.externalReported = true
 	cv.externalReportedStore = stored

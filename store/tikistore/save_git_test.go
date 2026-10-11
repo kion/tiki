@@ -9,10 +9,6 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// TestSaveDoesNotQueryGitHistory pins that saving never runs a git history
-// query. UpdatedAt is max(file mtime, last commit time), and a file that was
-// just written is newer than any commit, so the lookup only cost a git
-// subprocess per save — on the UI thread, once per tiki a trigger changes.
 func TestSaveDoesNotQueryGitHistory(t *testing.T) {
 	root := t.TempDir()
 	writeDoc(t, filepath.Join(root, "a.md"), "AAAAAA", "a")
@@ -53,7 +49,7 @@ func TestBatchNotificationsCoalesces(t *testing.T) {
 		if err := s.UpdateTiki(a); err != nil {
 			t.Fatalf("UpdateTiki: %v", err)
 		}
-		s.BatchNotifications(func() { // nested batches flush once, at the outermost end
+		s.BatchNotifications(func() {
 			s.DeleteTiki("BBBBBB")
 		})
 		if *notified != 0 {
@@ -70,22 +66,18 @@ func TestBatchNotificationsCoalesces(t *testing.T) {
 		t.Errorf("an empty batch notified %d times", *notified)
 	}
 
-	s.DeleteTiki("AAAAAA") // outside a batch: immediate, as before
+	s.DeleteTiki("AAAAAA")
 	if *notified != 1 {
 		t.Errorf("unbatched change notified %d times, want 1", *notified)
 	}
 }
 
-// TestSaveDetectsConflictWithSameMtime covers filesystems with coarse
-// timestamps (jiffy-granular on many Linux kernels, 2s on FAT): a competing
-// write can leave the mtime unchanged, so the optimistic lock must also
-// compare the size before overwriting.
 func TestSaveDetectsConflictWithSameMtime(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "a.md")
 	writeDoc(t, path, "AAAAAA", "a")
 	s, _, _ := newReloadStore(t, root)
-	stale := s.GetTiki("AAAAAA").Clone() // e.g. a trigger evaluated before the edit
+	stale := s.GetTiki("AAAAAA").Clone()
 
 	// a competing write lands in the same timestamp tick
 	info, err := os.Stat(path)

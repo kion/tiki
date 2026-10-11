@@ -282,8 +282,6 @@ func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 	}
 }
 
-// laneBoard is a mutable per-lane tiki list standing in for the
-// controller's lane filters.
 type laneBoard struct {
 	lanes [][]*tikipkg.Tiki
 }
@@ -348,7 +346,7 @@ func TestPluginViewUserMoveIsNotUndone(t *testing.T) {
 	pc.SetSelectedIndexForLane(0, 1)
 	pv.refresh()
 
-	pc.SetSelectedIndexForLane(0, 2) // the user moves down
+	pc.SetSelectedIndexForLane(0, 2)
 	pv.refresh()
 
 	if got := pv.GetSelectedID(); got != "CCCCCC" {
@@ -363,8 +361,7 @@ func TestPluginViewSelectionSetWhileHiddenSurvives(t *testing.T) {
 	pc.SetSelectedIndexForLane(0, 1)
 	pv.refresh()
 
-	// while another view is shown, a controller selects index 0 and the
-	// store changes; coming back must honour the controller's choice
+	// set by a controller while the board was hidden
 	pc.SetSelectedIndexForLane(0, 0)
 	board.lanes[0] = append([]*tikipkg.Tiki{boardTiki("NEWNEW")}, board.lanes[0]...)
 	back := newSelectionTestView(t, board, pc)
@@ -381,8 +378,7 @@ func TestPluginViewRestoresSelectionAcrossViewRebuild(t *testing.T) {
 	pc.SetSelectedIndexForLane(0, 1)
 	pv.refresh()
 
-	// an external insert lands while the user is in a detail view; the
-	// board view is rebuilt on the way back
+	// a rebuilt view, as when returning from the detail view
 	board.lanes[0] = append([]*tikipkg.Tiki{boardTiki("NEWNEW")}, board.lanes[0]...)
 	back := newSelectionTestView(t, board, pc)
 

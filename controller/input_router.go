@@ -139,16 +139,12 @@ func (ir *InputRouter) SetQuickSelectView(qv QuickSelectView) {
 	ir.quickSelectView = qv
 }
 
-// SetLiveReload wires the live reload service for ActionToggleLiveReload.
 func (ir *InputRouter) SetLiveReload(lr LiveReloadToggler) {
 	ir.liveReload = lr
 }
 
-// IsModalInteractionActive reports whether the user is in the middle of an
-// interaction that an unprompted refresh could disrupt: an overlay (action
-// palette, quick-select, markdown tree) is open, or the active view's input
-// box (search or action input) has focus. Live reload holds external changes
-// until it clears. Call on the UI goroutine.
+// Live reload holds external changes while this is true,
+// so a refresh can't disrupt the interaction.
 func (ir *InputRouter) IsModalInteractionActive() bool {
 	if ir.paletteConfig != nil && ir.paletteConfig.IsVisible() {
 		return true

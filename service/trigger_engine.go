@@ -44,15 +44,10 @@ type TriggerEngine struct {
 	timeTriggers []TimeTriggerEntry
 	executor     *ruki.TriggerExecutor
 	gate         *TikiMutationGate
-	// dispatch runs a time-trigger tick; see SetDispatch. Nil runs it inline.
-	dispatch func(fn func())
+	dispatch     func(fn func())
 }
 
-// SetDispatch routes every time-trigger tick through dispatch, which must run
-// fn on the UI goroutine (tview's QueueUpdateDraw). A tick mutates the store,
-// and store listeners re-render views directly, so it must not run on the
-// scheduler's own goroutine. Call before StartScheduler. Without a dispatcher
-// (tests, headless use) ticks run inline.
+// Store listeners re-render views, so ticks must apply on the UI goroutine.
 func (te *TriggerEngine) SetDispatch(dispatch func(fn func())) {
 	te.dispatch = dispatch
 }
@@ -395,17 +390,10 @@ func (te *TriggerEngine) runTimeTrigger(ctx context.Context, entry TimeTriggerEn
 	}
 }
 
-// runTick executes one tick. The trigger's query runs here, on the
-// scheduler goroutine, against a snapshot of the store; only applying the
-// result — store writes, follow-up triggers, view updates — goes through the
-// dispatcher (the UI goroutine in the app), as one batch so views re-render
-// once. A tick that changes nothing never reaches the dispatcher.
-//
-// A tiki edited between evaluation and apply is safe: the evaluated copies
-// carry the file state they were read from, so the store rejects the stale
-// write (ErrConflict, logged) instead of overwriting the newer edit; the next
-// tick evaluates again. A tick that only gets to apply after shutdown began
-// is skipped.
+// Only the apply step runs on the UI goroutine, as one batch,
+// so heavy ticks don't freeze the UI.
+// A tiki edited between evaluation and apply is safe:
+// the stale copy fails the store's conflict check and the next tick retries.
 func (te *TriggerEngine) runTick(ctx context.Context, entry TimeTriggerEntry) {
 	if ctx.Err() != nil {
 		return
@@ -427,16 +415,13 @@ func (te *TriggerEngine) runTick(ctx context.Context, entry TimeTriggerEntry) {
 	te.dispatch(apply)
 }
 
-// executeTimeTrigger runs a single tick inline: snapshot, execute, persist.
 func (te *TriggerEngine) executeTimeTrigger(ctx context.Context, entry TimeTriggerEntry) {
 	if result, ok := te.evaluateTimeTrigger(entry); ok {
 		te.applyTimeTriggerResult(ctx, entry, result)
 	}
 }
 
-// evaluateTimeTrigger runs the trigger's query against a snapshot of the
-// store. It only reads (ruki clones every tiki it changes), so it is safe off
-// the UI goroutine.
+// Read-only (ruki clones what it changes), hence safe off the UI goroutine.
 func (te *TriggerEngine) evaluateTimeTrigger(entry TimeTriggerEntry) (*ruki.Result, bool) {
 	input := ruki.ExecutionInput{}
 	if timeTriggerRequiresCreateTemplate(timeTriggerForExec(entry)) {
@@ -460,9 +445,6 @@ func (te *TriggerEngine) evaluateTimeTrigger(entry TimeTriggerEntry) (*ruki.Resu
 	return result, true
 }
 
-// applyTimeTriggerResult persists a tick's result. When the store supports
-// it, the change notifications of the whole tick (follow-up triggers
-// included) are coalesced into one, so views re-render once per tick.
 func (te *TriggerEngine) applyTimeTriggerResult(ctx context.Context, entry TimeTriggerEntry, result *ruki.Result) {
 	persist := func() {
 		if err := te.persistResult(ctx, result); err != nil {
@@ -477,7 +459,6 @@ func (te *TriggerEngine) applyTimeTriggerResult(ctx context.Context, entry TimeT
 	persist()
 }
 
-// resultChangesStore reports whether persisting result would change anything.
 func resultChangesStore(result *ruki.Result) bool {
 	switch {
 	case result == nil:

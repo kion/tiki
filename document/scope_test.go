@@ -7,10 +7,6 @@ import (
 	"testing"
 )
 
-// scopeFixture builds a tree exercising every scope rule: plain and nested
-// docs, hidden dirs (pruned) vs `.doc` (kept), hidden *files* (kept), ignored
-// dirs and files from both ignore files, negated patterns, mixed-case
-// extensions and non-markdown files.
 func scopeFixture(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
@@ -57,7 +53,7 @@ func TestScope_IncludeFile(t *testing.T) {
 	cases := map[string]bool{
 		"AAAAAA.md":                  true,
 		"UPPER.MD":                   true,
-		".notes.md":                  true, // hidden file names are not pruned, only hidden dirs
+		".notes.md":                  true,
 		"DRAFT0.md":                  false,
 		"readme.txt":                 false,
 		"projects/BBBBBB.md":         true,
@@ -72,7 +68,7 @@ func TestScope_IncludeFile(t *testing.T) {
 		"sub/.hidden/ZZZZZZ.md":      false,
 		"drafts/skip.md":             false,
 		"drafts/keep.md":             true,
-		"projects/NEWNEW.md":         true, // need not exist: removed/renamed paths are classified too
+		"projects/NEWNEW.md":         true, // nonexistent: removed paths must classify too
 	}
 	for rel, want := range cases {
 		if got := s.IncludeFile(filepath.Join(root, filepath.FromSlash(rel))); got != want {
@@ -135,9 +131,6 @@ func TestScope_IsIgnoreFile(t *testing.T) {
 	}
 }
 
-// TestScope_ParityWithWalkDocuments guards the single-source-of-truth
-// contract: classifying every file on disk with IncludeFile must yield
-// exactly the set WalkDocuments returns.
 func TestScope_ParityWithWalkDocuments(t *testing.T) {
 	root := scopeFixture(t)
 	s := mustScope(t, root)
@@ -171,10 +164,6 @@ func TestScope_ParityWithWalkDocuments(t *testing.T) {
 	}
 }
 
-// TestScope_WalkFromSubdir verifies Walk reports in-scope dirs and docs under
-// a start directory, pruning out-of-scope subtrees — the watcher uses this to
-// register a newly created directory and pick up files written before the
-// watch existed.
 func TestScope_WalkFromSubdir(t *testing.T) {
 	root := scopeFixture(t)
 	s := mustScope(t, root)

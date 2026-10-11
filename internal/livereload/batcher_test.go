@@ -7,8 +7,6 @@ import (
 	"time"
 )
 
-// isReady reports whether the batcher has signalled a due batch, without
-// blocking.
 func isReady(b *batcher) bool {
 	select {
 	case <-b.ready():
@@ -50,7 +48,6 @@ func TestBatcher_MaxDelayCapsBusyWriters(t *testing.T) {
 		b := newBatcher(200*time.Millisecond, time.Second)
 		defer b.stop()
 
-		// a writer that never pauses for the quiet period
 		start := time.Now()
 		for !isReady(b) {
 			b.add("/busy.md")

@@ -6,11 +6,9 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 )
 
-// TestRunExec_BundledKanbanAllowsEditingDoneTiki runs exec against the bundled
-// kanban workflow (installed into an empty user config). Its "in-progress before
-// done" rule must block only the transition into done, not later edits of a
-// tiki that is already done — otherwise done tikis can't be changed at all and
-// the after-delete dependsOn cleanup silently skips them.
+// The "in-progress before done" rule must only block the transition into done:
+// otherwise done tikis can't be edited at all,
+// and the after-delete dependsOn cleanup silently skips them.
 func TestRunExec_BundledKanbanAllowsEditingDoneTiki(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Chdir(t.TempDir())

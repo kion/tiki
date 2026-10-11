@@ -209,15 +209,10 @@ func (dc *DetailController) BindEditView(v DetailEditableView) {
 	}
 }
 
-// externalChangeNotifier is implemented by detail views that notice when the
-// tiki being edited changes on disk (live reload, or any store refresh).
 type externalChangeNotifier interface {
 	SetExternalChangeHandler(func())
 }
 
-// warnExternalChange tells the user, mid-edit, that the tiki was changed
-// elsewhere: saving would fail with a conflict (the editing copy carries the
-// file state it was cloned from), so they can cancel and reopen it instead.
 func (dc *DetailController) warnExternalChange() {
 	if dc.statusline == nil {
 		return

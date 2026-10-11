@@ -20,10 +20,7 @@ func (s *TikiStore) RemoveListener(id int) {
 	delete(s.listeners, id)
 }
 
-// BatchNotifications runs fn and coalesces the change notifications it
-// causes into one, delivered when the outermost batch ends (none when nothing
-// changed). Listeners re-render views, so applying many changes in a batch
-// costs one re-render instead of one per change.
+// Listeners re-render views, so a batch costs one re-render, not one per change.
 func (s *TikiStore) BatchNotifications(fn func()) {
 	s.mu.Lock()
 	s.batchDepth++

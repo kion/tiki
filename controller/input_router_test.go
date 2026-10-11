@@ -157,8 +157,7 @@ func TestIsTextInputKey_RuneAndEditingKeys(t *testing.T) {
 		tcell.NewEventKey(tcell.KeyDelete, 0, tcell.ModNone),
 		tcell.NewEventKey(tcell.KeyHome, 0, tcell.ModNone),
 		tcell.NewEventKey(tcell.KeyEnd, 0, tcell.ModNone),
-		// Ctrl-L is TextArea's select-all; it toggles live reload only when
-		// no text field has focus
+		// TextArea select-all must win over the live reload toggle
 		tcell.NewEventKey(tcell.KeyCtrlL, 0, tcell.ModCtrl),
 	}
 	for _, ev := range allow {
@@ -393,7 +392,6 @@ func TestMaybeHandleDetailEditMode_LeftFallsThroughOnNonRecurrenceField(t *testi
 	}
 }
 
-// fakeLiveReload records toggles requested by the router.
 type fakeLiveReload struct {
 	enabled bool
 	calls   []bool
@@ -442,7 +440,6 @@ func TestInputRouter_ToggleLiveReloadUnavailable(t *testing.T) {
 	}
 }
 
-// inputBoxView is a View whose input box focus the test controls.
 type inputBoxView struct {
 	routerFakeView
 	focused bool

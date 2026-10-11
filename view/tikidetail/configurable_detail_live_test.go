@@ -9,8 +9,6 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// liveDetailFixture is a detail view over SHOWN, which depends on LINKED,
-// next to an unrelated OTHERS tiki — the store refreshes live reload sends.
 type liveDetailFixture struct {
 	store *store.InMemoryStore
 	view  *ConfigurableDetailView
@@ -41,7 +39,7 @@ func newLiveDetailFixture(t *testing.T) *liveDetailFixture {
 	return &liveDetailFixture{store: s, view: cv}
 }
 
-// replace swaps a tiki in the store the way a reload does: a new object.
+// A reload replaces tikis with new objects.
 func (f *liveDetailFixture) replace(t *testing.T, id string, mutate func(*tikipkg.Tiki)) {
 	t.Helper()
 	tk := f.store.GetTiki(id).Clone()

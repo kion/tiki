@@ -13,18 +13,15 @@ import (
 	"github.com/boolean-maybe/tiki/store/tikistore"
 )
 
-// fakeTarget records what the service asked the store to do.
 type fakeTarget struct {
 	mu         sync.Mutex
-	log        []string // "start", "reconcile", "reload" in call order (start is logged by fakeSource)
+	log        []string
 	reloads    [][]string
 	reloaded   chan []string
 	reconciled chan struct{}
-	checked    chan []string // paths offered to ExternallyChanged
-	// external filters ExternallyChanged; nil keeps every path
-	external func(string) bool
-	// result is returned by ReloadPaths and Reconcile
-	result func(paths []string) tikistore.ReloadResult
+	checked    chan []string
+	external   func(string) bool
+	result     func(paths []string) tikistore.ReloadResult
 }
 
 func newFakeTarget() *fakeTarget {
@@ -85,8 +82,6 @@ func (f *fakeTarget) calls() []string {
 	return append([]string(nil), f.log...)
 }
 
-// fakeSource stands in for the fsnotify watcher: tests push paths straight
-// into the batcher the service hands it.
 type fakeSource struct {
 	mu     sync.Mutex
 	batch  *batcher
@@ -271,8 +266,7 @@ func TestService_AppliesBatchAndRedrawsOnlyOnChange(t *testing.T) {
 	h.source.push("/changed.md")
 	recvPaths(t, h.target.reloaded)
 
-	// batches are applied in order, so once the changed batch has redrawn,
-	// the unchanged one has long finished: exactly one redraw in total
+	// batches apply in order, so the unchanged one has finished by now
 	select {
 	case <-h.redrawn:
 	case <-time.After(5 * time.Second):
@@ -301,8 +295,6 @@ func TestService_InternalOnlyBatchNeverReachesUI(t *testing.T) {
 	}
 }
 
-// waitChecked blocks until path has been offered to the pre-filter, i.e. its
-// batch has been taken and decided on.
 func waitChecked(t *testing.T, f *fakeTarget, path string) {
 	t.Helper()
 	deadline := time.After(5 * time.Second)
@@ -428,7 +420,6 @@ func TestService_ReconcileRequestReconciles(t *testing.T) {
 	}
 }
 
-// countingStore wraps a real store to observe what reaches ReloadPaths.
 type countingStore struct {
 	*tikistore.TikiStore
 	reloaded chan []string
@@ -440,9 +431,6 @@ func (c *countingStore) ReloadPaths(paths []string) (tikistore.ReloadResult, err
 	return res, err
 }
 
-// TestService_InAppWritesAreNotEchoed runs the real watcher against a real
-// store: a save made through the store must not come back as a reload,
-// while an external write right after it must.
 func TestService_InAppWritesAreNotEchoed(t *testing.T) {
 	root := t.TempDir()
 	pathA := filepath.Join(root, "a.md")

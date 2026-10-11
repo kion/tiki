@@ -13,8 +13,6 @@ import (
 
 const liveReloadWait = 10 * time.Second
 
-// newLiveBoard opens the Kanban board over one tiki, with live reload wired
-// (but not yet enabled).
 func newLiveBoard(t *testing.T) *testutil.TestApp {
 	t.Helper()
 	ta := testutil.NewTestApp(t)
@@ -78,7 +76,7 @@ func TestLiveReload_HeldWhilePaletteOpen(t *testing.T) {
 	ta := newLiveBoard(t)
 	ta.SendKey(tcell.KeyCtrlL, 0, tcell.ModCtrl)
 
-	ta.SendKey(tcell.KeyCtrlA, 0, tcell.ModCtrl) // open the action palette
+	ta.SendKey(tcell.KeyCtrlA, 0, tcell.ModCtrl)
 	if !ta.GetPaletteConfig().IsVisible() {
 		t.Fatal("palette did not open")
 	}
@@ -86,7 +84,7 @@ func TestLiveReload_HeldWhilePaletteOpen(t *testing.T) {
 		t.Fatalf("failed to create external tiki: %v", err)
 	}
 
-	// wait until the change has reached the UI goroutine at least once
+	// so the absence check below isn't vacuous
 	start := ta.LiveReloadUpdatesRun()
 	if !ta.PumpLiveReload(liveReloadWait, func() bool { return ta.LiveReloadUpdatesRun() > start }) {
 		t.Fatal("external change never reached the UI goroutine")
@@ -95,7 +93,7 @@ func TestLiveReload_HeldWhilePaletteOpen(t *testing.T) {
 		t.Fatal("change applied while the palette was open")
 	}
 
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone) // close the palette
+	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 	if !ta.PumpLiveReload(liveReloadWait, func() bool { return ta.TikiStore.GetTiki("000002") != nil }) {
 		t.Fatal("held change not applied after the palette closed")
 	}

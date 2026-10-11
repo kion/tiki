@@ -1319,9 +1319,6 @@ func TestTriggerEngine_ExecuteTimeTrigger_PersistError(t *testing.T) {
 	}
 }
 
-// TestTriggerEngine_TimeTriggerRunsThroughDispatch pins the UI-thread fix:
-// with a dispatcher installed, every tick (snapshot, execute, persist) runs
-// inside it, so store listeners fire on the UI goroutine.
 func TestTriggerEngine_TimeTriggerRunsThroughDispatch(t *testing.T) {
 	p := ruki.NewParser(testTriggerSchema{})
 	tt, err := p.ParseTimeTrigger(`every 1sec delete where status = "done"`)
@@ -1371,8 +1368,6 @@ func TestTriggerEngine_TimeTriggerRunsThroughDispatch(t *testing.T) {
 	}
 }
 
-// TestTriggerEngine_DispatchedTickSkippedAfterCancel covers a tick queued on
-// the UI goroutine that only runs after shutdown began: it must not mutate.
 func TestTriggerEngine_DispatchedTickSkippedAfterCancel(t *testing.T) {
 	p := ruki.NewParser(testTriggerSchema{})
 	tt, err := p.ParseTimeTrigger(`every 1sec delete where status = "done"`)

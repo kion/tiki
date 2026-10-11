@@ -31,12 +31,12 @@ type TikiStore struct {
 	tikis          map[string]*tiki.Tiki
 	listeners      map[int]store.ChangeListener
 	nextListenerID int
-	gitUtil        git.GitOps        // git utility for reading history (authors, timestamps, user, branch)
+	gitUtil        git.GitOps        // read-only: tiki never stages or commits
 	identity       *identityResolver // resolves current Tiki identity (config→git→OS)
 	diagnostics    *LoadDiagnostics  // rejections from the most recent load/reload cycle
-	deferred       map[string]bool   // paths ReloadPaths saw mid-write once; retried before acting
-	batchDepth     int               // open BatchNotifications calls
-	batchDirty     bool              // a change was notified during the open batch
+	deferred       map[string]bool
+	batchDepth     int
+	batchDirty     bool
 }
 
 // NewTikiStore creates a new TikiStore.

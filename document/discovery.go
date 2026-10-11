@@ -55,8 +55,7 @@ func IsSkippableSubdir(path, root, name string) bool {
 	return isSkippableDirName(name)
 }
 
-// isSkippableDirName is the name-only half of IsSkippableSubdir, for callers
-// that already know the directory is not the root.
+// For callers that already know the directory isn't the root.
 func isSkippableDirName(name string) bool {
 	if name == docDirName {
 		return false

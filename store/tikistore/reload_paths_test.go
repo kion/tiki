@@ -12,8 +12,6 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// countingGit is a GitOps double that counts history queries (the expensive
-// `git log` family). Incremental reload must never issue one.
 type countingGit struct {
 	mu      sync.Mutex
 	history int
@@ -63,8 +61,6 @@ func (g *countingGit) AllFileVersionsSince(string, time.Time, bool) (map[string]
 }
 func (g *countingGit) AllUsers() ([]string, error) { return nil, nil }
 
-// newReloadStore loads a store over root with a counting git double
-// installed, and counts listener notifications.
 func newReloadStore(t *testing.T, root string) (*TikiStore, *countingGit, *int) {
 	t.Helper()
 	s, err := NewTikiStore(root)
@@ -79,8 +75,8 @@ func newReloadStore(t *testing.T, root string) (*TikiStore, *countingGit, *int) 
 	return s, g, &notified
 }
 
-// writeExternal rewrites path the way another process would, then pushes its
-// mtime forward so the change is visible even on coarse-mtime filesystems.
+// The mtime is pushed forward,
+// so the change is visible even with coarse timestamps.
 func writeExternal(t *testing.T, path, content string) {
 	t.Helper()
 	//nolint:gosec // G301: test temp dir
@@ -517,9 +513,6 @@ func TestReloadPaths_NoGitHistoryCalls(t *testing.T) {
 	}
 }
 
-// TestReloadPaths_ParityWithFreshLoad replays a sequence of external
-// operations through ReloadPaths and checks the result matches what a fresh
-// full load of the same directory sees.
 func TestReloadPaths_ParityWithFreshLoad(t *testing.T) {
 	root := t.TempDir()
 	writeDoc(t, filepath.Join(root, "a.md"), "AAAAAA", "a")
@@ -618,7 +611,6 @@ func TestExternallyChanged(t *testing.T) {
 	writeDoc(t, gonePath, "GONEGO", "gone")
 	s, _, _ := newReloadStore(t, root)
 
-	// in-app update and delete: their file events must be filtered out
 	updated := s.GetTiki("SELFED").Clone()
 	updated.SetTitle("self edited")
 	if err := s.UpdateTiki(updated); err != nil {
@@ -632,7 +624,6 @@ func TestExternallyChanged(t *testing.T) {
 	appDeletedPath := s.PathForID("GONEGO")
 	s.DeleteTiki("GONEGO")
 
-	// external changes: must be reported
 	writeExternal(t, extPath, docContent("EXTERN", "edited elsewhere"))
 	newPath := filepath.Join(root, "brand-new.md")
 	writeExternal(t, newPath, docContent("BRANDN", "new"))

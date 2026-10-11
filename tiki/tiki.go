@@ -36,8 +36,8 @@ type Tiki struct {
 	// LoadedMtime is the file mtime at load time; used for optimistic locking.
 	LoadedMtime time.Time
 
-	// LoadedSize is the file size at load (or last save) time. Together with
-	// LoadedMtime it lets live reload tell tiki's own writes from external ones.
+	// LoadedSize backs up LoadedMtime
+	// where timestamps are too coarse to tell two writes apart.
 	LoadedSize int64
 
 	// createdAt is best-effort creation time (git history -> file mtime). Read via CreatedAt().

@@ -10,16 +10,13 @@ import (
 	"github.com/boolean-maybe/tiki/store/tikistore"
 )
 
-// liveReloadStatKey is the statusline left-stat key of the live indicator.
 const liveReloadStatKey = "LiveReload"
 
-// liveReloadStatPriority places the indicator after the version, workflow,
-// user and branch stats.
+// after version, workflow, user and branch
 const liveReloadStatPriority = 5
 
-// newLiveReload builds the live reload service for the TUI. External changes
-// are applied on the UI goroutine through QueueUpdate, and the screen is
-// redrawn only when a batch changed the store.
+// Plain QueueUpdate, plus a redraw only when the store changed:
+// no repaint for no-op batches.
 func newLiveReload(application *tview.Application, store *tikistore.TikiStore,
 	statusline *model.StatuslineConfig, router *controller.InputRouter) *livereload.Service {
 	opts := LiveReloadOptions(config.GetDocDir(), store, statusline, router)
@@ -28,10 +25,7 @@ func newLiveReload(application *tview.Application, store *tikistore.TikiStore,
 	return livereload.New(opts)
 }
 
-// LiveReloadOptions returns the live reload wiring shared by the TUI and the
-// integration test harness: the store as target, batches held while the
-// router reports an overlay or input box open, and statusline reporting. The
-// caller supplies Dispatch and Redraw for its UI loop.
+// Shared with the integration test harness, which supplies its own Dispatch.
 func LiveReloadOptions(root string, store *tikistore.TikiStore,
 	statusline *model.StatuslineConfig, router *controller.InputRouter) livereload.Options {
 	onState, onErr := liveReloadStatus(statusline)
@@ -44,8 +38,6 @@ func LiveReloadOptions(root string, store *tikistore.TikiStore,
 	}
 }
 
-// liveReloadStatus returns the statusline sinks for the live reload service:
-// a "● live" indicator while it is on, and error messages.
 func liveReloadStatus(statusline *model.StatuslineConfig) (onState func(bool), onErr func(error)) {
 	onState = func(enabled bool) {
 		if enabled {

@@ -25,10 +25,8 @@ type PluginConfig struct {
 	nextListenerID   int
 	searchState      SearchState // search state (embedded)
 
-	// selectionGen counts notified selection changes. The anchor remembers
-	// which tiki was rendered as selected and at which generation, so a view
-	// can keep that tiki selected across store refreshes while never undoing
-	// a deliberate selection change made since.
+	// The anchor keeps the rendered tiki selected across store refreshes;
+	// the generation stops it from undoing a deliberate selection change.
 	selectionGen uint64
 	anchorID     string
 	anchorGen    uint64
@@ -183,7 +181,6 @@ func (pc *PluginConfig) RemoveSelectionListener(id int) {
 	delete(pc.listeners, id)
 }
 
-// SetSelectionAnchor records id as the tiki rendered as selected. Silent.
 func (pc *PluginConfig) SetSelectionAnchor(id string) {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
@@ -191,8 +188,6 @@ func (pc *PluginConfig) SetSelectionAnchor(id string) {
 	pc.anchorGen = pc.selectionGen
 }
 
-// SelectionAnchor returns the anchored tiki id, valid only while no selection
-// change has been notified since it was recorded.
 func (pc *PluginConfig) SelectionAnchor() (string, bool) {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
@@ -202,9 +197,7 @@ func (pc *PluginConfig) SelectionAnchor() (string, bool) {
 	return pc.anchorID, true
 }
 
-// RestoreSelection moves the selection without notifying listeners or
-// invalidating the anchor; used to keep the anchored tiki selected after its
-// index shifted.
+// Silent: notifying would invalidate the anchor and trigger another refresh.
 func (pc *PluginConfig) RestoreSelection(lane, idx int) {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()

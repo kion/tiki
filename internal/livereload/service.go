@@ -1,11 +1,5 @@
-// Package livereload watches the document root and applies external changes
-// to the store while the TUI runs, so edits made by other processes (AI
-// agents running `tiki exec`, editors, git) show up without pressing Refresh.
-//
-// Pipeline: fsnotify → batcher (debounce) → background pre-filter that drops
-// tiki's own writes (Target.ExternallyChanged) → one queued update on the UI
-// goroutine → Target.ReloadPaths / Target.Reconcile → store listeners
-// re-render. Only batches with real external changes reach the UI goroutine.
+// Package livereload filters events off the UI goroutine,
+// so that only real external changes ever queue a UI update.
 package livereload
 
 import (
@@ -23,7 +17,6 @@ const (
 	defaultBusyRetry = 300 * time.Millisecond
 )
 
-// Target is the store side of live reload. *tikistore.TikiStore satisfies it.
 type Target interface {
 	ReloadPaths(paths []string) (tikistore.ReloadResult, error)
 	Reconcile() (tikistore.ReloadResult, error)
@@ -31,57 +24,45 @@ type Target interface {
 	AllPaths() []string
 }
 
-// Options configures a Service. Callbacks marked "UI goroutine" are only
-// ever invoked from functions run through Dispatch or from SetEnabled.
+// Callbacks run on the UI goroutine.
 type Options struct {
-	// Root is the document root to watch (the store's directory).
 	Root   string
 	Target Target
 
-	// Dispatch runs fn on the UI goroutine. It may block until fn has run
-	// (tview's QueueUpdate does). It is never called from the UI goroutine.
+	// Dispatch may block until fn has run (tview's QueueUpdate does),
+	// so it is never called from the UI goroutine.
 	Dispatch func(fn func())
-	// Redraw repaints the screen after a batch changed the store. UI
-	// goroutine. Optional.
-	Redraw func()
-	// Busy reports that the user is mid-interaction (an overlay or input box
-	// is open); batches are held until it clears so a refresh cannot move
-	// focus or the selection under them. UI goroutine. Optional.
-	Busy func() bool
-	// OnStateChange reports live reload turning on or off. UI goroutine.
-	// Optional.
+	Redraw   func()
+	// Busy holds batches so a refresh can't move focus or the selection
+	// while an overlay or input box is open.
+	Busy          func() bool
 	OnStateChange func(enabled bool)
-	// OnError reports a failure to start watching or to apply a batch. UI
-	// goroutine. Optional.
-	OnError func(err error)
+	OnError       func(err error)
 
-	// Quiet, MaxDelay and BusyRetry tune batching; zero means the default
-	// (200ms quiet period, 1s max latency, 300ms busy re-check).
 	Quiet     time.Duration
 	MaxDelay  time.Duration
 	BusyRetry time.Duration
 
-	// startSource replaces the fsnotify watcher in tests.
+	// for tests: replaces the fsnotify watcher
 	startSource func(root string, known func() []string, out *batcher) (io.Closer, error)
 }
 
-// Service turns live reload on and off. Enabled and SetEnabled belong to the
-// UI goroutine; Stop may be called from anywhere.
+// Enabled and SetEnabled are UI-goroutine only; Stop is safe from anywhere.
 type Service struct {
 	opts Options
 
 	mu      sync.Mutex
-	run     *run // nil while disabled
+	run     *run
 	stopped bool
 }
 
-// run is one enabled period. A new run starts on every enable, so updates
-// queued by a previous run recognise themselves as stale.
+// A fresh run per enable
+// lets updates queued by an earlier run detect that they are stale.
 type run struct {
 	batch  *batcher
 	source io.Closer
 	stop   chan struct{}
-	kick   chan struct{} // capacity 1: re-offer held changes
+	kick   chan struct{}
 
 	mu            sync.Mutex
 	held          map[string]struct{}
@@ -89,7 +70,6 @@ type run struct {
 	retry         *time.Timer
 }
 
-// New returns a disabled Service.
 func New(opts Options) *Service {
 	if opts.Quiet <= 0 {
 		opts.Quiet = defaultQuiet
@@ -108,17 +88,14 @@ func New(opts Options) *Service {
 	return &Service{opts: opts}
 }
 
-// Enabled reports whether live reload is on.
 func (s *Service) Enabled() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.run != nil
 }
 
-// SetEnabled turns live reload on or off. Call it on the UI goroutine (or
-// before the UI starts). Turning it on registers the watches first and then
-// reconciles the store with disk, so no change made while live reload was off
-// — or while the watches were being set up — is missed.
+// Watches are registered before the catch-up Reconcile,
+// so no change slips through in between.
 func (s *Service) SetEnabled(on bool) error {
 	if on == s.Enabled() {
 		return nil
@@ -161,8 +138,9 @@ func (s *Service) SetEnabled(on bool) error {
 	return nil
 }
 
-// Stop turns live reload off for good (application shutdown). It never waits
-// for the UI goroutine, so it is safe from any goroutine. Idempotent.
+// Stop never waits for the UI goroutine:
+// the dispatcher may be blocked in a synchronous Dispatch,
+// so waiting could deadlock.
 func (s *Service) Stop() {
 	s.mu.Lock()
 	s.stopped = true
@@ -186,11 +164,10 @@ func (s *Service) isCurrent(r *run) bool {
 	return s.run == r
 }
 
-// dispatchLoop moves due batches toward the UI goroutine. It runs the
-// pre-filter here, off the UI goroutine, so batches made only of tiki's own
-// writes are dropped without queuing anything. Dispatch may block for as
-// long as the UI is busy (or suspended in an editor); meanwhile the watcher
-// keeps draining fsnotify into the batcher.
+// The pre-filter runs here, off the UI goroutine,
+// so batches of tiki's own writes never queue an update.
+// Dispatch can block for as long as the UI is suspended (e.g. in $EDITOR);
+// the watcher keeps draining fsnotify meanwhile.
 func (s *Service) dispatchLoop(r *run) {
 	for {
 		select {
@@ -216,10 +193,9 @@ func (s *Service) dispatchLoop(r *run) {
 	}
 }
 
-// applyOnUI applies the held changes. Runs on the UI goroutine.
 func (s *Service) applyOnUI(r *run) {
 	if !s.isCurrent(r) {
-		return // queued by a run that has since been turned off
+		return // queued before live reload was turned off
 	}
 	if s.opts.Busy != nil && s.opts.Busy() {
 		r.recheckAfter(s.opts.BusyRetry)
@@ -288,7 +264,6 @@ func (r *run) takeHeld() ([]string, bool) {
 	return paths, reconcile
 }
 
-// recheckAfter re-offers the held changes after d.
 func (r *run) recheckAfter(d time.Duration) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -5,21 +5,17 @@ import (
 	"time"
 )
 
-// batcher coalesces changed paths into batches. A batch is due once no new
-// change has arrived for the quiet period, or once maxDelay has passed since
-// its first change, whichever comes first — so a burst of writes becomes one
-// reload, while an agent that never pauses still shows progress.
-//
-// Safe for concurrent use: the watcher adds, the dispatcher takes.
+// The max delay keeps an agent that never pauses from starving the quiet period;
+// a burst of writes still becomes one reload.
 type batcher struct {
 	quiet    time.Duration
 	maxDelay time.Duration
-	readyC   chan struct{} // capacity 1: "a batch is due"
+	readyC   chan struct{}
 
 	mu        sync.Mutex
 	paths     map[string]struct{}
 	reconcile bool
-	first     time.Time // arrival of the oldest pending change
+	first     time.Time
 	timer     *time.Timer
 	stopped   bool
 }
@@ -33,7 +29,6 @@ func newBatcher(quiet, maxDelay time.Duration) *batcher {
 	}
 }
 
-// add records changed paths and (re)arms the flush timer.
 func (b *batcher) add(paths ...string) {
 	if len(paths) == 0 {
 		return
@@ -46,7 +41,6 @@ func (b *batcher) add(paths ...string) {
 	b.armLocked()
 }
 
-// requestReconcile asks for a full git-free reconcile with the next batch.
 func (b *batcher) requestReconcile() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -54,7 +48,6 @@ func (b *batcher) requestReconcile() {
 	b.armLocked()
 }
 
-// take drains the pending batch.
 func (b *batcher) take() (paths []string, reconcile bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -69,10 +62,8 @@ func (b *batcher) take() (paths []string, reconcile bool) {
 	return paths, reconcile
 }
 
-// ready signals when a batch is due.
 func (b *batcher) ready() <-chan struct{} { return b.readyC }
 
-// stop cancels the flush timer; later adds are kept but never signalled.
 func (b *batcher) stop() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -111,6 +102,6 @@ func (b *batcher) fire() {
 	}
 	select {
 	case b.readyC <- struct{}{}:
-	default: // already signalled; the consumer takes everything at once
+	default: // the consumer takes everything at once
 	}
 }

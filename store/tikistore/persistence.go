@@ -73,12 +73,8 @@ func (s *TikiStore) loadLocked() error {
 	return nil
 }
 
-// admitDocument applies the full-load rules to one walked file: id-less
-// files are skipped silently (plain wiki content), load failures and
-// duplicate ids are recorded in diags, and accepted tikis are indexed into
-// tikis. Files must be offered in sorted path order so the first path wins a
-// duplicate id. Shared by loadLocked and reconcileLocked so both apply
-// identical rules.
+// Shared by loadLocked and reconcileLocked so both apply the same rules.
+// Paths must arrive sorted: the first one wins a duplicate id.
 func admitDocument(filePath string, tk *tiki.Tiki, loadErr error, idIndex *document.Index, diags *LoadDiagnostics, tikis map[string]*tiki.Tiki) {
 	if loadErr != nil {
 		if errors.Is(loadErr, errSkipNoID) {
@@ -385,9 +381,8 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 	// Only check if tiki was previously loaded (LoadedMtime is not zero)
 	if !tk.LoadedMtime.IsZero() {
 		if info, err := os.Stat(path); err == nil {
-			// size too: on coarse-timestamp filesystems a competing write can
-			// leave the mtime unchanged. A zero LoadedSize means "not
-			// recorded" (a loaded or saved document is never empty).
+			// size too: coarse timestamps can hide a competing write.
+			// 0 means not recorded (a loaded or saved document is never empty).
 			sizeChanged := tk.LoadedSize > 0 && info.Size() != tk.LoadedSize
 			if !info.ModTime().Equal(tk.LoadedMtime) || sizeChanged {
 				slog.Warn("tiki modified externally, conflict detected", "tiki_id", tk.ID(), "path", path,
@@ -436,8 +431,7 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 	if info, err := os.Stat(path); err == nil {
 		tk.LoadedMtime = info.ModTime()
 		tk.LoadedSize = info.Size()
-		// UpdatedAt is max(file mtime, last commit time); the file was just
-		// written, so no commit can be newer — no git lookup needed.
+		// no commit can be newer than a file just written, so no git lookup
 		tk.SetUpdatedAt(info.ModTime())
 		if absPath, absErr := filepath.Abs(path); absErr == nil {
 			tk.SetPath(absPath)

@@ -855,8 +855,6 @@ func TestDetailController_DescriptionSaveHandlerCommitsAndStays(t *testing.T) {
 	}
 }
 
-// externalChangeFake exposes the view's external-change hook so the test can
-// fire it the way the detail view does when the edited tiki changes on disk.
 type externalChangeFake struct {
 	*fakeDetailEditView
 	externalChange func()

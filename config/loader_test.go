@@ -560,8 +560,6 @@ func TestLoadConfigIdentityEnvOverride(t *testing.T) {
 // flag (and its TIKI_STORE_GIT env override) no longer exists — git
 // integration is automatic and read-only, with no enable/disable switch.
 
-// isolateConfig runs LoadConfig from an empty temp dir with no user config,
-// optionally writing a cwd config.yaml first.
 func isolateConfig(t *testing.T, configYAML string, args ...string) *Config {
 	t.Helper()
 	tmpDir := t.TempDir()

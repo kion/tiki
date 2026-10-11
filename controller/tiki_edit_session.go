@@ -130,10 +130,7 @@ func (tc *TikiEditSession) CommitEditSession() error {
 		return nil // No active edit session, nothing to commit
 	}
 
-	// Check for conflicts (file was modified externally). The save itself is
-	// refused: the editing copy carries the mtime it was cloned from, and the
-	// store's optimistic lock rejects it with ErrConflict. The detail view
-	// warns as soon as it notices the change.
+	// the store refuses the save itself (ErrConflict); this only logs it
 	currentTiki := tc.tikiStore.GetTiki(tc.currentTikiID)
 	if currentTiki != nil && !currentTiki.LoadedMtime.Equal(tc.originalMtime) {
 		slog.Warn("tiki was modified externally", "tikiID", tc.currentTikiID)

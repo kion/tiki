@@ -10,15 +10,13 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-// collected accumulates every batch the watcher produced.
 type collected struct {
 	paths     map[string]bool
 	reconcile bool
 }
 
-// waitFor drains batches from b until pred holds or the deadline passes.
-// Real filesystem events have no ordering guarantee relative to the test,
-// so tests assert on the accumulated result rather than on single batches.
+// Event timing relative to the test isn't guaranteed,
+// so assert on everything collected rather than on single batches.
 func waitFor(t *testing.T, b *batcher, acc *collected, pred func(*collected) bool) {
 	t.Helper()
 	deadline := time.After(10 * time.Second)
@@ -48,7 +46,6 @@ func has(path string) func(*collected) bool {
 	return func(c *collected) bool { return c.paths[path] }
 }
 
-// knownPaths is a mutable stand-in for the store's AllPaths.
 type knownPaths struct {
 	mu    sync.Mutex
 	paths []string
@@ -66,9 +63,8 @@ func (k *knownPaths) get() []string {
 	return append([]string(nil), k.paths...)
 }
 
-// startTestWatcher watches root with short timings. The cleanup is
-// registered after t.TempDir's, so it runs first and releases directory
-// handles before the temp dir is removed (Windows refuses otherwise).
+// Registered after t.TempDir's cleanup, so it runs first:
+// Windows can't remove a directory that still has a watch handle.
 func startTestWatcher(t *testing.T, root string, known *knownPaths) (*batcher, *collected) {
 	t.Helper()
 	b := newBatcher(20*time.Millisecond, 200*time.Millisecond)
@@ -148,13 +144,11 @@ func TestWatcher_NewDirectoryThenImmediateWrite(t *testing.T) {
 	root := t.TempDir()
 	b, acc := startTestWatcher(t, root, nil)
 
-	// written before the watcher can register the new directory: the scan
-	// after registration must still find it
+	// written before the new directory can get a watch
 	p := filepath.Join(root, "sub", "x.md")
 	write(t, p, "x")
 	waitFor(t, b, acc, has(p))
 
-	// and later writes in it are watched
 	p2 := filepath.Join(root, "sub", "y.md")
 	write(t, p2, "y")
 	waitFor(t, b, acc, has(p2))
@@ -181,12 +175,8 @@ func TestWatcher_DirectoryRename(t *testing.T) {
 		t.Fatal(err)
 	}
 	moved := filepath.Join(root, "f", "e", "x.md")
-	// the old tiki path is reported (so the store drops it) and the moved
-	// file is found under its new name
 	waitFor(t, b, acc, func(c *collected) bool { return c.paths[oldDoc] && c.paths[moved] })
 
-	// a later write in the renamed nested directory is reported under the
-	// new path, not the stale one
 	later := filepath.Join(root, "f", "e", "y.md")
 	write(t, later, "y")
 	waitFor(t, b, acc, has(later))
@@ -217,7 +207,6 @@ func TestWatcher_IgnoreFileChangeRequestsReconcileAndRescopes(t *testing.T) {
 	write(t, filepath.Join(root, ".tikiignore"), "ign/\n")
 	waitFor(t, b, acc, func(c *collected) bool { return c.reconcile })
 
-	// the newly ignored directory is no longer reported
 	write(t, filepath.Join(root, "ign", "z.md"), "z")
 	sentinel := filepath.Join(root, "sentinel.md")
 	write(t, sentinel, "x")
@@ -242,10 +231,6 @@ func TestWatcher_CloseIsIdempotent(t *testing.T) {
 	}
 }
 
-// TestWatcher_ErrorResyncsMissedDirectories covers lost events (inotify queue
-// overflow, Windows buffer overflow): a directory created while events were
-// being dropped must still get a watch, or later changes inside it would be
-// missed until live reload is restarted.
 func TestWatcher_ErrorResyncsMissedDirectories(t *testing.T) {
 	root := t.TempDir()
 	b := newBatcher(20*time.Millisecond, 200*time.Millisecond)

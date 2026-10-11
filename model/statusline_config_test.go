@@ -601,7 +601,7 @@ func TestStatuslineConfig_RemoveLeftStat(t *testing.T) {
 	if notified != 1 {
 		t.Errorf("listeners notified %d times, want 1", notified)
 	}
-	sc.RemoveLeftStat("Live") // absent: no-op, no notification
+	sc.RemoveLeftStat("Live")
 	if notified != 1 {
 		t.Errorf("removing an absent stat notified listeners")
 	}

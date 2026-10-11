@@ -225,8 +225,6 @@ func Bootstrap() (*Result, error) {
 
 	// Phase 11: Background tasks
 	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel stored in Result.CancelFunc, called by app shutdown
-	// time triggers mutate the store, whose listeners re-render views, so each
-	// tick runs on the UI goroutine
 	triggerEngine.SetDispatch(redraw)
 	triggerEngine.StartScheduler(ctx)
 
@@ -263,10 +261,7 @@ func Bootstrap() (*Result, error) {
 	})
 	inputRouter.SetMarkdownTreeView(markdownTree)
 
-	// Phase 11.8: Live reload — watch the document root and apply changes
-	// made outside the app (agents running `tiki exec`, editors, git). Off
-	// unless enabled by config/flag/env or toggled with Ctrl-L; stops with
-	// the background context.
+	// Phase 11.8: Live reload
 	liveReload := newLiveReload(application, tikiStoreConcrete, statuslineConfig, inputRouter)
 	inputRouter.SetLiveReload(liveReload)
 	go func() {

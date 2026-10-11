@@ -11,8 +11,6 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// dispatchProbe is a synchronous dispatcher that records whether code is
-// running inside it (i.e. on the UI goroutine in the app).
 type dispatchProbe struct {
 	mu     sync.Mutex
 	inside bool
@@ -36,8 +34,6 @@ func (p *dispatchProbe) isInside() bool {
 	return p.inside
 }
 
-// snapshotProbeStore records, for each GetAllTikis call, whether it happened
-// inside the dispatcher.
 type snapshotProbeStore struct {
 	*store.InMemoryStore
 	probe  *dispatchProbe
@@ -128,10 +124,6 @@ func TestTimeTriggerTick_AppliesWithOneNotification(t *testing.T) {
 	}
 }
 
-// TestTimeTriggerTick_StaleResultDoesNotOverwriteEdit covers the window
-// between evaluating a tick off the UI goroutine and applying it there: a
-// user edit landing in between must survive. The evaluated copies carry the
-// file state they were read from, so the store's save check rejects them.
 func TestTimeTriggerTick_StaleResultDoesNotOverwriteEdit(t *testing.T) {
 	s, err := tikistore.NewTikiStore(t.TempDir())
 	if err != nil {

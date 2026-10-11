@@ -693,7 +693,7 @@ func TestPluginConfig_SelectionAnchorValidUntilSelectionChanges(t *testing.T) {
 		t.Fatalf("SelectionAnchor = %q, %v; want AAAAAA, true", id, ok)
 	}
 
-	pc.SetSelectedIndexForLane(0, 2) // a deliberate selection change
+	pc.SetSelectedIndexForLane(0, 2)
 	if _, ok := pc.SelectionAnchor(); ok {
 		t.Error("anchor still valid after the selection was changed")
 	}
