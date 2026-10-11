@@ -174,7 +174,8 @@ When asked to create a task from a file:
    ```sh
    tiki exec 'create title="Summary of file" description="<escaped content>"'
    ```
-Escape double quotes in the content with backslash.
+Escape backslashes as `\\` first, then double quotes as `\"`. Line breaks can stay as they are.
+The statement is single-quoted for the shell, so write each `'` in the content as `'\''`.
 
 ## Update
 

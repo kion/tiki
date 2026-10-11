@@ -80,3 +80,5 @@ require (
 	golang.org/x/text v0.35.0
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
+
+replace github.com/boolean-maybe/ruki => github.com/kion/ruki v0.0.0-20261011185156-079ba25c742b

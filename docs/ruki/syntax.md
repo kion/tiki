@@ -24,7 +24,9 @@ conditions, and expressions.
 - durations: `\d+(sec|min|hour|day|week|month|year)s?`
 - dates: `YYYY-MM-DD`
 - integers: decimal digits only
-- strings: double-quoted strings with backslash escapes
+- strings: double-quoted, and may span lines. Line breaks and tabs inside them are kept as written.
+  These backslash escapes are decoded: `\"`, `\\`, `\n`, `\t`, `\r`, `\a`, `\b`, `\f`, `\v`, octal `\NNN`,
+  `\xHH`, `\uHHHH`, `\UHHHHHHHH`. Any other backslash, including `\'`, is kept as written.
 - comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`
 - binary operators: `+`, `-`
 - star: `*`
