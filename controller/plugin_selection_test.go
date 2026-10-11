@@ -94,6 +94,7 @@ func newNavHarness(columns []int, counts []int) *navHarness {
 
 	config := model.NewPluginConfig("TestPlugin")
 	config.SetLaneLayout(columns, nil)
+	config.ResumeSelection()
 
 	byLane := make(map[int][]*tikipkg.Tiki, len(counts))
 	for lane, count := range counts {
@@ -568,6 +569,7 @@ func TestPluginController_HandleDeleteTiki(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 	pluginConfig.SetSelectedLane(0)
 	pluginConfig.SetSelectedIndexForLane(0, 0)
+	pluginConfig.ResumeSelection()
 
 	schema := rukiRuntime.NewSchema()
 	gate := service.NewTikiMutationGate()
@@ -824,6 +826,7 @@ func TestPluginController_HandlePluginAction_Success(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 	pluginConfig.SetSelectedLane(0)
 	pluginConfig.SetSelectedIndexForLane(0, 0)
+	pluginConfig.ResumeSelection()
 
 	schema := rukiRuntime.NewSchema()
 	gate := service.NewTikiMutationGate()
@@ -1058,6 +1061,7 @@ func TestPluginController_HandleMoveTiki_Success(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1, 1}, nil)
 	pluginConfig.SetSelectedLane(0)
 	pluginConfig.SetSelectedIndexForLane(0, 0)
+	pluginConfig.ResumeSelection()
 
 	schema := rukiRuntime.NewSchema()
 	gate := service.NewTikiMutationGate()
@@ -1383,6 +1387,7 @@ func TestPluginController_HandleActionInput_ValidInput(t *testing.T) {
 	pluginConfig := model.NewPluginConfig("TestPlugin")
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 	pluginConfig.SetSelectedLane(0)
+	pluginConfig.ResumeSelection()
 
 	statusline := model.NewStatuslineConfig()
 	gate := service.BuildGate()
@@ -1641,5 +1646,71 @@ func TestGetPluginActionKeyStr(t *testing.T) {
 				t.Errorf("getPluginActionKeyStr(%q) = %q, want %q", tt.id, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestHandleNavResumesSelectionWithoutMoving(t *testing.T) {
+	h := newNavHarness([]int{1, 1}, []int{3, 3})
+	h.config.SetSelectedLaneAndIndex(1, 2)
+	h.config.ClearSelection()
+
+	if !h.pb.handleNav("down", h.getLane) {
+		t.Fatal("handleNav = false, want true when resuming the selection")
+	}
+	if !h.config.HasSelection() {
+		t.Error("nothing selected after a navigation key")
+	}
+	if lane, idx := h.config.GetSelectedLane(), h.config.GetSelectedIndexForLane(1); lane != 1 || idx != 2 {
+		t.Errorf("cursor at lane %d index %d, want it unmoved at lane 1 index 2", lane, idx)
+	}
+}
+
+func TestHandleNavDoesNotSelectOnEmptyBoard(t *testing.T) {
+	h := newNavHarness([]int{1, 1}, []int{0, 0})
+	h.config.ClearSelection()
+
+	if h.pb.handleNav("down", h.getLane) {
+		t.Error("handleNav = true on an empty board, want false")
+	}
+	if h.config.HasSelection() {
+		t.Error("an empty board would select the next tiki to appear")
+	}
+}
+
+func TestPluginController_ActionNeedsAnExplicitSelection(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
+
+	readyFilter := mustParseStmt(t, `select where status = "ready"`)
+	markDoneAction := mustParseStmt(t, `update where id = id() set status = "done"`)
+
+	pluginDef := &plugin.WorkflowPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
+		Actions: []plugin.PluginAction{
+			{Key: tcell.KeyRune, Rune: 'd', KeyStr: "d", Label: "Mark Done", Action: markDoneAction},
+		},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+
+	schema := rukiRuntime.NewSchema()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, nil, schema)
+
+	if pc.HandleAction(pluginActionID("d")) {
+		t.Error("HandleAction = true with the cursor on a tiki but nothing selected")
+	}
+	if status, _, _ := tikiStore.GetTiki("0000T1").StringField("status"); status != "ready" {
+		t.Errorf("status %s, want the unselected tiki left ready", status)
+	}
+}
+
+func TestHandleNavWithoutPluginDefIsNoOp(t *testing.T) {
+	pb := &pluginBase{pluginConfig: model.NewPluginConfig("TestPlugin")}
+
+	if pb.handleNav("down", func(int) []*tikipkg.Tiki { return nil }) {
+		t.Error("handleNav = true without a plugin definition")
 	}
 }

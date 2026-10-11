@@ -36,6 +36,7 @@ func TestTikiDeletion_FromKanban(t *testing.T) {
 	// Navigate to Kanban plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	// Verify TIKI-1 visible
 	found, _, _ := ta.FindText("000001")
@@ -98,6 +99,7 @@ func TestTikiDeletion_SelectionMoves(t *testing.T) {
 	// Navigate to Kanban plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	// Move to second tiki (index 1)
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
@@ -146,6 +148,7 @@ func TestTikiDeletion_LastTikiInLane(t *testing.T) {
 	// Navigate to Kanban plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	// Verify TIKI-1 visible
 	found, _, _ := ta.FindText("000001")
@@ -203,6 +206,7 @@ func TestTikiDeletion_MultipleSequential(t *testing.T) {
 	// Navigate to Kanban plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	// Delete first tiki
 	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
@@ -300,6 +304,7 @@ func TestTikiDeletion_CannotDeleteFromTikiDetail(t *testing.T) {
 	// Navigate: Kanban → Tiki Detail
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Phase 3: configurable detail view, not the legacy TikiDetailViewID.
@@ -350,6 +355,7 @@ func TestTikiDeletion_WithMultipleLanes(t *testing.T) {
 	// Navigate to Kanban plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	// Delete TIKI-1 from todo lane
 	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)

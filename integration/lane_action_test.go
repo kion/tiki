@@ -64,6 +64,7 @@ func TestPluginView_MoveTikiAppliesLaneAction(t *testing.T) {
 
 	ta.NavController.PushView(model.MakePluginViewID("ActionTest"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	ta.SendKey(tcell.KeyRight, 0, tcell.ModShift)
 

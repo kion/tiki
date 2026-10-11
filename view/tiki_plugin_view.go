@@ -119,7 +119,8 @@ func (pv *PluginView) refresh() {
 	if pv.ensureSelection != nil {
 		pv.ensureSelection()
 	}
-	selectedID := ""
+	cursorID := ""
+	hasSelection := pv.pluginConfig.HasSelection()
 
 	itemHeight := tikiBoxItemHeight(pv.pluginDef.Layout)
 	selectedLane := pv.pluginConfig.GetSelectedLane()
@@ -161,10 +162,11 @@ func (pv *PluginView) refresh() {
 				idx := row*columns + col
 				if idx < len(tikis) {
 					tiki := tikis[idx]
-					isSelected := isSelectedLane && idx == selectedIndex
-					if isSelected {
-						selectedID = tiki.ID()
+					isCursor := isSelectedLane && idx == selectedIndex
+					if isCursor {
+						cursorID = tiki.ID()
 					}
+					isSelected := isCursor && hasSelection
 					tikiBox := CreateTikiBox(tiki, pv.pluginDef.Layout, isSelected, theme.Roles())
 					rowFlex.AddItem(tikiBox, 0, 1, false)
 				} else {
@@ -185,7 +187,7 @@ func (pv *PluginView) refresh() {
 		// Sync scroll offset from view to model for later lane navigation
 		pv.pluginConfig.SetScrollOffsetForLane(laneIdx, laneContainer.GetScrollOffset())
 	}
-	pv.pluginConfig.SetSelectionAnchor(selectedID)
+	pv.pluginConfig.SetSelectionAnchor(cursorID)
 
 	if pv.actionChangeHandler != nil {
 		pv.actionChangeHandler()
@@ -212,6 +214,9 @@ func (pv *PluginView) restoreAnchoredSelection() {
 }
 
 func (pv *PluginView) GetSelectedID() string {
+	if !pv.pluginConfig.HasSelection() {
+		return ""
+	}
 	lane := pv.pluginConfig.GetSelectedLane()
 	tikis := pv.getLaneTikis(lane)
 	idx := pv.pluginConfig.GetSelectedIndexForLane(lane)
@@ -227,10 +232,20 @@ func (pv *PluginView) SetSelectedID(id string) {
 			if t.ID() == id {
 				pv.pluginConfig.SetSelectedLane(lane)
 				pv.pluginConfig.SetSelectedIndexForLane(lane, i)
+				pv.pluginConfig.ResumeSelection()
 				return
 			}
 		}
 	}
+}
+
+// ClearSelection implements controller.SelectionClearer.
+func (pv *PluginView) ClearSelection() bool {
+	if pv.GetSelectedID() == "" {
+		return false
+	}
+	pv.pluginConfig.ClearSelection()
+	return true
 }
 
 func (pv *PluginView) SetActionChangeHandler(handler func()) {

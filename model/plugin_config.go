@@ -25,6 +25,10 @@ type PluginConfig struct {
 	nextListenerID   int
 	searchState      SearchState // search state (embedded)
 
+	// The cursor is kept up to date even while nothing is selected,
+	// so the first navigation key can resume exactly where it was.
+	hasSelection bool
+
 	// The anchor keeps the rendered tiki selected across store refreshes;
 	// the generation stops it from undoing a deliberate selection change.
 	selectionGen uint64
@@ -81,6 +85,33 @@ func (pc *PluginConfig) SetSelectedLane(lane int) {
 	}
 	changed := pc.selectedLane != lane
 	pc.selectedLane = lane
+	pc.mu.Unlock()
+	if changed {
+		pc.notifyListeners()
+	}
+}
+
+// HasSelection reports whether the cursor is shown as a selection.
+func (pc *PluginConfig) HasSelection() bool {
+	pc.mu.RLock()
+	defer pc.mu.RUnlock()
+	return pc.hasSelection
+}
+
+// ClearSelection leaves nothing selected without moving the cursor.
+func (pc *PluginConfig) ClearSelection() {
+	pc.setHasSelection(false)
+}
+
+// ResumeSelection selects whatever the cursor is on.
+func (pc *PluginConfig) ResumeSelection() {
+	pc.setHasSelection(true)
+}
+
+func (pc *PluginConfig) setHasSelection(has bool) {
+	pc.mu.Lock()
+	changed := pc.hasSelection != has
+	pc.hasSelection = has
 	pc.mu.Unlock()
 	if changed {
 		pc.notifyListeners()

@@ -689,10 +689,17 @@ func (ta *TestApp) GetPluginConfig(pluginName string) *model.PluginConfig {
 	return ta.PluginConfigs[pluginName]
 }
 
+// SelectCursorTiki selects the tiki under the board's cursor,
+// as a user's first navigation key does.
+func (ta *TestApp) SelectCursorTiki() {
+	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
+}
+
 // NavigateToTiki presses Down on the current board view until the tiki with the given ID
 // is the selected item. It opens the tiki detail (Enter) and returns true if found within
 // maxSteps attempts; returns false if the tiki was not found.
 func (ta *TestApp) NavigateToTiki(tikiID string, maxSteps int) bool {
+	ta.SelectCursorTiki()
 	for i := 0; i < maxSteps; i++ {
 		ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 		ta.Draw()

@@ -188,6 +188,7 @@ views:
 	// the first lane / first tiki, which is the tiki we just created.
 	ta.NavController.PushView(model.MakePluginViewID("Board"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	// F7 invokes `kind: view` with selection:one — requires a tiki selected.
 	ta.SendKey(tcell.KeyF7, 0, tcell.ModNone)
@@ -308,6 +309,7 @@ func TestViewAction_DirectActivationCarriesSelection(t *testing.T) {
 	}
 	ta.NavController.PushView(model.MakePluginViewID("Board"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	// Direct activation key (F2) — not a declared kind: view action.
 	ta.SendKey(tcell.KeyF2, 0, tcell.ModNone)

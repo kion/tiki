@@ -330,11 +330,11 @@ func TestDefaultGlobalActions(t *testing.T) {
 	registry := DefaultGlobalActions()
 	actions := registry.GetActions()
 
-	if len(actions) != 8 {
-		t.Errorf("expected 8 global actions, got %d", len(actions))
+	if len(actions) != 9 {
+		t.Errorf("expected 9 global actions, got %d", len(actions))
 	}
 
-	expectedActions := []ActionID{ActionBack, ActionQuit, ActionRefresh, ActionToggleLiveReload, ActionToggleHeader, ActionOpenPalette, ActionOpenMarkdownTree, ActionEditWorkflow}
+	expectedActions := []ActionID{ActionUnselect, ActionBack, ActionQuit, ActionRefresh, ActionToggleLiveReload, ActionToggleHeader, ActionOpenPalette, ActionOpenMarkdownTree, ActionEditWorkflow}
 	for i, expected := range expectedActions {
 		if i >= len(actions) {
 			t.Errorf("missing action at index %d: want %v", i, expected)
@@ -1218,5 +1218,36 @@ func TestDefaultGlobalActions_LiveReloadOnCtrlL(t *testing.T) {
 	}
 	if !a.ShowInHeader || a.HideFromPalette {
 		t.Errorf("live reload must show in header and palette: %+v", a)
+	}
+}
+
+func TestEscHeaderLabelFollowsClearableSelection(t *testing.T) {
+	entry := &ViewEntry{ViewID: model.MakePluginViewID("Kanban")}
+	escLabels := func(v View) []string {
+		var labels []string
+		for _, a := range DefaultGlobalActions().ToHeaderActionsForContext(BuildAppContext(entry, v)) {
+			if a.Key == tcell.KeyEscape {
+				labels = append(labels, a.Label)
+			}
+		}
+		return labels
+	}
+
+	tests := []struct {
+		name string
+		view View
+		want string
+	}{
+		{"board with a selection", &clearableFakeView{mockSelectableView{selectedID: "ABC123"}}, "Unselect"},
+		{"board with nothing selected", &clearableFakeView{mockSelectableView{}}, "Back"},
+		{"view that can't unselect", &mockSelectableView{selectedID: "ABC123"}, "Back"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := escLabels(tt.view)
+			if len(got) != 1 || got[0] != tt.want {
+				t.Errorf("Esc header labels %v, want [%s]", got, tt.want)
+			}
+		})
 	}
 }

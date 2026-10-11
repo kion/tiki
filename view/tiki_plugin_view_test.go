@@ -9,7 +9,10 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
+	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+
+	"github.com/gdamore/tcell/v2"
 )
 
 func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
@@ -318,6 +321,7 @@ func newSelectionConfig(lanes int) *model.PluginConfig {
 		cols[i] = 1
 	}
 	pc.SetLaneLayout(cols, nil)
+	pc.ResumeSelection()
 	return pc
 }
 
@@ -422,5 +426,99 @@ func TestPluginViewSelectionStaysInLaneWhenTikiMovesAway(t *testing.T) {
 	}
 	if got := pv.GetSelectedID(); got != "CCCCCC" {
 		t.Errorf("selected %s, want CCCCCC at the same index", got)
+	}
+}
+
+func focusBorderCells(t *testing.T, pv *PluginView) int {
+	t.Helper()
+	screen := tcell.NewSimulationScreen("UTF-8")
+	if err := screen.Init(); err != nil {
+		t.Fatalf("screen init: %v", err)
+	}
+	defer screen.Fini()
+	screen.SetSize(80, 30)
+	root := pv.GetPrimitive()
+	root.SetRect(0, 0, 80, 30)
+	root.Draw(screen)
+
+	focus := theme.Roles().BorderFocus().TCell()
+	count := 0
+	for y := 0; y < 30; y++ {
+		for x := 0; x < 80; x++ {
+			_, style, _ := screen.Get(x, y)
+			if fg, _, _ := style.Decompose(); fg == focus {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+func TestPluginViewHighlightsOnlyAnExplicitSelection(t *testing.T) {
+	board := &laneBoard{lanes: [][]*tikipkg.Tiki{{boardTiki("AAAAAA"), boardTiki("BBBBBB")}}}
+	pc := model.NewPluginConfig("Board")
+	pc.SetLaneLayout([]int{1}, nil)
+	pv := newSelectionTestView(t, board, pc)
+
+	if got := pv.GetSelectedID(); got != "" {
+		t.Errorf("selected %s on a new board, want nothing", got)
+	}
+	if n := focusBorderCells(t, pv); n != 0 {
+		t.Errorf("%d highlighted cells on a new board, want 0", n)
+	}
+
+	pc.ResumeSelection()
+	pv.refresh()
+
+	if got := pv.GetSelectedID(); got != "AAAAAA" {
+		t.Errorf("selected %s after resuming, want AAAAAA", got)
+	}
+	if n := focusBorderCells(t, pv); n == 0 {
+		t.Error("no highlighted cells after resuming, want the selected card's border")
+	}
+}
+
+func TestPluginViewHiddenCursorFollowsItsTiki(t *testing.T) {
+	board := &laneBoard{lanes: [][]*tikipkg.Tiki{{boardTiki("AAAAAA"), boardTiki("BBBBBB"), boardTiki("CCCCCC")}}}
+	pc := newSelectionConfig(1)
+	pv := newSelectionTestView(t, board, pc)
+	pc.SetSelectedIndexForLane(0, 1)
+	pv.refresh()
+
+	if !pv.ClearSelection() {
+		t.Fatal("ClearSelection() = false with BBBBBB selected")
+	}
+	pv.refresh()
+	board.lanes[0] = append([]*tikipkg.Tiki{boardTiki("NEWNEW")}, board.lanes[0]...)
+	pv.refresh()
+	pc.ResumeSelection()
+	pv.refresh()
+
+	if got := pv.GetSelectedID(); got != "BBBBBB" {
+		t.Errorf("selected %s after resuming, want BBBBBB", got)
+	}
+}
+
+func TestPluginViewClearSelectionWithNothingSelected(t *testing.T) {
+	board := &laneBoard{lanes: [][]*tikipkg.Tiki{{boardTiki("AAAAAA")}}}
+	pc := model.NewPluginConfig("Board")
+	pc.SetLaneLayout([]int{1}, nil)
+	pv := newSelectionTestView(t, board, pc)
+
+	if pv.ClearSelection() {
+		t.Error("ClearSelection() = true with nothing selected, want false so Esc can go back")
+	}
+}
+
+func TestPluginViewSetSelectedIDSelects(t *testing.T) {
+	board := &laneBoard{lanes: [][]*tikipkg.Tiki{{boardTiki("AAAAAA")}, {boardTiki("BBBBBB")}}}
+	pc := model.NewPluginConfig("Board")
+	pc.SetLaneLayout([]int{1, 1}, nil)
+	pv := newSelectionTestView(t, board, pc)
+
+	pv.SetSelectedID("BBBBBB")
+
+	if got := pv.GetSelectedID(); got != "BBBBBB" {
+		t.Errorf("selected %q, want BBBBBB", got)
 	}
 }

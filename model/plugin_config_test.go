@@ -723,3 +723,67 @@ func TestPluginConfig_RestoreSelectionIsSilent(t *testing.T) {
 		t.Error("RestoreSelection invalidated the anchor")
 	}
 }
+
+func TestPluginConfig_NothingSelectedByDefault(t *testing.T) {
+	pc := NewPluginConfig("test")
+	if pc.HasSelection() {
+		t.Error("HasSelection() = true on a new config, want false")
+	}
+}
+
+func TestPluginConfig_PositioningTheCursorDoesNotSelect(t *testing.T) {
+	pc := NewPluginConfig("test")
+	pc.SetLaneLayout([]int{1, 1}, nil)
+
+	pc.SetSelectedLaneAndIndex(1, 2)
+	pc.SetSelectedIndexForLane(1, 3)
+	pc.MoveSelection("up", 5)
+
+	if pc.HasSelection() {
+		t.Error("HasSelection() = true after positioning the cursor, want false")
+	}
+}
+
+func TestPluginConfig_ClearAndResumeKeepTheCursor(t *testing.T) {
+	pc := NewPluginConfig("test")
+	pc.SetLaneLayout([]int{1, 1}, nil)
+	pc.SetSelectedLaneAndIndex(1, 2)
+
+	pc.ResumeSelection()
+	if !pc.HasSelection() {
+		t.Fatal("HasSelection() = false after ResumeSelection")
+	}
+
+	pc.ClearSelection()
+	if pc.HasSelection() {
+		t.Fatal("HasSelection() = true after ClearSelection")
+	}
+	if lane, idx := pc.GetSelectedLane(), pc.GetSelectedIndex(); lane != 1 || idx != 2 {
+		t.Errorf("cursor at lane %d index %d after ClearSelection, want lane 1 index 2", lane, idx)
+	}
+
+	pc.ResumeSelection()
+	if lane, idx := pc.GetSelectedLane(), pc.GetSelectedIndex(); lane != 1 || idx != 2 {
+		t.Errorf("cursor at lane %d index %d after ResumeSelection, want lane 1 index 2", lane, idx)
+	}
+}
+
+func TestPluginConfig_ClearAndResumeNotifyOnlyOnChange(t *testing.T) {
+	pc := NewPluginConfig("test")
+	calls := 0
+	pc.AddSelectionListener(func() { calls++ })
+
+	pc.ClearSelection()
+	if calls != 0 {
+		t.Errorf("ClearSelection with nothing selected notified %d times, want 0", calls)
+	}
+	pc.ResumeSelection()
+	pc.ResumeSelection()
+	if calls != 1 {
+		t.Errorf("two ResumeSelection calls notified %d times, want 1", calls)
+	}
+	pc.ClearSelection()
+	if calls != 2 {
+		t.Errorf("ClearSelection after resume notified %d times in total, want 2", calls)
+	}
+}

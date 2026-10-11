@@ -32,6 +32,7 @@ func TestTikiDetailView_RenderMetadata(t *testing.T) {
 	// Navigate: Kanban → Tiki Detail
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Open tiki detail
 
 	// Verify tiki ID is visible
@@ -87,6 +88,7 @@ func TestTikiDetailView_RenderDescription(t *testing.T) {
 	// Navigate: Board → Tiki Detail
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify description is visible (markdown rendered)
@@ -115,6 +117,7 @@ func TestTikiDetailView_NavigateBack(t *testing.T) {
 	// Navigate: Board → Tiki Detail
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Phase 3: configurable detail view (workflow `kind: view`), not
@@ -162,6 +165,7 @@ func TestTikiDetailView_FromBoard(t *testing.T) {
 	// Navigate to board
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	// Move to second tiki
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
@@ -201,6 +205,7 @@ func TestTikiDetailView_EmptyDescription(t *testing.T) {
 	// Navigate: Board → Tiki Detail
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify tiki title is visible
@@ -240,6 +245,7 @@ func TestTikiDetailView_MultipleOpen(t *testing.T) {
 	// Navigate to board
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	// Open first tiki
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
@@ -354,6 +360,7 @@ func TestTikiDetailView_AllTypes(t *testing.T) {
 	// Open board and first tiki
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify Type label is visible

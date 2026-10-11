@@ -19,6 +19,7 @@ func TestConfigurableDetail_EnterOpensDetailView(t *testing.T) {
 
 	// Land on the Backlog board so Enter has a selection-eligible context.
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
+	ta.SelectCursorTiki()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 	ta.Draw()
 

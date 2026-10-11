@@ -178,6 +178,7 @@ func TestPluginView_OpenTiki(t *testing.T) {
 	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone) // F3 = Backlog plugin
 
 	// Press Enter to open first tiki
+	ta.SelectCursorTiki()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Phase 3: configurable detail view (workflow `kind: view` action),
@@ -206,6 +207,7 @@ func TestPluginView_DeleteTiki(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
+	ta.SelectCursorTiki()
 
 	// Verify TIKI-1 is visible
 	found, _, _ := ta.FindText("000001")
@@ -380,6 +382,7 @@ func TestPluginView_NavigateBetweenColumns(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
+	ta.SelectCursorTiki()
 
 	pluginConfig := ta.GetPluginConfig("Recent")
 	if pluginConfig == nil {
@@ -564,6 +567,7 @@ func TestPluginView_SelectionPersistsAcrossViews(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
+	ta.SelectCursorTiki()
 
 	pluginConfig := ta.GetPluginConfig("Recent")
 	if pluginConfig == nil {
@@ -587,5 +591,49 @@ func TestPluginView_SelectionPersistsAcrossViews(t *testing.T) {
 	// Verify selection is still at index 2
 	if pluginConfig.GetSelectedIndex() != 2 {
 		t.Errorf("selection after return = %d, want 2 (should be preserved)", pluginConfig.GetSelectedIndex())
+	}
+}
+
+func TestPluginView_EscUnselectsAndArrowResumes(t *testing.T) {
+	ta := setupPluginViewTest(t)
+	defer ta.Cleanup()
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
+	ta.Draw()
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
+	pc := ta.GetPluginConfig("Recent")
+
+	if pc.HasSelection() {
+		t.Fatal("a tiki is selected on a newly opened board")
+	}
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
+		t.Fatalf("Enter with nothing selected opened %s", ta.NavController.CurrentViewID())
+	}
+
+	ta.SendKey(tcell.KeyRight, 0, tcell.ModNone)
+	if !pc.HasSelection() || pc.GetSelectedIndex() != 0 {
+		t.Fatalf("first arrow: selected=%v index=%d, want the first tiki selected", pc.HasSelection(), pc.GetSelectedIndex())
+	}
+	// the 80-column test screen cuts header labels short
+	if found, _, _ := ta.FindText("Unsel"); !found {
+		ta.DumpScreen()
+		t.Error("header doesn't offer Unselect with a tiki selected")
+	}
+
+	ta.SendKey(tcell.KeyRight, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
+	if pc.HasSelection() {
+		t.Error("Esc left a tiki selected")
+	}
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
+		t.Errorf("Esc left the board for %s", ta.NavController.CurrentViewID())
+	}
+	if found, _, _ := ta.FindText("Unsel"); found {
+		t.Error("header still offers Unselect with nothing selected")
+	}
+
+	ta.SendKey(tcell.KeyRight, 0, tcell.ModNone)
+	if !pc.HasSelection() || pc.GetSelectedIndex() != 1 {
+		t.Errorf("arrow after Esc: selected=%v index=%d, want index 1 selected again, unmoved", pc.HasSelection(), pc.GetSelectedIndex())
 	}
 }

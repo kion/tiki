@@ -69,6 +69,7 @@ func setupInputActionTest(t *testing.T) *testutil.TestApp {
 
 	ta.NavController.PushView(model.MakePluginViewID("InputTest"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	return ta
 }
@@ -641,6 +642,7 @@ func TestInputAction_CompositeKeyPluginAction(t *testing.T) {
 
 	ta.NavController.PushView(model.MakePluginViewID("CompositeTest"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	// send Ctrl-U keypress through the real EventKey → Match → HandleAction path
 	ta.SendKey(tcell.KeyCtrlU, 0, tcell.ModCtrl)

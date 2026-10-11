@@ -64,6 +64,12 @@ type SelectableView interface {
 	SetSelectedID(id string)
 }
 
+// SelectionClearer is a view that can be left with nothing selected.
+type SelectionClearer interface {
+	// ClearSelection reports false when there was nothing to unselect.
+	ClearSelection() bool
+}
+
 // InputSubmitResult controls what happens to the input box after a submit callback.
 type InputSubmitResult int
 

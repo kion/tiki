@@ -201,6 +201,7 @@ func TestRefresh_PreservesSelection(t *testing.T) {
 	// Open Kanban plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	// Move to second tiki
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
@@ -251,6 +252,7 @@ func TestRefresh_ResetsSelectionWhenTikiDeleted(t *testing.T) {
 	// Open Kanban plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	// Move to second tiki
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)

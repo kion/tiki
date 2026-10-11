@@ -70,6 +70,7 @@ func setupChooseActionTest(t *testing.T) *testutil.TestApp {
 
 	ta.NavController.PushView(model.MakePluginViewID("ChooseTest"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	return ta
 }
@@ -292,6 +293,7 @@ func setupFilteredEpicTest(t *testing.T) *testutil.TestApp {
 
 	ta.NavController.PushView(model.MakePluginViewID("FilteredEpicTest"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	return ta
 }
@@ -389,6 +391,7 @@ func setupScrollTest(t *testing.T) *testutil.TestApp {
 
 	ta.NavController.PushView(model.MakePluginViewID("ScrollTest"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 	return ta
 }
 

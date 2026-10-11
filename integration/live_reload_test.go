@@ -101,6 +101,7 @@ func TestLiveReload_HeldWhilePaletteOpen(t *testing.T) {
 
 func TestLiveReload_ExternalChangeWhileEditingWarns(t *testing.T) {
 	ta := newLiveBoard(t)
+	ta.SelectCursorTiki()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // open detail
 	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone) // enter edit mode
 	ta.SendKey(tcell.KeyCtrlL, 0, tcell.ModCtrl)

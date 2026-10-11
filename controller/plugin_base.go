@@ -66,6 +66,9 @@ func (pb *pluginBase) CanStartActionChoose(ActionID) (string, []*tikipkg.Tiki, b
 func (pb *pluginBase) HandleActionChoose(ActionID, string) bool { return false }
 
 func (pb *pluginBase) handleNav(direction string, filteredTikis func(int) []*tikipkg.Tiki) bool {
+	if !pb.pluginConfig.HasSelection() {
+		return pb.resumeSelection(filteredTikis)
+	}
 	lane := pb.pluginConfig.GetSelectedLane()
 	tikis := filteredTikis(lane)
 	switch direction {
@@ -76,6 +79,21 @@ func (pb *pluginBase) handleNav(direction string, filteredTikis func(int) []*tik
 	default:
 		return false
 	}
+}
+
+// An empty board stays unselected,
+// so the next tiki to appear isn't selected without the user asking.
+func (pb *pluginBase) resumeSelection(filteredTikis func(int) []*tikipkg.Tiki) bool {
+	if pb.pluginDef == nil {
+		return false
+	}
+	for lane := range pb.pluginDef.Lanes {
+		if len(filteredTikis(lane)) > 0 {
+			pb.pluginConfig.ResumeSelection()
+			return true
+		}
+	}
+	return false
 }
 
 func (pb *pluginBase) handleVerticalNav(direction string, lane int, tikis []*tikipkg.Tiki) bool {
@@ -293,6 +311,9 @@ func rowDirectionalIndex(direction string, row int, columns int, tikiCount int) 
 }
 
 func (pb *pluginBase) getSelectedTikiID(filteredTikis func(int) []*tikipkg.Tiki) string {
+	if !pb.pluginConfig.HasSelection() {
+		return ""
+	}
 	lane := pb.pluginConfig.GetSelectedLane()
 	tikis := filteredTikis(lane)
 	idx := pb.pluginConfig.GetSelectedIndexForLane(lane)

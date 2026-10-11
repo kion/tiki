@@ -15,6 +15,7 @@ type ActionID string
 // ActionID values for global actions (available in all views).
 const (
 	ActionBack         ActionID = "back"
+	ActionUnselect     ActionID = "unselect"
 	ActionQuit         ActionID = "quit"
 	ActionRefresh      ActionID = "refresh"
 	ActionToggleHeader ActionID = "toggle_header"
@@ -270,6 +271,8 @@ const (
 	// filters (e.g. SLA Watch's dueBy ranges) have no target value to set, so
 	// the move would silently no-op — this gate hides it there instead.
 	RequireLaneMoveActions Requirement = "lane-move-actions"
+	// RequireClearableSelection picks the Esc header label: Unselect or Back.
+	RequireClearableSelection Requirement = "clearable-selection"
 )
 
 // AppContext is a dynamic set of active context attributes built from live UI state.
@@ -441,6 +444,9 @@ func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 	}
 
 	applySelectionCardinality(ctx, selectedCount)
+	if _, ok := activeView.(SelectionClearer); ok && selectedCount > 0 {
+		ctx.Set(string(RequireClearableSelection))
+	}
 
 	if config.GetAIAgent() != "" {
 		ctx.Set(string(RequireAI))
@@ -645,7 +651,11 @@ func (r *ActionRegistry) MatchBinding(key tcell.Key, ch rune, mod tcell.ModMask)
 // DefaultGlobalActions returns common actions available in all views
 func DefaultGlobalActions() *ActionRegistry {
 	r := NewActionRegistry()
-	r.Register(Action{ID: ActionBack, Key: tcell.KeyEscape, Label: "Back", ShowInHeader: true, HideFromPalette: true})
+	// Both labels share Esc and run the same handler; the header shows one of them.
+	r.Register(Action{ID: ActionUnselect, Key: tcell.KeyEscape, Label: "Unselect", ShowInHeader: true, HideFromPalette: true,
+		HideRequire: []Requirement{RequireClearableSelection}})
+	r.Register(Action{ID: ActionBack, Key: tcell.KeyEscape, Label: "Back", ShowInHeader: true, HideFromPalette: true,
+		HideRequire: []Requirement{"!" + RequireClearableSelection}})
 	r.Register(Action{ID: ActionQuit, Key: tcell.KeyRune, Rune: 'q', Label: "Quit", ShowInHeader: true})
 	r.Register(Action{ID: ActionRefresh, Key: tcell.KeyRune, Rune: 'r', Label: "Refresh", ShowInHeader: true})
 	r.Register(Action{ID: ActionToggleLiveReload, Key: tcell.KeyCtrlL, Modifier: tcell.ModCtrl, Label: "Live Reload", ShowInHeader: true})

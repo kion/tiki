@@ -576,7 +576,10 @@ func (ir *InputRouter) runChatForTiki(tikiID string) bool {
 // handleGlobalAction processes actions available in all views
 func (ir *InputRouter) handleGlobalAction(actionID ActionID) bool {
 	switch actionID {
-	case ActionBack:
+	case ActionBack, ActionUnselect:
+		if c, ok := ir.navController.GetActiveView().(SelectionClearer); ok && c.ClearSelection() {
+			return true
+		}
 		return ir.navController.HandleBack()
 	case ActionQuit:
 		ir.navController.HandleQuit()

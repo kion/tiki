@@ -282,6 +282,7 @@ func TestPluginActions_OpenTiki_EnterKey(t *testing.T) {
 	}
 
 	// Press Enter to open first tiki
+	ta.SelectCursorTiki()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify: configurable detail view pushed onto stack (Phase 3:
@@ -391,6 +392,7 @@ func TestPluginStack_MultiLevelNavigation(t *testing.T) {
 	}
 
 	// Recent→TikiDetail (Push, depth 2)
+	ta.SelectCursorTiki()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 	if ta.NavController.Depth() != 2 {
 		t.Errorf("Expected depth 2 after TikiDetail, got %d", ta.NavController.Depth())
@@ -422,6 +424,7 @@ func TestPluginStack_TikiDetailFromPlugin_ReturnsToPlugin(t *testing.T) {
 	// Kanban→Backlog(replace)→TikiDetail(push)
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone) // Replace: Kanban→Backlog, depth 1
+	ta.SelectCursorTiki()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Push: TikiDetail, depth 2
 
 	// Stack: Backlog, TikiDetail (depth 2)
@@ -490,7 +493,8 @@ func TestPluginEsc_FromTikiDetailToPlugin(t *testing.T) {
 	// Kanban→Recent(replace)→TikiDetail(push)
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.SendKey(tcell.KeyRune, 'R', tcell.ModCtrl) // Recent (replaces Kanban)
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // Open tiki (pushes TikiDetail)
+	ta.SelectCursorTiki()
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Open tiki (pushes TikiDetail)
 
 	// Plugin-to-plugin uses ReplaceView, so: Kanban→Recent = depth 1, then push TikiDetail = depth 2
 	if ta.NavController.Depth() != 2 {
@@ -614,6 +618,7 @@ func TestNavigationStack_BoardToTikiDetail(t *testing.T) {
 	// Board (depth 1)
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	// Open detail (Push, depth 2)
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
@@ -654,6 +659,7 @@ func TestNavigationStack_MultipleTikiDetailOpens(t *testing.T) {
 	// Open several tikis in sequence without closing
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
+	ta.SelectCursorTiki()
 
 	// Open tiki 1
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)

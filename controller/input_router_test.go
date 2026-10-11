@@ -477,3 +477,47 @@ func TestInputRouter_IsModalInteractionActive(t *testing.T) {
 		t.Error("busy after everything closed")
 	}
 }
+
+type clearableFakeView struct {
+	mockSelectableView
+}
+
+func (c *clearableFakeView) ClearSelection() bool {
+	if c.selectedID == "" {
+		return false
+	}
+	c.selectedID = ""
+	return true
+}
+
+func TestInputRouter_EscUnselectsBeforeGoingBack(t *testing.T) {
+	view := &clearableFakeView{mockSelectableView{selectedID: "ABC123"}}
+	nc := newMockNavigationController()
+	nc.SetActiveViewGetter(func() View { return view })
+	nc.PushView(model.MakePluginViewID("Detail"), nil)
+	nc.PushView(model.MakePluginViewID("Kanban"), nil)
+	ir := &InputRouter{
+		navController: nc,
+		statusline:    model.NewStatuslineConfig(),
+		globalActions: DefaultGlobalActions(),
+		tikiStore:     store.NewInMemoryStore(),
+	}
+	esc := tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone)
+
+	if !ir.HandleInput(esc, nc.CurrentView()) {
+		t.Fatal("first Esc not handled")
+	}
+	if view.selectedID != "" {
+		t.Errorf("selected %s after the first Esc, want nothing", view.selectedID)
+	}
+	if nc.Depth() != 2 {
+		t.Fatalf("depth %d after the first Esc, want 2: unselecting must not go back", nc.Depth())
+	}
+
+	if !ir.HandleInput(esc, nc.CurrentView()) {
+		t.Fatal("second Esc not handled")
+	}
+	if nc.Depth() != 1 {
+		t.Errorf("depth %d after the second Esc, want 1", nc.Depth())
+	}
+}
