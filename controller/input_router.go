@@ -84,6 +84,7 @@ type InputRouter struct {
 	markdownTreeView   MarkdownTreeView
 	workflowPath       string
 	clipboardWriter    func([][]string) error
+	liveReload         LiveReloadToggler
 }
 
 // NewInputRouter creates an input router
@@ -136,6 +137,35 @@ func (ir *InputRouter) SetMarkdownTreeView(v MarkdownTreeView) {
 // SetQuickSelectView wires the quick-select view (concrete type satisfies the interface).
 func (ir *InputRouter) SetQuickSelectView(qv QuickSelectView) {
 	ir.quickSelectView = qv
+}
+
+// SetLiveReload wires the live reload service for ActionToggleLiveReload.
+func (ir *InputRouter) SetLiveReload(lr LiveReloadToggler) {
+	ir.liveReload = lr
+}
+
+// IsModalInteractionActive reports whether the user is in the middle of an
+// interaction that an unprompted refresh could disrupt: an overlay (action
+// palette, quick-select, markdown tree) is open, or the active view's input
+// box (search or action input) has focus. Live reload holds external changes
+// until it clears. Call on the UI goroutine.
+func (ir *InputRouter) IsModalInteractionActive() bool {
+	if ir.paletteConfig != nil && ir.paletteConfig.IsVisible() {
+		return true
+	}
+	if ir.quickSelectConfig != nil && ir.quickSelectConfig.IsVisible() {
+		return true
+	}
+	if ir.markdownTreeConfig != nil && ir.markdownTreeConfig.IsVisible() {
+		return true
+	}
+	if ir.navController == nil {
+		return false
+	}
+	if iv, ok := ir.navController.GetActiveView().(interface{ IsInputBoxFocused() bool }); ok && iv.IsInputBoxFocused() {
+		return true
+	}
+	return false
 }
 
 // SetWorkflowPath sets the resolved workflow.yaml path for the Edit Workflow action.
@@ -442,7 +472,8 @@ func isTextInputKey(event *tcell.EventKey) bool {
 	case tcell.KeyRune,
 		tcell.KeyBackspace, tcell.KeyBackspace2,
 		tcell.KeyDelete,
-		tcell.KeyHome, tcell.KeyEnd:
+		tcell.KeyHome, tcell.KeyEnd,
+		tcell.KeyCtrlL: // TextArea select-all; shadows the live reload toggle while typing
 		return true
 	}
 	return false
@@ -566,6 +597,14 @@ func (ir *InputRouter) handleGlobalAction(actionID ActionID) bool {
 		return ir.startMarkdownTree()
 	case ActionToggleHeader:
 		ir.toggleHeader()
+		return true
+	case ActionToggleLiveReload:
+		if ir.liveReload == nil {
+			ir.statusline.SetMessage("live reload is not available", model.MessageLevelError, true)
+			return true
+		}
+		// the service reports its new state and any start error itself
+		_ = ir.liveReload.SetEnabled(!ir.liveReload.Enabled())
 		return true
 	case ActionEditWorkflow:
 		if ir.workflowPath == "" {

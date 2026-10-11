@@ -854,3 +854,31 @@ func TestDetailController_DescriptionSaveHandlerCommitsAndStays(t *testing.T) {
 		t.Error("description save should keep the view in edit mode (stay-on-save)")
 	}
 }
+
+// externalChangeFake exposes the view's external-change hook so the test can
+// fire it the way the detail view does when the edited tiki changes on disk.
+type externalChangeFake struct {
+	*fakeDetailEditView
+	externalChange func()
+}
+
+func (e *externalChangeFake) SetExternalChangeHandler(h func()) { e.externalChange = h }
+
+func TestDetailController_ExternalChangeWhileEditingWarns(t *testing.T) {
+	dc, view, sl := newDetailEditTestRigWithStatusline(t)
+	ev := &externalChangeFake{fakeDetailEditView: view}
+	dc.BindEditView(ev)
+	if ev.externalChange == nil {
+		t.Fatal("BindEditView did not install an external-change handler")
+	}
+
+	ev.externalChange()
+
+	msg, level, autoHide := sl.GetMessage()
+	if !strings.Contains(msg, "changed on disk") {
+		t.Errorf("message = %q, want an on-disk change warning", msg)
+	}
+	if level != model.MessageLevelError || autoHide {
+		t.Errorf("warning must be an error that does not vanish on the next key: level %v, autoHide %v", level, autoHide)
+	}
+}

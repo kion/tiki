@@ -113,6 +113,11 @@ func collectPositionalArgs(args []string) ([]string, error) {
 			if strings.HasPrefix(arg, "--log-level=") {
 				continue
 			}
+			// boolean: only "--live-reload" and "--live-reload=<bool>"; a
+			// separate value would be indistinguishable from a file to view
+			if arg == "--live-reload" || strings.HasPrefix(arg, "--live-reload=") {
+				continue
+			}
 			if arg == "-v" || arg == "--version" || arg == "-h" || arg == "--help" {
 				continue
 			}

@@ -586,3 +586,23 @@ func TestStatusline_ProgressSetAndGet(t *testing.T) {
 		t.Fatal("ClearProgress did not deactivate progress")
 	}
 }
+
+func TestStatuslineConfig_RemoveLeftStat(t *testing.T) {
+	sc := NewStatuslineConfig()
+	sc.SetLeftStat("Live", "● live", 5)
+	notified := 0
+	sc.AddListener(func() { notified++ })
+
+	sc.RemoveLeftStat("Live")
+
+	if _, ok := sc.GetLeftStats()["Live"]; ok {
+		t.Error("stat still present after RemoveLeftStat")
+	}
+	if notified != 1 {
+		t.Errorf("listeners notified %d times, want 1", notified)
+	}
+	sc.RemoveLeftStat("Live") // absent: no-op, no notification
+	if notified != 1 {
+		t.Errorf("removing an absent stat notified listeners")
+	}
+}

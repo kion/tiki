@@ -680,3 +680,46 @@ func TestPluginConfig_ScrollOffset_PreservedOnLayoutChange(t *testing.T) {
 		t.Errorf("GetScrollOffsetForLane(1) after same-size layout change = %d, want 7", offset)
 	}
 }
+
+func TestPluginConfig_SelectionAnchorValidUntilSelectionChanges(t *testing.T) {
+	pc := NewPluginConfig("p")
+	pc.SetLaneLayout([]int{1, 1}, nil)
+
+	if _, ok := pc.SelectionAnchor(); ok {
+		t.Error("fresh config reports a valid anchor")
+	}
+	pc.SetSelectionAnchor("AAAAAA")
+	if id, ok := pc.SelectionAnchor(); !ok || id != "AAAAAA" {
+		t.Fatalf("SelectionAnchor = %q, %v; want AAAAAA, true", id, ok)
+	}
+
+	pc.SetSelectedIndexForLane(0, 2) // a deliberate selection change
+	if _, ok := pc.SelectionAnchor(); ok {
+		t.Error("anchor still valid after the selection was changed")
+	}
+
+	pc.SetSelectionAnchor("BBBBBB")
+	if id, ok := pc.SelectionAnchor(); !ok || id != "BBBBBB" {
+		t.Errorf("re-anchored = %q, %v; want BBBBBB, true", id, ok)
+	}
+}
+
+func TestPluginConfig_RestoreSelectionIsSilent(t *testing.T) {
+	pc := NewPluginConfig("p")
+	pc.SetLaneLayout([]int{1, 1}, nil)
+	pc.SetSelectionAnchor("AAAAAA")
+	notified := 0
+	pc.AddSelectionListener(func() { notified++ })
+
+	pc.RestoreSelection(1, 3)
+
+	if pc.GetSelectedLane() != 1 || pc.GetSelectedIndexForLane(1) != 3 {
+		t.Errorf("selection = lane %d idx %d, want lane 1 idx 3", pc.GetSelectedLane(), pc.GetSelectedIndexForLane(1))
+	}
+	if notified != 0 {
+		t.Errorf("RestoreSelection notified %d listeners, want 0", notified)
+	}
+	if _, ok := pc.SelectionAnchor(); !ok {
+		t.Error("RestoreSelection invalidated the anchor")
+	}
+}

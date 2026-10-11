@@ -113,6 +113,9 @@ func TestHasPositionalArgs(t *testing.T) {
 		{name: "stdin dash", args: []string{"-"}, want: true},
 		{name: "flag then positional", args: []string{"--log-level", "debug", "file.md"}, want: true},
 		{name: "double dash", args: []string{"--", "file.md"}, want: true},
+		{name: "live-reload flag only", args: []string{"--live-reload"}, want: false},
+		{name: "live-reload=false only", args: []string{"--live-reload=false"}, want: false},
+		{name: "live-reload then positional", args: []string{"--live-reload", "file.md"}, want: true},
 	}
 
 	for _, tt := range tests {

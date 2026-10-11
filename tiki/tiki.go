@@ -36,6 +36,10 @@ type Tiki struct {
 	// LoadedMtime is the file mtime at load time; used for optimistic locking.
 	LoadedMtime time.Time
 
+	// LoadedSize is the file size at load (or last save) time. Together with
+	// LoadedMtime it lets live reload tell tiki's own writes from external ones.
+	LoadedSize int64
+
 	// createdAt is best-effort creation time (git history -> file mtime). Read via CreatedAt().
 	createdAt time.Time
 
@@ -97,6 +101,7 @@ func (t *Tiki) Clone() *Tiki {
 		body:        t.body,
 		path:        t.path,
 		LoadedMtime: t.LoadedMtime,
+		LoadedSize:  t.LoadedSize,
 		createdAt:   t.createdAt,
 		updatedAt:   t.updatedAt,
 	}

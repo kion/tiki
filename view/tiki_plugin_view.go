@@ -115,9 +115,11 @@ func (pv *PluginView) rebuildLayout() {
 }
 
 func (pv *PluginView) refresh() {
+	pv.restoreAnchoredSelection()
 	if pv.ensureSelection != nil {
 		pv.ensureSelection()
 	}
+	selectedID := ""
 
 	itemHeight := tikiBoxItemHeight(pv.pluginDef.Layout)
 	selectedLane := pv.pluginConfig.GetSelectedLane()
@@ -160,6 +162,9 @@ func (pv *PluginView) refresh() {
 				if idx < len(tikis) {
 					tiki := tikis[idx]
 					isSelected := isSelectedLane && idx == selectedIndex
+					if isSelected {
+						selectedID = tiki.ID()
+					}
 					tikiBox := CreateTikiBox(tiki, pv.pluginDef.Layout, isSelected, theme.Roles())
 					rowFlex.AddItem(tikiBox, 0, 1, false)
 				} else {
@@ -180,9 +185,33 @@ func (pv *PluginView) refresh() {
 		// Sync scroll offset from view to model for later lane navigation
 		pv.pluginConfig.SetScrollOffsetForLane(laneIdx, laneContainer.GetScrollOffset())
 	}
+	pv.pluginConfig.SetSelectionAnchor(selectedID)
 
 	if pv.actionChangeHandler != nil {
 		pv.actionChangeHandler()
+	}
+}
+
+// restoreAnchoredSelection keeps the tiki that was selected at the last
+// render selected when only its position in the lane changed — e.g. another
+// process added or removed a tiki above it. It never overrides a selection
+// change made since (the anchor is invalidated by every notified selection
+// change), and it does not follow a tiki into another lane: the selection
+// stays put and is clamped, as before.
+func (pv *PluginView) restoreAnchoredSelection() {
+	id, ok := pv.pluginConfig.SelectionAnchor()
+	if !ok {
+		return
+	}
+	lane := pv.pluginConfig.GetSelectedLane()
+	if lane < 0 || lane >= len(pv.pluginDef.Lanes) {
+		return
+	}
+	for i, tk := range pv.getLaneTikis(lane) {
+		if tk.ID() == id {
+			pv.pluginConfig.RestoreSelection(lane, i)
+			return
+		}
 	}
 }
 

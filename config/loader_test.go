@@ -559,3 +559,77 @@ func TestLoadConfigIdentityEnvOverride(t *testing.T) {
 // note: the former TestLoadConfigStoreEnvOverride was removed. The store.git
 // flag (and its TIKI_STORE_GIT env override) no longer exists — git
 // integration is automatic and read-only, with no enable/disable switch.
+
+// isolateConfig runs LoadConfig from an empty temp dir with no user config,
+// optionally writing a cwd config.yaml first.
+func isolateConfig(t *testing.T, configYAML string, args ...string) *Config {
+	t.Helper()
+	tmpDir := t.TempDir()
+	if configYAML != "" {
+		if err := os.WriteFile(filepath.Join(tmpDir, "config.yaml"), []byte(configYAML), 0644); err != nil {
+			t.Fatalf("write config: %v", err)
+		}
+	}
+	originalDir, _ := os.Getwd()
+	t.Cleanup(func() { _ = os.Chdir(originalDir) })
+	_ = os.Chdir(tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+
+	originalArgs := os.Args
+	os.Args = append([]string{originalArgs[0]}, args...)
+	t.Cleanup(func() { os.Args = originalArgs })
+
+	appConfig = nil
+	ResetPathManager()
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+	return cfg
+}
+
+func TestLoadConfigLiveReloadDefaultsOff(t *testing.T) {
+	cfg := isolateConfig(t, "")
+	if cfg.LiveReload.Enabled || GetLiveReloadEnabled() {
+		t.Error("live reload must be off by default")
+	}
+}
+
+func TestLoadConfigLiveReloadFromFile(t *testing.T) {
+	cfg := isolateConfig(t, "liveReload:\n  enabled: true\n")
+	if !cfg.LiveReload.Enabled || !GetLiveReloadEnabled() {
+		t.Error("liveReload.enabled: true in config.yaml not honoured")
+	}
+}
+
+func TestLoadConfigLiveReloadEnvOverride(t *testing.T) {
+	t.Setenv("TIKI_LIVERELOAD_ENABLED", "true")
+	cfg := isolateConfig(t, "")
+	if !cfg.LiveReload.Enabled || !GetLiveReloadEnabled() {
+		t.Error("TIKI_LIVERELOAD_ENABLED=true not honoured")
+	}
+}
+
+func TestLoadConfigLiveReloadFlag(t *testing.T) {
+	cfg := isolateConfig(t, "", "--live-reload")
+	if !cfg.LiveReload.Enabled || !GetLiveReloadEnabled() {
+		t.Error("--live-reload not honoured")
+	}
+}
+
+func TestLoadConfigLiveReloadFlagFalseOverridesFile(t *testing.T) {
+	cfg := isolateConfig(t, "liveReload:\n  enabled: true\n", "--live-reload=false")
+	if cfg.LiveReload.Enabled || GetLiveReloadEnabled() {
+		t.Error("--live-reload=false did not override the config file")
+	}
+}
+
+func TestLoadConfigLiveReloadFlagWithLogLevel(t *testing.T) {
+	cfg := isolateConfig(t, "", "--live-reload", "--log-level=warn")
+	if !cfg.LiveReload.Enabled {
+		t.Error("--live-reload lost when combined with --log-level")
+	}
+	if cfg.Logging.Level != "warn" {
+		t.Errorf("--log-level lost when combined with --live-reload: %q", cfg.Logging.Level)
+	}
+}

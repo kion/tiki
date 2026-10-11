@@ -6,6 +6,7 @@ require (
 	github.com/alecthomas/chroma/v2 v2.14.0
 	github.com/atotto/clipboard v0.1.4
 	github.com/boolean-maybe/navidown v0.5.3
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gdamore/tcell/v2 v2.13.9
 	github.com/go-git/go-git/v5 v5.16.4
 	github.com/matoous/go-nanoid/v2 v2.1.0
@@ -43,7 +44,6 @@ require (
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
 	github.com/dlclark/regexp2 v1.11.0 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
-	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/gdamore/encoding v1.0.1 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.6.2 // indirect

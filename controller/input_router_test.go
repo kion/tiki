@@ -157,6 +157,9 @@ func TestIsTextInputKey_RuneAndEditingKeys(t *testing.T) {
 		tcell.NewEventKey(tcell.KeyDelete, 0, tcell.ModNone),
 		tcell.NewEventKey(tcell.KeyHome, 0, tcell.ModNone),
 		tcell.NewEventKey(tcell.KeyEnd, 0, tcell.ModNone),
+		// Ctrl-L is TextArea's select-all; it toggles live reload only when
+		// no text field has focus
+		tcell.NewEventKey(tcell.KeyCtrlL, 0, tcell.ModCtrl),
 	}
 	for _, ev := range allow {
 		if !isTextInputKey(ev) {
@@ -387,5 +390,93 @@ func TestMaybeHandleDetailEditMode_LeftFallsThroughOnNonRecurrenceField(t *testi
 	}
 	if view.rec.IsValueFocused() {
 		t.Error("RecurrenceEdit.IsValueFocused = true after fall-through, want false (untouched)")
+	}
+}
+
+// fakeLiveReload records toggles requested by the router.
+type fakeLiveReload struct {
+	enabled bool
+	calls   []bool
+}
+
+func (f *fakeLiveReload) Enabled() bool { return f.enabled }
+func (f *fakeLiveReload) SetEnabled(on bool) error {
+	f.calls = append(f.calls, on)
+	f.enabled = on
+	return nil
+}
+
+func newGlobalRouter() *InputRouter {
+	return &InputRouter{
+		navController: NewNavigationController(tview.NewApplication()),
+		statusline:    model.NewStatuslineConfig(),
+		globalActions: DefaultGlobalActions(),
+		tikiStore:     store.NewInMemoryStore(),
+	}
+}
+
+func TestInputRouter_ToggleLiveReloadFlipsState(t *testing.T) {
+	ir := newGlobalRouter()
+	lr := &fakeLiveReload{}
+	ir.SetLiveReload(lr)
+
+	if !ir.handleGlobalAction(ActionToggleLiveReload) {
+		t.Fatal("toggle not handled")
+	}
+	if !ir.handleGlobalAction(ActionToggleLiveReload) {
+		t.Fatal("second toggle not handled")
+	}
+	if len(lr.calls) != 2 || !lr.calls[0] || lr.calls[1] {
+		t.Errorf("SetEnabled calls = %v, want [true false]", lr.calls)
+	}
+}
+
+func TestInputRouter_ToggleLiveReloadUnavailable(t *testing.T) {
+	ir := newGlobalRouter()
+
+	if !ir.handleGlobalAction(ActionToggleLiveReload) {
+		t.Fatal("toggle not handled without a live reload service")
+	}
+	if msg, _, _ := ir.statusline.GetMessage(); msg == "" {
+		t.Error("expected a statusline message when live reload is unavailable")
+	}
+}
+
+// inputBoxView is a View whose input box focus the test controls.
+type inputBoxView struct {
+	routerFakeView
+	focused bool
+}
+
+func (v *inputBoxView) IsInputBoxFocused() bool { return v.focused }
+
+func TestInputRouter_IsModalInteractionActive(t *testing.T) {
+	ir := newGlobalRouter()
+	palette := model.NewActionPaletteConfig()
+	quick := model.NewQuickSelectConfig()
+	tree := model.NewMarkdownTreeConfig()
+	ir.SetPaletteConfig(palette)
+	ir.SetQuickSelectConfig(quick)
+	ir.SetMarkdownTreeConfig(tree)
+	view := &inputBoxView{}
+	ir.navController.SetActiveViewGetter(func() View { return view })
+
+	if ir.IsModalInteractionActive() {
+		t.Error("idle UI reported as busy")
+	}
+	for name, set := range map[string]func(bool){
+		"palette":      palette.SetVisible,
+		"quick-select": quick.SetVisible,
+		"md tree":      tree.SetVisible,
+		"input box":    func(on bool) { view.focused = on },
+	} {
+		set(true)
+		if !ir.IsModalInteractionActive() {
+			t.Errorf("%s open: not reported as busy", name)
+		}
+		set(false)
+	}
+	if ir.IsModalInteractionActive() {
+		t.Error("busy after everything closed")
 	}
 }

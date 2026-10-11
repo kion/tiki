@@ -77,6 +77,16 @@ type ConfigurableDetailView struct {
 	onEditModeChange  func(bool)                   // controller-side notifier (registry derivation)
 	editTikiSource    func() *tikipkg.Tiki         // returns editing copy during edit mode
 
+	// live-refresh state: the store dependencies of the last render, so
+	// store notifications that do not affect this view skip the rebuild
+	// (keeping scroll and focus), and the external-change report made for
+	// the current edit so it fires once per change.
+	lastRenderKey         renderKey
+	rendered              bool
+	onExternalChange      func()
+	externalReported      bool
+	externalReportedStore *tikipkg.Tiki
+
 	// actionChangeHandler is RootLayout's ActionChangeNotifier hook — fired
 	// whenever the view's installed registry mutates (currently: on
 	// EnterEditMode / ExitEditMode). Without this, the header bar and
@@ -202,10 +212,49 @@ func (cv *ConfigurableDetailView) SetSelectedID(id string) {
 
 // OnFocus subscribes to store updates so external mutations re-render the view.
 func (cv *ConfigurableDetailView) OnFocus() {
-	cv.listenerID = cv.tikiStore.AddListener(func() {
-		cv.refresh()
-	})
+	cv.listenerID = cv.tikiStore.AddListener(cv.onStoreChange)
 	cv.refresh()
+}
+
+// SetExternalChangeHandler registers a callback fired (once per change) when
+// the tiki being edited in edit mode changes or disappears in the store —
+// e.g. another process rewrote its file — so the user learns before saving
+// that the save will conflict.
+func (cv *ConfigurableDetailView) SetExternalChangeHandler(handler func()) {
+	cv.onExternalChange = handler
+}
+
+// onStoreChange re-renders only when something this view shows changed.
+func (cv *ConfigurableDetailView) onStoreChange() {
+	if cv.editMode {
+		cv.checkExternalEdit()
+	}
+	if cv.rendered && computeRenderKey(cv.getTiki(), cv.tikiStore).equal(cv.lastRenderKey) {
+		return
+	}
+	cv.refresh()
+}
+
+// checkExternalEdit reports when the store's copy of the tiki being edited
+// no longer matches the file state the editing copy was cloned from.
+func (cv *ConfigurableDetailView) checkExternalEdit() {
+	if cv.onExternalChange == nil || cv.editTikiSource == nil {
+		return
+	}
+	editing := cv.editTikiSource()
+	if editing == nil || editing.LoadedMtime.IsZero() {
+		return // draft: nothing on disk yet
+	}
+	stored := cv.tikiStore.GetTiki(cv.tikiID)
+	if stored != nil && stored.LoadedMtime.Equal(editing.LoadedMtime) {
+		return
+	}
+	if cv.externalReported && cv.externalReportedStore == stored {
+		return // this change was already reported
+	}
+	cv.externalReported = true
+	cv.externalReportedStore = stored
+	cv.onExternalChange()
 }
 
 // OnBlur unsubscribes and tears down the markdown viewer.
@@ -252,6 +301,8 @@ func (cv *ConfigurableDetailView) refresh() {
 	}
 
 	tk := cv.getTiki()
+	cv.lastRenderKey = computeRenderKey(tk, cv.tikiStore)
+	cv.rendered = true
 	if tk == nil {
 		notFound := tview.NewTextView().SetText("(no tiki selected)")
 		cv.content.AddItem(notFound, 0, 1, false)
@@ -896,6 +947,8 @@ func (cv *ConfigurableDetailView) EnterEditMode() bool {
 		return false
 	}
 	cv.editMode = true
+	cv.externalReported = false
+	cv.externalReportedStore = nil
 	cv.setFocusedIdx(first)
 	cv.editors = make(map[string]FieldEditorWidget)
 	if cv.editRegistry != nil {

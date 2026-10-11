@@ -24,6 +24,14 @@ type PluginConfig struct {
 	listeners        map[int]PluginSelectionListener
 	nextListenerID   int
 	searchState      SearchState // search state (embedded)
+
+	// selectionGen counts notified selection changes. The anchor remembers
+	// which tiki was rendered as selected and at which generation, so a view
+	// can keep that tiki selected across store refreshes while never undoing
+	// a deliberate selection change made since.
+	selectionGen uint64
+	anchorID     string
+	anchorGen    uint64
 }
 
 // NewPluginConfig creates a plugin config
@@ -175,7 +183,43 @@ func (pc *PluginConfig) RemoveSelectionListener(id int) {
 	delete(pc.listeners, id)
 }
 
+// SetSelectionAnchor records id as the tiki rendered as selected. Silent.
+func (pc *PluginConfig) SetSelectionAnchor(id string) {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	pc.anchorID = id
+	pc.anchorGen = pc.selectionGen
+}
+
+// SelectionAnchor returns the anchored tiki id, valid only while no selection
+// change has been notified since it was recorded.
+func (pc *PluginConfig) SelectionAnchor() (string, bool) {
+	pc.mu.RLock()
+	defer pc.mu.RUnlock()
+	if pc.anchorID == "" || pc.anchorGen != pc.selectionGen {
+		return "", false
+	}
+	return pc.anchorID, true
+}
+
+// RestoreSelection moves the selection without notifying listeners or
+// invalidating the anchor; used to keep the anchored tiki selected after its
+// index shifted.
+func (pc *PluginConfig) RestoreSelection(lane, idx int) {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	if lane < 0 || lane >= len(pc.laneColumns) {
+		return
+	}
+	pc.selectedLane = lane
+	pc.setIndexForLane(lane, idx)
+}
+
 func (pc *PluginConfig) notifyListeners() {
+	pc.mu.Lock()
+	pc.selectionGen++
+	pc.mu.Unlock()
+
 	pc.mu.RLock()
 	listeners := make([]PluginSelectionListener, 0, len(pc.listeners))
 	for _, l := range pc.listeners {

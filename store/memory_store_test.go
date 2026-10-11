@@ -679,3 +679,25 @@ func workflowEnumDefault(fieldName string) string {
 	}
 	return fd.EnumDefault()
 }
+
+func TestInMemoryStore_BatchNotificationsCoalesces(t *testing.T) {
+	s := NewInMemoryStore()
+	notified := 0
+	s.AddListener(func() { notified++ })
+
+	s.BatchNotifications(func() {
+		for _, id := range []string{"AAAAAA", "BBBBBB"} {
+			tk := tikipkg.New()
+			tk.SetID(id)
+			tk.SetTitle(id)
+			if err := s.CreateTiki(tk); err != nil {
+				t.Fatalf("CreateTiki: %v", err)
+			}
+		}
+		s.DeleteTiki("AAAAAA")
+	})
+
+	if notified != 1 {
+		t.Errorf("notified %d times for the batch, want 1", notified)
+	}
+}

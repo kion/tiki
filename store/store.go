@@ -33,3 +33,9 @@ type Stat struct {
 	Value string
 	Order int
 }
+
+// NotificationBatcher is implemented by stores that can coalesce the change
+// notifications of several mutations into one (see TikiStore.BatchNotifications).
+type NotificationBatcher interface {
+	BatchNotifications(fn func())
+}

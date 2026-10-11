@@ -1,8 +1,6 @@
 package document
 
 import (
-	"io/fs"
-	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -22,35 +20,15 @@ import (
 // Returned paths are sorted so callers that iterate them get deterministic
 // ordering for diagnostics and duplicate-id reporting.
 func WalkDocuments(root string) ([]string, error) {
-	ignore, err := LoadIgnoreMatcher(root)
+	scope, err := NewScope(root)
 	if err != nil {
 		return nil, err
 	}
 	var paths []string
-	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	walkErr := scope.Walk(scope.Root(), func(path string, isDir bool) error {
+		if !isDir {
+			paths = append(paths, path)
 		}
-		rel, relErr := filepath.Rel(root, path)
-		if relErr != nil {
-			return relErr
-		}
-		if d.IsDir() {
-			if IsSkippableSubdir(path, root, d.Name()) {
-				return filepath.SkipDir
-			}
-			if path != root && ignore.Match(rel, true) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !strings.EqualFold(filepath.Ext(d.Name()), ".md") {
-			return nil
-		}
-		if ignore.Match(rel, false) {
-			return nil
-		}
-		paths = append(paths, path)
 		return nil
 	})
 	if walkErr != nil {
@@ -74,6 +52,12 @@ func IsSkippableSubdir(path, root, name string) bool {
 	if path == root {
 		return false
 	}
+	return isSkippableDirName(name)
+}
+
+// isSkippableDirName is the name-only half of IsSkippableSubdir, for callers
+// that already know the directory is not the root.
+func isSkippableDirName(name string) bool {
 	if name == docDirName {
 		return false
 	}

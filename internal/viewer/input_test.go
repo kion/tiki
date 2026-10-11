@@ -194,3 +194,30 @@ func TestParseViewerInputUnknownFlag(t *testing.T) {
 		t.Fatalf("expected viewer mode to be false")
 	}
 }
+
+func TestParseViewerInputLiveReloadFlagAlone(t *testing.T) {
+	for _, args := range [][]string{
+		{"--live-reload"},
+		{"--live-reload=true"},
+		{"--live-reload=false"},
+		{"--live-reload", "--log-level=warn"},
+	} {
+		_, ok, err := ParseViewerInput(args, map[string]struct{}{})
+		if err != nil {
+			t.Fatalf("%v: unexpected error: %v", args, err)
+		}
+		if ok {
+			t.Fatalf("%v: flags alone must start the TUI, not the viewer", args)
+		}
+	}
+}
+
+func TestParseViewerInputLiveReloadFlagWithFile(t *testing.T) {
+	spec, ok, err := ParseViewerInput([]string{"--live-reload", "README.md"}, map[string]struct{}{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok || spec.Kind != InputFile {
+		t.Fatalf("expected file viewer input, got ok=%v kind=%s", ok, spec.Kind)
+	}
+}

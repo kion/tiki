@@ -118,7 +118,7 @@ func (s *TikiStore) UpdateTiki(tk *tikipkg.Tiki) error {
 	return nil
 }
 
-// updateTikiCore persists an updated tiki. Path and LoadedMtime are carried
+// updateTikiCore persists an updated tiki. Path and LoadedMtime/LoadedSize are carried
 // forward from the stored tiki when absent on the incoming tiki (same as the
 // pre-Phase-5 FilePath/LoadedMtime carry-forward). The field map is used as-is:
 // no workflow-declared fields are injected or merged from the stored tiki.
@@ -136,7 +136,10 @@ func (s *TikiStore) updateTikiCore(tk *tikipkg.Tiki, _ bool) error {
 		tk.SetPath(old.Path())
 	}
 	if tk.LoadedMtime.IsZero() {
+		// the loaded file state is one stamp: the save conflict check
+		// compares both
 		tk.LoadedMtime = old.LoadedMtime
+		tk.LoadedSize = old.LoadedSize
 	}
 
 	if err := s.validateTikiIDListFieldsLocked(tk); err != nil {

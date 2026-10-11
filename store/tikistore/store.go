@@ -34,6 +34,9 @@ type TikiStore struct {
 	gitUtil        git.GitOps        // git utility for reading history (authors, timestamps, user, branch)
 	identity       *identityResolver // resolves current Tiki identity (config→git→OS)
 	diagnostics    *LoadDiagnostics  // rejections from the most recent load/reload cycle
+	deferred       map[string]bool   // paths ReloadPaths saw mid-write once; retried before acting
+	batchDepth     int               // open BatchNotifications calls
+	batchDirty     bool              // a change was notified during the open batch
 }
 
 // NewTikiStore creates a new TikiStore.

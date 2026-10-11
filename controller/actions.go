@@ -22,6 +22,7 @@ const (
 	ActionEditWorkflow ActionID = "edit_workflow"
 
 	ActionOpenMarkdownTree ActionID = "open_markdown_tree"
+	ActionToggleLiveReload ActionID = "toggle_live_reload"
 )
 
 // ActionID values for tiki navigation and manipulation (used by plugins).
@@ -647,6 +648,7 @@ func DefaultGlobalActions() *ActionRegistry {
 	r.Register(Action{ID: ActionBack, Key: tcell.KeyEscape, Label: "Back", ShowInHeader: true, HideFromPalette: true})
 	r.Register(Action{ID: ActionQuit, Key: tcell.KeyRune, Rune: 'q', Label: "Quit", ShowInHeader: true})
 	r.Register(Action{ID: ActionRefresh, Key: tcell.KeyRune, Rune: 'r', Label: "Refresh", ShowInHeader: true})
+	r.Register(Action{ID: ActionToggleLiveReload, Key: tcell.KeyCtrlL, Modifier: tcell.ModCtrl, Label: "Live Reload", ShowInHeader: true})
 	r.Register(Action{ID: ActionToggleHeader, Key: tcell.KeyF10, Label: "Toggle Header", ShowInHeader: true})
 	r.Register(Action{ID: ActionOpenPalette, Key: tcell.KeyCtrlA, Modifier: tcell.ModCtrl, Label: "All actions", ShowInHeader: true, HideFromPalette: true})
 	r.Register(Action{ID: ActionOpenMarkdownTree, Key: tcell.KeyCtrlO, Modifier: tcell.ModCtrl, Label: "Open", ShowInHeader: true})

@@ -56,6 +56,17 @@ func (sc *StatuslineConfig) SetLeftStat(key, value string, priority int) {
 	sc.notifyListeners()
 }
 
+// RemoveLeftStat removes a base stat. Removing an absent stat is a no-op.
+func (sc *StatuslineConfig) RemoveLeftStat(key string) {
+	sc.mu.Lock()
+	_, existed := sc.leftStats[key]
+	delete(sc.leftStats, key)
+	sc.mu.Unlock()
+	if existed {
+		sc.notifyListeners()
+	}
+}
+
 // GetLeftStats returns all left stats (base + view) merged together
 func (sc *StatuslineConfig) GetLeftStats() map[string]StatValue {
 	sc.mu.RLock()

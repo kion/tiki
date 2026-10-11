@@ -20,13 +20,41 @@ func (s *TikiStore) RemoveListener(id int) {
 	delete(s.listeners, id)
 }
 
+// BatchNotifications runs fn and coalesces the change notifications it
+// causes into one, delivered when the outermost batch ends (none when nothing
+// changed). Listeners re-render views, so applying many changes in a batch
+// costs one re-render instead of one per change.
+func (s *TikiStore) BatchNotifications(fn func()) {
+	s.mu.Lock()
+	s.batchDepth++
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		s.batchDepth--
+		flush := s.batchDepth == 0 && s.batchDirty
+		if flush {
+			s.batchDirty = false
+		}
+		s.mu.Unlock()
+		if flush {
+			s.notifyListeners()
+		}
+	}()
+	fn()
+}
+
 func (s *TikiStore) notifyListeners() {
-	s.mu.RLock()
+	s.mu.Lock()
+	if s.batchDepth > 0 {
+		s.batchDirty = true
+		s.mu.Unlock()
+		return
+	}
 	listeners := make([]store.ChangeListener, 0, len(s.listeners))
 	for _, l := range s.listeners {
 		listeners = append(listeners, l)
 	}
-	s.mu.RUnlock()
+	s.mu.Unlock()
 
 	for _, l := range listeners {
 		l()

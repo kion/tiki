@@ -3,11 +3,13 @@ package testutil
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/internal/bootstrap"
+	"github.com/boolean-maybe/tiki/internal/livereload"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
@@ -51,6 +53,12 @@ type TestApp struct {
 	markdownTreeConfig *model.MarkdownTreeConfig
 	actionPalette      *palette.ActionPalette
 	pages              *tview.Pages
+
+	// live reload (see SetupLiveReload)
+	liveReload     *livereload.Service
+	liveUpdates    chan func()
+	liveStop       chan struct{}
+	liveUpdatesRun int
 }
 
 // NewTestApp bootstraps the full MVC stack for integration testing.
@@ -698,3 +706,67 @@ func (ta *TestApp) NavigateToTiki(tikiID string, maxSteps int) bool {
 	}
 	return false
 }
+
+// SetupLiveReload wires a live reload service over the test document dir the
+// way the TUI does (Ctrl-L toggle, busy predicate, statusline), with short
+// batching delays. It is not enabled; press Ctrl-L or call
+// LiveReload().SetEnabled(true).
+//
+// TestApp never runs the tview event loop, so the UI updates the service
+// queues are collected and run on the test goroutine by PumpLiveReload.
+func (ta *TestApp) SetupLiveReload() *livereload.Service {
+	concrete, ok := ta.TikiStore.(*tikistore.TikiStore)
+	if !ok {
+		ta.t.Fatalf("live reload needs a *tikistore.TikiStore, got %T", ta.TikiStore)
+	}
+	ta.liveUpdates = make(chan func(), 64)
+	ta.liveStop = make(chan struct{})
+	opts := bootstrap.LiveReloadOptions(ta.TikiDir, concrete, ta.statuslineConfig, ta.InputRouter)
+	opts.Dispatch = func(fn func()) {
+		// blocks like tview's QueueUpdate until the test goroutine runs fn
+		done := make(chan struct{})
+		select {
+		case ta.liveUpdates <- func() { fn(); close(done) }:
+		case <-ta.liveStop:
+			return
+		}
+		select {
+		case <-done:
+		case <-ta.liveStop:
+		}
+	}
+	opts.Quiet = 20 * time.Millisecond
+	opts.MaxDelay = 200 * time.Millisecond
+	opts.BusyRetry = 20 * time.Millisecond
+	ta.liveReload = livereload.New(opts)
+	ta.InputRouter.SetLiveReload(ta.liveReload)
+	ta.t.Cleanup(func() {
+		ta.liveReload.Stop()
+		close(ta.liveStop)
+	})
+	return ta.liveReload
+}
+
+// LiveReload returns the service wired by SetupLiveReload.
+func (ta *TestApp) LiveReload() *livereload.Service { return ta.liveReload }
+
+// PumpLiveReload runs queued live reload UI updates on the test goroutine
+// (redrawing after each) until cond holds or timeout passes, and reports
+// whether cond held.
+func (ta *TestApp) PumpLiveReload(timeout time.Duration, cond func() bool) bool {
+	deadline := time.After(timeout)
+	for !cond() {
+		select {
+		case fn := <-ta.liveUpdates:
+			fn()
+			ta.liveUpdatesRun++
+			ta.Draw()
+		case <-deadline:
+			return cond()
+		}
+	}
+	return true
+}
+
+// LiveReloadUpdatesRun counts the live reload UI updates PumpLiveReload ran.
+func (ta *TestApp) LiveReloadUpdatesRun() int { return ta.liveUpdatesRun }

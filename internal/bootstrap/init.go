@@ -12,6 +12,7 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/internal/app"
 	gradcore "github.com/boolean-maybe/tiki/internal/gradient"
+	"github.com/boolean-maybe/tiki/internal/livereload"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
@@ -54,6 +55,7 @@ type Result struct {
 	ActionPalette     *palette.ActionPalette
 	ViewContext       *model.ViewContext
 	AppRoot           tview.Primitive // Pages root for app.SetRoot
+	LiveReload        *livereload.Service
 	Context           context.Context
 	CancelFunc        context.CancelFunc
 	WorkflowPath      string
@@ -223,6 +225,9 @@ func Bootstrap() (*Result, error) {
 
 	// Phase 11: Background tasks
 	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel stored in Result.CancelFunc, called by app shutdown
+	// time triggers mutate the store, whose listeners re-render views, so each
+	// tick runs on the UI goroutine
+	triggerEngine.SetDispatch(redraw)
 	triggerEngine.StartScheduler(ctx)
 
 	// Phase 11.5: Action palette
@@ -257,6 +262,20 @@ func Bootstrap() (*Result, error) {
 		return false
 	})
 	inputRouter.SetMarkdownTreeView(markdownTree)
+
+	// Phase 11.8: Live reload — watch the document root and apply changes
+	// made outside the app (agents running `tiki exec`, editors, git). Off
+	// unless enabled by config/flag/env or toggled with Ctrl-L; stops with
+	// the background context.
+	liveReload := newLiveReload(application, tikiStoreConcrete, statuslineConfig, inputRouter)
+	inputRouter.SetLiveReload(liveReload)
+	go func() {
+		<-ctx.Done()
+		liveReload.Stop()
+	}()
+	if config.GetLiveReloadEnabled() {
+		_ = liveReload.SetEnabled(true) // a start failure is shown in the statusline
+	}
 
 	// Build Pages root: base = rootLayout, overlay = palette + quickselect
 	pages := tview.NewPages()
@@ -351,6 +370,7 @@ func Bootstrap() (*Result, error) {
 		QuickSelectConfig: quickSelectConfig,
 		ActionPalette:     actionPalette,
 		ViewContext:       viewContext,
+		LiveReload:        liveReload,
 		AppRoot:           pages,
 		Context:           ctx,
 		CancelFunc:        cancel,

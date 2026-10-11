@@ -10,6 +10,7 @@ import (
 	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/ruki/duration"
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -43,6 +44,17 @@ type TriggerEngine struct {
 	timeTriggers []TimeTriggerEntry
 	executor     *ruki.TriggerExecutor
 	gate         *TikiMutationGate
+	// dispatch runs a time-trigger tick; see SetDispatch. Nil runs it inline.
+	dispatch func(fn func())
+}
+
+// SetDispatch routes every time-trigger tick through dispatch, which must run
+// fn on the UI goroutine (tview's QueueUpdateDraw). A tick mutates the store,
+// and store listeners re-render views directly, so it must not run on the
+// scheduler's own goroutine. Call before StartScheduler. Without a dispatcher
+// (tests, headless use) ticks run inline.
+func (te *TriggerEngine) SetDispatch(dispatch func(fn func())) {
+	te.dispatch = dispatch
 }
 
 // NewTriggerEngine creates a TriggerEngine from parsed event and time triggers.
@@ -378,23 +390,64 @@ func (te *TriggerEngine) runTimeTrigger(ctx context.Context, entry TimeTriggerEn
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			te.executeTimeTrigger(ctx, entry)
+			te.runTick(ctx, entry)
 		}
 	}
 }
 
-// executeTimeTrigger runs a single tick of a time trigger: snapshot tikis, execute, persist.
+// runTick executes one tick. The trigger's query runs here, on the
+// scheduler goroutine, against a snapshot of the store; only applying the
+// result — store writes, follow-up triggers, view updates — goes through the
+// dispatcher (the UI goroutine in the app), as one batch so views re-render
+// once. A tick that changes nothing never reaches the dispatcher.
+//
+// A tiki edited between evaluation and apply is safe: the evaluated copies
+// carry the file state they were read from, so the store rejects the stale
+// write (ErrConflict, logged) instead of overwriting the newer edit; the next
+// tick evaluates again. A tick that only gets to apply after shutdown began
+// is skipped.
+func (te *TriggerEngine) runTick(ctx context.Context, entry TimeTriggerEntry) {
+	if ctx.Err() != nil {
+		return
+	}
+	result, ok := te.evaluateTimeTrigger(entry)
+	if !ok || !resultChangesStore(result) {
+		return
+	}
+	apply := func() {
+		if ctx.Err() != nil {
+			return
+		}
+		te.applyTimeTriggerResult(ctx, entry, result)
+	}
+	if te.dispatch == nil {
+		apply()
+		return
+	}
+	te.dispatch(apply)
+}
+
+// executeTimeTrigger runs a single tick inline: snapshot, execute, persist.
 func (te *TriggerEngine) executeTimeTrigger(ctx context.Context, entry TimeTriggerEntry) {
+	if result, ok := te.evaluateTimeTrigger(entry); ok {
+		te.applyTimeTriggerResult(ctx, entry, result)
+	}
+}
+
+// evaluateTimeTrigger runs the trigger's query against a snapshot of the
+// store. It only reads (ruki clones every tiki it changes), so it is safe off
+// the UI goroutine.
+func (te *TriggerEngine) evaluateTimeTrigger(entry TimeTriggerEntry) (*ruki.Result, bool) {
 	input := ruki.ExecutionInput{}
 	if timeTriggerRequiresCreateTemplate(timeTriggerForExec(entry)) {
 		tmpl, err := te.gate.ReadStore().NewTikiTemplate()
 		if err != nil {
 			slog.Error("create template failed", "trigger", entry.Description, "error", err)
-			return
+			return nil, false
 		}
 		if tmpl == nil {
 			slog.Error("create template failed", "trigger", entry.Description, "error", "store returned nil template")
-			return
+			return nil, false
 		}
 		input.CreateTemplate = tikipkg.WrapDoc(tmpl)
 	}
@@ -402,12 +455,41 @@ func (te *TriggerEngine) executeTimeTrigger(ctx context.Context, entry TimeTrigg
 	if err != nil {
 		slog.Error("time trigger action failed",
 			"trigger", entry.Description, "error", err)
+		return nil, false
+	}
+	return result, true
+}
+
+// applyTimeTriggerResult persists a tick's result. When the store supports
+// it, the change notifications of the whole tick (follow-up triggers
+// included) are coalesced into one, so views re-render once per tick.
+func (te *TriggerEngine) applyTimeTriggerResult(ctx context.Context, entry TimeTriggerEntry, result *ruki.Result) {
+	persist := func() {
+		if err := te.persistResult(ctx, result); err != nil {
+			slog.Error("time trigger persist failed",
+				"trigger", entry.Description, "error", err)
+		}
+	}
+	if batcher, ok := te.gate.ReadStore().(store.NotificationBatcher); ok {
+		batcher.BatchNotifications(persist)
 		return
 	}
-	if err := te.persistResult(ctx, result); err != nil {
-		slog.Error("time trigger persist failed",
-			"trigger", entry.Description, "error", err)
+	persist()
+}
+
+// resultChangesStore reports whether persisting result would change anything.
+func resultChangesStore(result *ruki.Result) bool {
+	switch {
+	case result == nil:
+		return false
+	case result.Update != nil:
+		return len(result.Update.Updated) > 0
+	case result.Create != nil:
+		return result.Create.Tiki != nil
+	case result.Delete != nil:
+		return len(result.Delete.Deleted) > 0
 	}
+	return false
 }
 
 func triggerTimingEvent(entry triggerEntry) (string, string, bool) {

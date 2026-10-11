@@ -281,3 +281,150 @@ func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 		t.Fatalf("expected scrollOffset to remain %d, got %d", expectedScrollOffset, lane.scrollOffset)
 	}
 }
+
+// laneBoard is a mutable per-lane tiki list standing in for the
+// controller's lane filters.
+type laneBoard struct {
+	lanes [][]*tikipkg.Tiki
+}
+
+func (b *laneBoard) get(lane int) []*tikipkg.Tiki { return b.lanes[lane] }
+
+func boardTiki(id string) *tikipkg.Tiki {
+	tk := tikipkg.New()
+	tk.SetID(id)
+	tk.SetTitle("tiki " + id)
+	return tk
+}
+
+func newSelectionTestView(t *testing.T, board *laneBoard, pc *model.PluginConfig) *PluginView {
+	t.Helper()
+	lanes := make([]plugin.TikiLane, len(board.lanes))
+	cols := make([]int, len(board.lanes))
+	for i := range lanes {
+		lanes[i] = plugin.TikiLane{Name: fmt.Sprintf("Lane%d", i), Columns: 1}
+		cols[i] = 1
+	}
+	pluginDef := &plugin.WorkflowPlugin{
+		BasePlugin: plugin.BasePlugin{Name: pc.GetPluginName()},
+		Lanes:      lanes,
+		Layout:     testPluginLayout(t),
+	}
+	return NewPluginView(store.NewInMemoryStore(), pc, pluginDef, board.get, nil, controller.PluginViewActions(), true)
+}
+
+func newSelectionConfig(lanes int) *model.PluginConfig {
+	pc := model.NewPluginConfig("Board")
+	cols := make([]int, lanes)
+	for i := range cols {
+		cols[i] = 1
+	}
+	pc.SetLaneLayout(cols, nil)
+	return pc
+}
+
+func TestPluginViewKeepsSelectedTikiWhenOneIsInsertedAbove(t *testing.T) {
+	board := &laneBoard{lanes: [][]*tikipkg.Tiki{{boardTiki("AAAAAA"), boardTiki("BBBBBB"), boardTiki("CCCCCC")}}}
+	pc := newSelectionConfig(1)
+	pv := newSelectionTestView(t, board, pc)
+	pc.SetSelectedIndexForLane(0, 1)
+	pv.refresh()
+	if got := pv.GetSelectedID(); got != "BBBBBB" {
+		t.Fatalf("precondition: selected %s", got)
+	}
+
+	board.lanes[0] = append([]*tikipkg.Tiki{boardTiki("NEWNEW")}, board.lanes[0]...)
+	pv.refresh() // a store change
+
+	if got := pv.GetSelectedID(); got != "BBBBBB" {
+		t.Errorf("selected %s after an insert above, want BBBBBB", got)
+	}
+}
+
+func TestPluginViewUserMoveIsNotUndone(t *testing.T) {
+	board := &laneBoard{lanes: [][]*tikipkg.Tiki{{boardTiki("AAAAAA"), boardTiki("BBBBBB"), boardTiki("CCCCCC")}}}
+	pc := newSelectionConfig(1)
+	pv := newSelectionTestView(t, board, pc)
+	pc.SetSelectedIndexForLane(0, 1)
+	pv.refresh()
+
+	pc.SetSelectedIndexForLane(0, 2) // the user moves down
+	pv.refresh()
+
+	if got := pv.GetSelectedID(); got != "CCCCCC" {
+		t.Errorf("selected %s, want the user's choice CCCCCC", got)
+	}
+}
+
+func TestPluginViewSelectionSetWhileHiddenSurvives(t *testing.T) {
+	board := &laneBoard{lanes: [][]*tikipkg.Tiki{{boardTiki("AAAAAA"), boardTiki("BBBBBB"), boardTiki("CCCCCC")}}}
+	pc := newSelectionConfig(1)
+	pv := newSelectionTestView(t, board, pc)
+	pc.SetSelectedIndexForLane(0, 1)
+	pv.refresh()
+
+	// while another view is shown, a controller selects index 0 and the
+	// store changes; coming back must honour the controller's choice
+	pc.SetSelectedIndexForLane(0, 0)
+	board.lanes[0] = append([]*tikipkg.Tiki{boardTiki("NEWNEW")}, board.lanes[0]...)
+	back := newSelectionTestView(t, board, pc)
+
+	if got := back.GetSelectedID(); got != "NEWNEW" {
+		t.Errorf("selected %s, want NEWNEW at the controller-set index", got)
+	}
+}
+
+func TestPluginViewRestoresSelectionAcrossViewRebuild(t *testing.T) {
+	board := &laneBoard{lanes: [][]*tikipkg.Tiki{{boardTiki("AAAAAA"), boardTiki("BBBBBB"), boardTiki("CCCCCC")}}}
+	pc := newSelectionConfig(1)
+	pv := newSelectionTestView(t, board, pc)
+	pc.SetSelectedIndexForLane(0, 1)
+	pv.refresh()
+
+	// an external insert lands while the user is in a detail view; the
+	// board view is rebuilt on the way back
+	board.lanes[0] = append([]*tikipkg.Tiki{boardTiki("NEWNEW")}, board.lanes[0]...)
+	back := newSelectionTestView(t, board, pc)
+
+	if got := back.GetSelectedID(); got != "BBBBBB" {
+		t.Errorf("selected %s after returning, want BBBBBB", got)
+	}
+}
+
+func TestPluginViewDeletedSelectionClamps(t *testing.T) {
+	board := &laneBoard{lanes: [][]*tikipkg.Tiki{{boardTiki("AAAAAA"), boardTiki("BBBBBB"), boardTiki("CCCCCC")}}}
+	pc := newSelectionConfig(1)
+	pv := newSelectionTestView(t, board, pc)
+	pc.SetSelectedIndexForLane(0, 2)
+	pv.refresh()
+
+	board.lanes[0] = board.lanes[0][:2]
+	pv.refresh()
+
+	if got := pv.GetSelectedID(); got != "BBBBBB" {
+		t.Errorf("selected %s after deleting the last tiki, want BBBBBB", got)
+	}
+}
+
+func TestPluginViewSelectionStaysInLaneWhenTikiMovesAway(t *testing.T) {
+	board := &laneBoard{lanes: [][]*tikipkg.Tiki{
+		{boardTiki("AAAAAA"), boardTiki("BBBBBB"), boardTiki("CCCCCC")},
+		{},
+	}}
+	pc := newSelectionConfig(2)
+	pv := newSelectionTestView(t, board, pc)
+	pc.SetSelectedIndexForLane(0, 1)
+	pv.refresh()
+
+	b := board.lanes[0][1]
+	board.lanes[0] = []*tikipkg.Tiki{board.lanes[0][0], board.lanes[0][2]}
+	board.lanes[1] = []*tikipkg.Tiki{b}
+	pv.refresh()
+
+	if lane := pc.GetSelectedLane(); lane != 0 {
+		t.Errorf("selection followed the tiki to lane %d, want to stay in lane 0", lane)
+	}
+	if got := pv.GetSelectedID(); got != "CCCCCC" {
+		t.Errorf("selected %s, want CCCCCC at the same index", got)
+	}
+}

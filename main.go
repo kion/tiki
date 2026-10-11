@@ -369,5 +369,6 @@ Usage:
 
 Options:
   --log-level <level>   Set log level (debug, info, warn, error)
+  --live-reload         Refresh views when files change outside tiki
 `)
 }

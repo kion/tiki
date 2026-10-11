@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1315,5 +1316,91 @@ func TestTriggerEngine_ExecuteTimeTrigger_PersistError(t *testing.T) {
 	status, _, _ := persisted.StringField("status")
 	if status != "ready" {
 		t.Errorf("status should be unchanged, got %q", status)
+	}
+}
+
+// TestTriggerEngine_TimeTriggerRunsThroughDispatch pins the UI-thread fix:
+// with a dispatcher installed, every tick (snapshot, execute, persist) runs
+// inside it, so store listeners fire on the UI goroutine.
+func TestTriggerEngine_TimeTriggerRunsThroughDispatch(t *testing.T) {
+	p := ruki.NewParser(testTriggerSchema{})
+	tt, err := p.ParseTimeTrigger(`every 1sec delete where status = "done"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	doneTk := newTiki("DONE01", "done tiki", "done", "story", 3)
+	gate, s := newGateWithStoreAndTikis(doneTk)
+	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
+		{Description: "cleanup", Trigger: tt},
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
+	engine.RegisterWithGate(gate)
+
+	ticks := make(chan struct{}, 16)
+	var mu sync.Mutex
+	inDispatch := false
+	s.AddListener(func() {
+		mu.Lock()
+		defer mu.Unlock()
+		if !inDispatch {
+			t.Error("store listener fired outside the dispatcher")
+		}
+	})
+	engine.SetDispatch(func(fn func()) {
+		mu.Lock()
+		inDispatch = true
+		mu.Unlock()
+		fn()
+		mu.Lock()
+		inDispatch = false
+		mu.Unlock()
+		ticks <- struct{}{}
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go engine.runTimeTrigger(ctx, engine.timeTriggers[0], 20*time.Millisecond)
+
+	select {
+	case <-ticks:
+	case <-time.After(5 * time.Second):
+		t.Fatal("tick never went through the dispatcher")
+	}
+	cancel()
+	if s.GetTiki("DONE01") != nil {
+		t.Error("dispatched tick did not run the trigger")
+	}
+}
+
+// TestTriggerEngine_DispatchedTickSkippedAfterCancel covers a tick queued on
+// the UI goroutine that only runs after shutdown began: it must not mutate.
+func TestTriggerEngine_DispatchedTickSkippedAfterCancel(t *testing.T) {
+	p := ruki.NewParser(testTriggerSchema{})
+	tt, err := p.ParseTimeTrigger(`every 1sec delete where status = "done"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	doneTk := newTiki("DONE01", "done tiki", "done", "story", 3)
+	gate, s := newGateWithStoreAndTikis(doneTk)
+	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
+		{Description: "cleanup", Trigger: tt},
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
+	engine.RegisterWithGate(gate)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	queued := make(chan func(), 1)
+	engine.SetDispatch(func(fn func()) { queued <- fn })
+	go engine.runTimeTrigger(ctx, engine.timeTriggers[0], 20*time.Millisecond)
+
+	var fn func()
+	select {
+	case fn = <-queued:
+	case <-time.After(5 * time.Second):
+		t.Fatal("nothing dispatched")
+	}
+	cancel()
+	fn()
+
+	if s.GetTiki("DONE01") == nil {
+		t.Error("tick dispatched before shutdown ran after cancellation")
 	}
 }

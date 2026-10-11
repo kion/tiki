@@ -18,6 +18,8 @@ cd /tmp && tiki demo
 Move a tiki around the board with `Shift ←/Shift →`.
 Press `?` to open the Action Palette — it lists all available actions with their shortcuts.
 Press `F2` to open the Docs view and follow links with `Tab/Enter`.
+Press `Ctrl-L` to toggle live reload: views refresh on their own when documents change outside
+tiki, for example while an AI agent works on them (start with it on via `tiki --live-reload`).
 
 ## AI skills
 Copy the bundled skill into your AI tool's skills directory to enable

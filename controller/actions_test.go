@@ -330,11 +330,11 @@ func TestDefaultGlobalActions(t *testing.T) {
 	registry := DefaultGlobalActions()
 	actions := registry.GetActions()
 
-	if len(actions) != 7 {
-		t.Errorf("expected 7 global actions, got %d", len(actions))
+	if len(actions) != 8 {
+		t.Errorf("expected 8 global actions, got %d", len(actions))
 	}
 
-	expectedActions := []ActionID{ActionBack, ActionQuit, ActionRefresh, ActionToggleHeader, ActionOpenPalette, ActionOpenMarkdownTree, ActionEditWorkflow}
+	expectedActions := []ActionID{ActionBack, ActionQuit, ActionRefresh, ActionToggleLiveReload, ActionToggleHeader, ActionOpenPalette, ActionOpenMarkdownTree, ActionEditWorkflow}
 	for i, expected := range expectedActions {
 		if i >= len(actions) {
 			t.Errorf("missing action at index %d: want %v", i, expected)
@@ -1203,5 +1203,20 @@ func TestToHeaderActions_MoveTikiVisibleWhenLaneActions(t *testing.T) {
 	}
 	if !sawLeft || !sawRight {
 		t.Fatalf("move-tiki actions must remain in header on a board with lane actions (left=%v right=%v)", sawLeft, sawRight)
+	}
+}
+
+func TestDefaultGlobalActions_LiveReloadOnCtrlL(t *testing.T) {
+	registry := DefaultGlobalActions()
+
+	a := registry.Match(tcell.NewEventKey(tcell.KeyCtrlL, 0, tcell.ModCtrl))
+	if a == nil || a.ID != ActionToggleLiveReload {
+		t.Fatalf("Ctrl-L matched %v, want ActionToggleLiveReload", a)
+	}
+	if a.Label != "Live Reload" {
+		t.Errorf("label = %q, want %q", a.Label, "Live Reload")
+	}
+	if !a.ShowInHeader || a.HideFromPalette {
+		t.Errorf("live reload must show in header and palette: %+v", a)
 	}
 }

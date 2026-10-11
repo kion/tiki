@@ -83,6 +83,37 @@ func (d *LoadDiagnostics) record(path string, reason LoadReason, msg string) {
 	d.rejections = append(d.rejections, LoadRejection{Path: path, Reason: reason, Message: msg})
 }
 
+// hasPath reports whether path (in any form) has a recorded rejection.
+func (d *LoadDiagnostics) hasPath(path string) bool {
+	if d == nil {
+		return false
+	}
+	want := absPathOrSelf(path)
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, r := range d.rejections {
+		if absPathOrSelf(r.Path) == want {
+			return true
+		}
+	}
+	return false
+}
+
+// hasReason reports whether any rejection has the given reason.
+func (d *LoadDiagnostics) hasReason(reason LoadReason) bool {
+	if d == nil {
+		return false
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, r := range d.rejections {
+		if r.Reason == reason {
+			return true
+		}
+	}
+	return false
+}
+
 // Rejections returns a copy of all rejections sorted by path. Safe to call
 // after load completes; returns nil when no rejections were recorded.
 func (d *LoadDiagnostics) Rejections() []LoadRejection {

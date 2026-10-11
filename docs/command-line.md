@@ -185,3 +185,4 @@ See [Quick capture](quick-capture.md) for more examples.
 | `--help`, `-h` | Show usage information |
 | `--version`, `-v` | Show version, commit, and build date |
 | `--log-level <level>` | Set log level: `debug`, `info`, `warn`, `error` |
+| `--live-reload` | Start with live reload on: views refresh automatically when documents change outside tiki (e.g. an AI agent running `tiki exec`). Toggle it in the app with `Ctrl-L`. Use `--live-reload=false` to override a config that turns it on. |

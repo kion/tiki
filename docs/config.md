@@ -137,6 +137,12 @@ ai:
 store:
   name: tiki                 # Store engine name
 
+# Live reload — refresh views when documents change outside tiki
+liveReload:
+  enabled: false             # Start with live reload on (default: false)
+                             # Toggle at runtime with Ctrl-L or the action palette
+                             # Flag: --live-reload; env: TIKI_LIVERELOAD_ENABLED
+
 # Tiki identity — used by `user()` and task attribution
 identity:
   name: "Your Name"          # Display name for the current user
@@ -169,6 +175,59 @@ consistently. The git layer is subject to the same promotion rule.
 When none of those sources resolve, `user()` returns an "unavailable" error
 and the "User" header stat displays `n/a`. Setting the `identity` block is
 the recommended way to enable `user()` when the scan root is not a git repository.
+
+## Live reload
+
+Live reload keeps tiki's views up to date when documents change outside the app, so you don't
+need to press `r`. Typical sources are an AI agent running `tiki exec`, an editor, or `git pull`.
+
+**Turning it on and off.** It is off by default. Turn it on at startup with any of:
+
+- the `--live-reload` flag
+- `liveReload.enabled: true` in `config.yaml`
+- the `TIKI_LIVERELOAD_ENABLED=true` environment variable
+
+While tiki runs, toggle it with `Ctrl-L`, or pick "Live Reload" in the action palette (`Ctrl-A`).
+Use the palette if your terminal setup takes `Ctrl-L` for itself (for example tmux with
+vim-tmux-navigator). The statusline shows `● live` while it is on.
+
+How it behaves:
+
+- **Timing.** Changes show up about 0.2–1 s after the files settle.
+- **Your own edits.** Saves you make in tiki are recognised and not reloaded a second time.
+- **Selection.** The selected card stays selected when other tikis are added or removed around it.
+- **Detail view.** It re-renders only when the tiki it shows, or a tiki it links to, changes.
+- **Open overlays.** While the action palette, quick select, file tree, or a search or action input
+  is open, changes wait until it closes.
+- **Editing conflicts.** If the tiki you are editing changes on disk, the statusline warns you.
+  Saving would conflict, so press `Esc` and reopen it.
+- **Full reload.** `r` still does a full reload. Unlike live reload, it also refreshes the creation
+  time and author that tiki reads from git history.
+
+Limitations:
+
+- **Search results.** Active search results are a snapshot. Newly matching tikis appear after you
+  search again.
+- **Git metadata.** A tiki that is new to tiki (for example one that arrived with `git pull`) shows
+  creation time and author from the file until the next `r`.
+- **Not reloaded.** Changes to `workflow.yaml` and `config.yaml` still need a restart. Wiki views
+  and the branch shown in the statusline are not refreshed.
+- **Network drives.** Network filesystems and some WSL `/mnt/*` mounts don't report file changes,
+  so live reload sees nothing there.
+- **Large directory trees.** Live reload watches every directory tiki scans: all non-hidden,
+  non-ignored directories under the working directory. In very large trees:
+  - **Linux** may hit the inotify watch limit (`fs.inotify.max_user_watches`). Live reload then
+    reports the error and stays off.
+  - **macOS** keeps one open file per entry in each watched directory. A big tree can use up the
+    open-file limit, and later saves or git commands then fail with "too many open files".
+  - **Windows** holds a handle on every watched directory. While tiki runs, this may stop other
+    programs from renaming or deleting those directories.
+
+  Add large generated or vendored directories to `.gitignore` or `.tikiignore` to keep them out of
+  the watch set, or leave live reload off in such trees.
+
+If the system drops file events, for example during a very large checkout, tiki rescans the tree
+and picks up the result.
 
 ### workflow.yaml
 

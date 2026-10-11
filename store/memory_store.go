@@ -24,6 +24,8 @@ type InMemoryStore struct {
 	listeners      map[int]ChangeListener
 	nextListenerID int
 	idGenerator    func() string // injectable for testing; defaults to config.GenerateRandomID
+	batchDepth     int           // open BatchNotifications calls
+	batchDirty     bool          // a change was notified during the open batch
 }
 
 func normalizeTikiID(id string) string {
@@ -59,13 +61,39 @@ func (s *InMemoryStore) RemoveListener(id int) {
 }
 
 // notifyListeners calls all registered listeners
+// BatchNotifications runs fn and coalesces the change notifications it
+// causes into one, delivered when the outermost batch ends.
+func (s *InMemoryStore) BatchNotifications(fn func()) {
+	s.mu.Lock()
+	s.batchDepth++
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		s.batchDepth--
+		flush := s.batchDepth == 0 && s.batchDirty
+		if flush {
+			s.batchDirty = false
+		}
+		s.mu.Unlock()
+		if flush {
+			s.notifyListeners()
+		}
+	}()
+	fn()
+}
+
 func (s *InMemoryStore) notifyListeners() {
-	s.mu.RLock()
+	s.mu.Lock()
+	if s.batchDepth > 0 {
+		s.batchDirty = true
+		s.mu.Unlock()
+		return
+	}
 	listeners := make([]ChangeListener, 0, len(s.listeners))
 	for _, l := range s.listeners {
 		listeners = append(listeners, l)
 	}
-	s.mu.RUnlock()
+	s.mu.Unlock()
 
 	for _, l := range listeners {
 		l()

@@ -67,37 +67,47 @@ func (s *TikiStore) loadLocked() error {
 	idIndex := document.NewIndex()
 	for _, filePath := range docPaths {
 		tk, err := s.loadTikiFile(filePath, authorMap, lastCommitMap)
-		if err != nil {
-			if errors.Is(err, errSkipNoID) {
-				// id-less file: ordinary wiki content, not a managed document
-				// and not a diagnostic.
-				slog.Debug("skipping id-less markdown file", "file", filePath)
-				continue
-			}
-			// classify via *loadError; fall back to LoadReasonOther.
-			reason := LoadReasonOther
-			var le *loadError
-			if errors.As(err, &le) {
-				reason = le.reason
-			}
-			s.diagnostics.record(filePath, reason, err.Error())
-			slog.Error("failed to load tiki file", "file", filePath, "reason", reason, "error", err)
-			continue
-		}
-
-		if err := idIndex.Register(tk.ID(), filePath); err != nil {
-			// duplicate id: refuse to silently pick a winner. Both files stay
-			// on disk; assign a fresh bare id to all but one file to resolve.
-			s.diagnostics.record(filePath, LoadReasonDuplicateID, err.Error())
-			slog.Error("duplicate document id detected, skipping later occurrence",
-				"tiki_id", tk.ID(), "file", filePath, "error", err)
-			continue
-		}
-		s.tikis[tk.ID()] = tk
-		slog.Debug("loaded tiki", "tiki_id", tk.ID(), "file", filePath)
+		admitDocument(filePath, tk, err, idIndex, s.diagnostics, s.tikis)
 	}
 	slog.Info("finished loading tikis", "num_tikis", len(s.tikis), "rejections", len(s.diagnostics.Rejections()))
 	return nil
+}
+
+// admitDocument applies the full-load rules to one walked file: id-less
+// files are skipped silently (plain wiki content), load failures and
+// duplicate ids are recorded in diags, and accepted tikis are indexed into
+// tikis. Files must be offered in sorted path order so the first path wins a
+// duplicate id. Shared by loadLocked and reconcileLocked so both apply
+// identical rules.
+func admitDocument(filePath string, tk *tiki.Tiki, loadErr error, idIndex *document.Index, diags *LoadDiagnostics, tikis map[string]*tiki.Tiki) {
+	if loadErr != nil {
+		if errors.Is(loadErr, errSkipNoID) {
+			// id-less file: ordinary wiki content, not a managed document
+			// and not a diagnostic.
+			slog.Debug("skipping id-less markdown file", "file", filePath)
+			return
+		}
+		// classify via *loadError; fall back to LoadReasonOther.
+		reason := LoadReasonOther
+		var le *loadError
+		if errors.As(loadErr, &le) {
+			reason = le.reason
+		}
+		diags.record(filePath, reason, loadErr.Error())
+		slog.Error("failed to load tiki file", "file", filePath, "reason", reason, "error", loadErr)
+		return
+	}
+
+	if err := idIndex.Register(tk.ID(), filePath); err != nil {
+		// duplicate id: refuse to silently pick a winner. Both files stay
+		// on disk; assign a fresh bare id to all but one file to resolve.
+		diags.record(filePath, LoadReasonDuplicateID, err.Error())
+		slog.Error("duplicate document id detected, skipping later occurrence",
+			"tiki_id", tk.ID(), "file", filePath, "error", err)
+		return
+	}
+	tikis[tk.ID()] = tk
+	slog.Debug("loaded tiki", "tiki_id", tk.ID(), "file", filePath)
 }
 
 // loadTikiFile parses a single markdown file into a *tiki.Tiki. Returns a
@@ -125,6 +135,7 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 		return nil, err
 	}
 	parsed.t.LoadedMtime = info.ModTime()
+	parsed.t.LoadedSize = info.Size()
 
 	// Load is permissive: stale enum values, list-shape mismatches, and
 	// other coercion failures are recorded by buildFieldsFromFrontmatter as
@@ -374,8 +385,14 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 	// Only check if tiki was previously loaded (LoadedMtime is not zero)
 	if !tk.LoadedMtime.IsZero() {
 		if info, err := os.Stat(path); err == nil {
-			if !info.ModTime().Equal(tk.LoadedMtime) {
-				slog.Warn("tiki modified externally, conflict detected", "tiki_id", tk.ID(), "path", path, "loaded_mtime", tk.LoadedMtime, "file_mtime", info.ModTime())
+			// size too: on coarse-timestamp filesystems a competing write can
+			// leave the mtime unchanged. A zero LoadedSize means "not
+			// recorded" (a loaded or saved document is never empty).
+			sizeChanged := tk.LoadedSize > 0 && info.Size() != tk.LoadedSize
+			if !info.ModTime().Equal(tk.LoadedMtime) || sizeChanged {
+				slog.Warn("tiki modified externally, conflict detected", "tiki_id", tk.ID(), "path", path,
+					"loaded_mtime", tk.LoadedMtime, "file_mtime", info.ModTime(),
+					"loaded_size", tk.LoadedSize, "file_size", info.Size())
 				return ErrConflict
 			}
 		} else if !os.IsNotExist(err) {
@@ -418,14 +435,10 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 	// Update LoadedMtime and Path after successful save
 	if info, err := os.Stat(path); err == nil {
 		tk.LoadedMtime = info.ModTime()
+		tk.LoadedSize = info.Size()
+		// UpdatedAt is max(file mtime, last commit time); the file was just
+		// written, so no commit can be newer — no git lookup needed.
 		tk.SetUpdatedAt(info.ModTime())
-		if s.gitUtil != nil {
-			if lastCommit, err := s.gitUtil.LastCommitTime(path); err == nil {
-				if lastCommit.After(tk.UpdatedAt()) {
-					tk.SetUpdatedAt(lastCommit)
-				}
-			}
-		}
 		if absPath, absErr := filepath.Abs(path); absErr == nil {
 			tk.SetPath(absPath)
 		} else {

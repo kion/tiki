@@ -274,3 +274,11 @@ type StatsProvider interface {
 type NavigationProvider interface {
 	ShowNavigation() bool
 }
+
+// LiveReloadToggler turns live reload (watching documents for external
+// changes) on and off. Implementations report their own state and errors to
+// the user. Called on the UI goroutine.
+type LiveReloadToggler interface {
+	Enabled() bool
+	SetEnabled(on bool) error
+}

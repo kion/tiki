@@ -61,6 +61,12 @@ type Config struct {
 		Name string `mapstructure:"name"` // backend name — only "tiki" supported
 	} `mapstructure:"store"`
 
+	// Live reload configuration — watch the document root and refresh views
+	// when files change outside the app
+	LiveReload struct {
+		Enabled bool `mapstructure:"enabled"`
+	} `mapstructure:"liveReload"`
+
 	// Identity configuration — preferred source for `user()` and UI attribution
 	Identity struct {
 		Name  string `mapstructure:"name"`  // display name for the current user
@@ -142,6 +148,9 @@ func setDefaults() {
 	// Store defaults
 	viper.SetDefault("store.name", "tiki")
 
+	// Live reload defaults — off; also lets TIKI_LIVERELOAD_ENABLED bind
+	viper.SetDefault("liveReload.enabled", false)
+
 	// Identity defaults — empty so env overrides (TIKI_IDENTITY_*) bind correctly
 	viper.SetDefault("identity.name", "")
 	viper.SetDefault("identity.email", "")
@@ -154,12 +163,16 @@ func bindFlags() error {
 	flagSet.SetOutput(io.Discard)
 
 	flagSet.String("log-level", "", "Log level (debug, info, warn, error)")
+	flagSet.Bool("live-reload", false, "Watch files and refresh views when they change outside the app")
 
 	if err := flagSet.Parse(os.Args[1:]); err != nil {
 		return err
 	}
 
-	return viper.BindPFlag("logging.level", flagSet.Lookup("log-level"))
+	if err := viper.BindPFlag("logging.level", flagSet.Lookup("log-level")); err != nil {
+		return err
+	}
+	return viper.BindPFlag("liveReload.enabled", flagSet.Lookup("live-reload"))
 }
 
 // GetConfig returns the loaded configuration
@@ -206,6 +219,12 @@ func readWorkflowFile(path string) (*workflowFileData, error) {
 		return nil, fmt.Errorf("parsing workflow.yaml: %w", err)
 	}
 	return &wf, nil
+}
+
+// GetLiveReloadEnabled reports whether live reload should start enabled
+// (config liveReload.enabled, env TIKI_LIVERELOAD_ENABLED, flag --live-reload).
+func GetLiveReloadEnabled() bool {
+	return viper.GetBool("liveReload.enabled")
 }
 
 // GetHeaderVisible returns the header visibility setting
