@@ -190,13 +190,15 @@ func NewTestApp(t *testing.T) *TestApp {
 	quickSelectBox.AddItem(quickSelect.GetPrimitive(), palette.PaletteMinWidth, 0, true)
 	pages.AddPage("quickselect", quickSelectBox, true, false)
 
+	// read through ta: LoadPlugins swaps in a palette bound to its new router
+	var ta *TestApp
 	var previousFocus tview.Primitive
 	paletteConfig.AddListener(func() {
 		if paletteConfig.IsVisible() {
 			previousFocus = app.GetFocus()
-			actionPalette.OnShow()
+			ta.actionPalette.OnShow()
 			pages.ShowPage("palette")
-			app.SetFocus(actionPalette.GetFilterInput())
+			app.SetFocus(ta.actionPalette.GetFilterInput())
 		} else {
 			pages.HidePage("palette")
 			if previousFocus != nil {
@@ -251,7 +253,7 @@ func NewTestApp(t *testing.T) *TestApp {
 
 	// Note: Do NOT call app.Run() - we use app.Draw() + screen.Show() for synchronous testing
 
-	ta := &TestApp{
+	ta = &TestApp{
 		App:               app,
 		Screen:            screen,
 		RootLayout:        rootLayout,

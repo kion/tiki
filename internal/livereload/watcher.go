@@ -165,7 +165,7 @@ func (d *dirWatcher) addTree(dir string) ([]string, error) {
 				return filepath.SkipDir
 			}
 			if firstErr == nil {
-				firstErr = fmt.Errorf("watching %s: %w", path, err)
+				firstErr = explainWatchErr(fmt.Errorf("watching %s: %w", path, err))
 			}
 			return filepath.SkipDir
 		}
@@ -207,7 +207,7 @@ func (d *dirWatcher) resync() {
 		}
 		if err := d.w.Add(p); err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
-				d.warnAddFailure(err)
+				d.warnAddFailure(explainWatchErr(err))
 			}
 			continue
 		}

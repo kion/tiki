@@ -236,7 +236,9 @@ func (cv *ConfigurableDetailView) checkExternalEdit() {
 		return // draft: nothing on disk yet
 	}
 	stored := cv.tikiStore.GetTiki(cv.tikiID)
-	if stored != nil && stored.LoadedMtime.Equal(editing.LoadedMtime) {
+	// size too, as in the store's save check: coarse timestamps can hide a write
+	sizeChanged := stored != nil && editing.LoadedSize > 0 && stored.LoadedSize != editing.LoadedSize
+	if stored != nil && stored.LoadedMtime.Equal(editing.LoadedMtime) && !sizeChanged {
 		return
 	}
 	if cv.externalReported && cv.externalReportedStore == stored {

@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -22,6 +23,7 @@ type fakeTarget struct {
 	checked    chan []string
 	external   func(string) bool
 	result     func(paths []string) tikistore.ReloadResult
+	reloadErr  error
 }
 
 func newFakeTarget() *fakeTarget {
@@ -48,7 +50,7 @@ func (f *fakeTarget) ReloadPaths(paths []string) (tikistore.ReloadResult, error)
 		res = f.result(paths)
 	}
 	f.reloaded <- paths
-	return res, nil
+	return res, f.reloadErr
 }
 
 func (f *fakeTarget) Reconcile() (tikistore.ReloadResult, error) {
@@ -477,5 +479,28 @@ func TestService_InAppWritesAreNotEchoed(t *testing.T) {
 	}
 	if _, err := os.Stat(pathA); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestService_FailedBatchRedrawsSoTheErrorShows(t *testing.T) {
+	h := newHarness(t, nil)
+	h.target.reloadErr = errors.New("disk on fire")
+	mustEnable(t, h)
+
+	h.source.push("/a.md")
+	recvPaths(t, h.target.reloaded)
+
+	select {
+	case <-h.redrawn:
+	case <-time.After(5 * time.Second):
+		t.Fatal("no redraw after a failed batch: the error would only show on the next keypress")
+	}
+	select {
+	case err := <-h.errs:
+		if !strings.Contains(err.Error(), "disk on fire") {
+			t.Errorf("reported %v", err)
+		}
+	default:
+		t.Error("error not reported")
 	}
 }

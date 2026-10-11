@@ -219,7 +219,8 @@ func (s *Service) applyOnUI(r *run) {
 	if len(res.Retry) > 0 {
 		r.batch.add(res.Retry...)
 	}
-	if res.Changed && s.opts.Redraw != nil {
+	// an error is a statusline change too
+	if (res.Changed || err != nil) && s.opts.Redraw != nil {
 		s.opts.Redraw()
 	}
 }

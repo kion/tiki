@@ -1,9 +1,12 @@
 package tikistore
 
 import (
+	"bytes"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -712,5 +715,110 @@ func writeRawFile(t *testing.T, path, content string) {
 	//nolint:gosec // G306: test temp file
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
+	}
+}
+
+// Docusaurus-style frontmatter: `id: intro` is not a tiki id.
+const foreignIDDoc = "---\nid: intro\ntitle: Intro\n---\nbody\n"
+
+func TestReloadPaths_RejectedDocEditedWithoutReconcile(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "intro.md")
+	writeRawFile(t, path, foreignIDDoc)
+	s, _, notified := newReloadStore(t, root)
+	if !s.LoadDiagnostics().hasPath(path) {
+		t.Fatal("precondition: foreign id should be rejected at load")
+	}
+
+	writeExternal(t, path, "---\nid: intro\ntitle: Intro, edited\n---\nbody\n")
+	res := mustReload(t, s, path)
+
+	if res.Reconciled {
+		t.Error("saving a still-rejected doc triggered a full reconcile")
+	}
+	if res.Changed || *notified != 0 {
+		t.Errorf("still-rejected doc changed the store: %+v, notified %d", res, *notified)
+	}
+	rejections := s.LoadDiagnostics().Rejections()
+	if len(rejections) != 1 || rejections[0].Path != path || rejections[0].Reason != LoadReasonInvalidID {
+		t.Errorf("rejections = %+v, want the one invalid-id rejection", rejections)
+	}
+}
+
+func TestReloadPaths_RejectedDocFixedIsAddedWithoutReconcile(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "intro.md")
+	writeRawFile(t, path, foreignIDDoc)
+	s, _, _ := newReloadStore(t, root)
+
+	writeExternal(t, path, docContent("INTRO1", "Intro"))
+	res := mustReload(t, s, path)
+
+	if res.Reconciled {
+		t.Error("fixing a rejected doc triggered a full reconcile")
+	}
+	if got := sortedIDs(res.Added); len(got) != 1 || got[0] != "INTRO1" {
+		t.Errorf("Added = %v, want [INTRO1]", got)
+	}
+	if s.LoadDiagnostics().HasIssues() {
+		t.Errorf("rejection not cleared: %v", s.LoadDiagnostics().Rejections())
+	}
+}
+
+func TestReloadPaths_RejectedDocRemovedOrIDLessClearsRejection(t *testing.T) {
+	root := t.TempDir()
+	gone := filepath.Join(root, "gone.md")
+	plain := filepath.Join(root, "plain.md")
+	writeRawFile(t, gone, foreignIDDoc)
+	writeRawFile(t, plain, foreignIDDoc)
+	s, _, _ := newReloadStore(t, root)
+
+	if err := os.Remove(gone); err != nil {
+		t.Fatal(err)
+	}
+	writeExternal(t, plain, "# just docs now\n")
+	res := mustReload(t, s, gone, plain)
+
+	if res.Reconciled {
+		t.Error("clearing rejections triggered a full reconcile")
+	}
+	if s.LoadDiagnostics().HasIssues() {
+		t.Errorf("rejections not cleared: %v", s.LoadDiagnostics().Rejections())
+	}
+}
+
+func TestRescansLogOnlyNewRejections(t *testing.T) {
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelError})))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+	errorLines := func() int { return strings.Count(buf.String(), "level=ERROR") }
+
+	root := t.TempDir()
+	writeRawFile(t, filepath.Join(root, "intro.md"), foreignIDDoc)
+	writeDoc(t, filepath.Join(root, "a.md"), "AAAAAA", "a")
+	writeDoc(t, filepath.Join(root, "dup.md"), "AAAAAA", "duplicate")
+	s, _, _ := newReloadStore(t, root)
+	if errorLines() != 2 {
+		t.Fatalf("initial load logged %d errors, want 2 (foreign id, duplicate)", errorLines())
+	}
+
+	buf.Reset()
+	if _, err := s.Reconcile(); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Reload(); err != nil {
+		t.Fatal(err)
+	}
+	if n := errorLines(); n != 0 {
+		t.Errorf("rescans re-logged known rejections: %d error lines\n%s", n, buf.String())
+	}
+
+	writeRawFile(t, filepath.Join(root, "other.md"), "---\nid: other\n---\n")
+	if _, err := s.Reconcile(); err != nil {
+		t.Fatal(err)
+	}
+	if n := errorLines(); n != 1 {
+		t.Errorf("a new rejection logged %d error lines, want 1", n)
 	}
 }

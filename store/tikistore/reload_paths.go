@@ -107,11 +107,23 @@ func (s *TikiStore) reloadPathsLocked(scope *document.Scope, paths []string) (Re
 
 	for _, path := range normalizePaths(paths) {
 		old := byPath[path]
+		prevReason, rejected := s.diagnostics.reasonFor(path)
+		if rejected && prevReason == LoadReasonDuplicateID {
+			needReconcile = true // which file wins depends on the others
+			continue
+		}
+		// safe to clear early: a fallback Reconcile rebuilds all rejections anyway
+		dropRejection := func() {
+			if rejected {
+				s.diagnostics.clearPath(path)
+			}
+		}
 
 		if !scope.IncludeFile(path) {
 			if old != nil {
 				removals = append(removals, old)
 			}
+			dropRejection()
 			continue
 		}
 
@@ -119,9 +131,8 @@ func (s *TikiStore) reloadPathsLocked(scope *document.Scope, paths []string) (Re
 		if statErr != nil || info.IsDir() {
 			if old != nil {
 				removals = append(removals, old)
-			} else if s.diagnostics.hasPath(path) {
-				needReconcile = true // to clear its stale rejection
 			}
+			dropRejection()
 			s.clearDeferral(path)
 			continue
 		}
@@ -138,6 +149,7 @@ func (s *TikiStore) reloadPathsLocked(scope *document.Scope, paths []string) (Re
 				if old != nil {
 					removals = append(removals, old)
 				}
+				dropRejection()
 				s.clearDeferral(path)
 				continue
 			}
@@ -148,18 +160,25 @@ func (s *TikiStore) reloadPathsLocked(scope *document.Scope, paths []string) (Re
 				keep[path] = true
 				continue
 			}
-			if old == nil && errors.Is(loadErr, errSkipNoID) && !s.diagnostics.hasPath(path) {
+			if old != nil {
+				removals = append(removals, old)
+			}
+			if errors.Is(loadErr, errSkipNoID) {
+				dropRejection() // an empty file is skipped silently, as in a full load
 				continue
 			}
-			needReconcile = true // so the full-load rules record the rejection
+			reason := rejectionReason(loadErr)
+			logRejection(s.diagnostics, path, reason, "failed to load tiki file", "file", path, "reason", reason, "error", loadErr)
+			s.diagnostics.setPath(path, reason, loadErr.Error())
 			continue
 		}
 		s.clearDeferral(path)
 
-		if s.diagnostics.hasPath(path) || (old != nil && old.ID() != loaded.ID()) {
+		if old != nil && old.ID() != loaded.ID() {
 			needReconcile = true
 			continue
 		}
+		dropRejection()
 		upserts = append(upserts, pathUpsert{path: path, old: old, loaded: loaded})
 	}
 
@@ -251,14 +270,14 @@ func (s *TikiStore) reconcileLocked(keep map[string]bool) (ReloadResult, error) 
 	for _, filePath := range docPaths {
 		old := byPath[absPathOrSelf(filePath)]
 		if old != nil && (keep[absPathOrSelf(filePath)] || unchangedOnDisk(old, filePath)) {
-			admitDocument(filePath, old, nil, idIndex, diags, next)
+			admitDocument(filePath, old, nil, idIndex, diags, s.diagnostics, next)
 			continue
 		}
 		tk, loadErr := s.loadTikiFile(filePath, nil, nil)
 		if loadErr == nil && old != nil {
 			carryForwardGitMeta(tk, old)
 		}
-		admitDocument(filePath, tk, loadErr, idIndex, diags, next)
+		admitDocument(filePath, tk, loadErr, idIndex, diags, s.diagnostics, next)
 	}
 
 	res := diffTikis(s.tikis, next)

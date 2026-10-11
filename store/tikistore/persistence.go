@@ -63,11 +63,12 @@ func (s *TikiStore) loadLocked() error {
 	}
 
 	// reset diagnostics for this load cycle so callers see a fresh report.
+	prev := s.diagnostics
 	s.diagnostics = newLoadDiagnostics()
 	idIndex := document.NewIndex()
 	for _, filePath := range docPaths {
 		tk, err := s.loadTikiFile(filePath, authorMap, lastCommitMap)
-		admitDocument(filePath, tk, err, idIndex, s.diagnostics, s.tikis)
+		admitDocument(filePath, tk, err, idIndex, s.diagnostics, prev, s.tikis)
 	}
 	slog.Info("finished loading tikis", "num_tikis", len(s.tikis), "rejections", len(s.diagnostics.Rejections()))
 	return nil
@@ -75,7 +76,7 @@ func (s *TikiStore) loadLocked() error {
 
 // Shared by loadLocked and reconcileLocked so both apply the same rules.
 // Paths must arrive sorted: the first one wins a duplicate id.
-func admitDocument(filePath string, tk *tiki.Tiki, loadErr error, idIndex *document.Index, diags *LoadDiagnostics, tikis map[string]*tiki.Tiki) {
+func admitDocument(filePath string, tk *tiki.Tiki, loadErr error, idIndex *document.Index, diags, prev *LoadDiagnostics, tikis map[string]*tiki.Tiki) {
 	if loadErr != nil {
 		if errors.Is(loadErr, errSkipNoID) {
 			// id-less file: ordinary wiki content, not a managed document
@@ -83,14 +84,9 @@ func admitDocument(filePath string, tk *tiki.Tiki, loadErr error, idIndex *docum
 			slog.Debug("skipping id-less markdown file", "file", filePath)
 			return
 		}
-		// classify via *loadError; fall back to LoadReasonOther.
-		reason := LoadReasonOther
-		var le *loadError
-		if errors.As(loadErr, &le) {
-			reason = le.reason
-		}
+		reason := rejectionReason(loadErr)
 		diags.record(filePath, reason, loadErr.Error())
-		slog.Error("failed to load tiki file", "file", filePath, "reason", reason, "error", loadErr)
+		logRejection(prev, filePath, reason, "failed to load tiki file", "file", filePath, "reason", reason, "error", loadErr)
 		return
 	}
 
@@ -98,12 +94,30 @@ func admitDocument(filePath string, tk *tiki.Tiki, loadErr error, idIndex *docum
 		// duplicate id: refuse to silently pick a winner. Both files stay
 		// on disk; assign a fresh bare id to all but one file to resolve.
 		diags.record(filePath, LoadReasonDuplicateID, err.Error())
-		slog.Error("duplicate document id detected, skipping later occurrence",
+		logRejection(prev, filePath, LoadReasonDuplicateID, "duplicate document id detected, skipping later occurrence",
 			"tiki_id", tk.ID(), "file", filePath, "error", err)
 		return
 	}
 	tikis[tk.ID()] = tk
 	slog.Debug("loaded tiki", "tiki_id", tk.ID(), "file", filePath)
+}
+
+func rejectionReason(loadErr error) LoadReason {
+	var le *loadError
+	if errors.As(loadErr, &le) {
+		return le.reason
+	}
+	return LoadReasonOther
+}
+
+// Rescans run often under live reload:
+// repeating known rejections at error level would flood the log.
+func logRejection(prev *LoadDiagnostics, path string, reason LoadReason, msg string, args ...any) {
+	if known, ok := prev.reasonFor(path); ok && known == reason {
+		slog.Debug(msg, args...)
+		return
+	}
+	slog.Error(msg, args...)
 }
 
 // loadTikiFile parses a single markdown file into a *tiki.Tiki. Returns a

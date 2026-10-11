@@ -141,3 +141,22 @@ func TestDetailView_NoExternalChangeReportOutsideEditMode(t *testing.T) {
 		t.Errorf("handler called %d times outside edit mode", calls)
 	}
 }
+
+func TestDetailView_ExternalChangeWithSameMtimeNotifies(t *testing.T) {
+	f := newLiveDetailFixture(t)
+	editing := f.store.GetTiki("SHOWNN").Clone()
+	editing.LoadedSize = 100
+	f.view.SetEditTikiSource(func() *tikipkg.Tiki { return editing })
+	calls := 0
+	f.view.SetExternalChangeHandler(func() { calls++ })
+	if !f.view.EnterEditMode() {
+		t.Fatal("EnterEditMode failed")
+	}
+
+	// coarse timestamps: the competing write kept the mtime
+	f.replace(t, "SHOWNN", func(tk *tikipkg.Tiki) { tk.LoadedSize = 140 })
+
+	if calls != 1 {
+		t.Errorf("external change with an unchanged mtime: handler called %d times, want 1", calls)
+	}
+}

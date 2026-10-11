@@ -98,6 +98,42 @@ func (d *LoadDiagnostics) hasPath(path string) bool {
 	return false
 }
 
+func (d *LoadDiagnostics) reasonFor(path string) (LoadReason, bool) {
+	if d == nil {
+		return 0, false
+	}
+	want := absPathOrSelf(path)
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, r := range d.rejections {
+		if absPathOrSelf(r.Path) == want {
+			return r.Reason, true
+		}
+	}
+	return 0, false
+}
+
+func (d *LoadDiagnostics) setPath(path string, reason LoadReason, msg string) {
+	d.clearPath(path)
+	d.record(path, reason, msg)
+}
+
+func (d *LoadDiagnostics) clearPath(path string) {
+	if d == nil {
+		return
+	}
+	want := absPathOrSelf(path)
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	kept := d.rejections[:0]
+	for _, r := range d.rejections {
+		if absPathOrSelf(r.Path) != want {
+			kept = append(kept, r)
+		}
+	}
+	d.rejections = kept
+}
+
 func (d *LoadDiagnostics) hasReason(reason LoadReason) bool {
 	if d == nil {
 		return false

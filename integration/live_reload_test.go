@@ -124,3 +124,32 @@ func TestLiveReload_ExternalChangeWhileEditingWarns(t *testing.T) {
 		t.Fatalf("no on-disk change warning while editing; statusline message %q", msg)
 	}
 }
+
+func TestLiveReload_PaletteEntryToggles(t *testing.T) {
+	ta := newLiveBoard(t)
+
+	ta.SendKey(tcell.KeyCtrlA, 0, tcell.ModCtrl)
+	ta.SendText("Live Reload")
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
+
+	if !liveIndicatorShown(ta) {
+		t.Fatal("the palette's Live Reload entry did not turn live reload on")
+	}
+	if ta.GetPaletteConfig().IsVisible() {
+		t.Error("palette still open after running the entry")
+	}
+}
+
+func TestLiveReload_CtrlLTogglesInDetailView(t *testing.T) {
+	ta := newLiveBoard(t)
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // open detail
+
+	ta.SendKey(tcell.KeyCtrlL, 0, tcell.ModCtrl)
+	if !liveIndicatorShown(ta) {
+		t.Fatal("Ctrl-L in the detail view did not turn live reload on")
+	}
+	ta.SendKey(tcell.KeyCtrlL, 0, tcell.ModCtrl)
+	if liveIndicatorShown(ta) {
+		t.Fatal("second Ctrl-L in the detail view did not turn live reload off")
+	}
+}
