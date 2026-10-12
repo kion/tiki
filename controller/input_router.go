@@ -54,7 +54,7 @@ const MarkdownFileViewerPlugin = "__mdfileviewer"
 // The view factory uses this to create PluginView without knowing the concrete controller type.
 type TikiViewProvider interface {
 	GetFilteredTikisForLane(lane int) []*tikipkg.Tiki
-	EnsureFirstNonEmptyLaneSelection() bool
+	PrepareSelection() bool
 	GetActionRegistry() *ActionRegistry
 	ShowNavigation() bool
 }

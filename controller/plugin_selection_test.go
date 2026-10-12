@@ -1714,3 +1714,123 @@ func TestHandleNavWithoutPluginDefIsNoOp(t *testing.T) {
 		t.Error("handleNav = true without a plugin definition")
 	}
 }
+
+func newCreateSelectBoard(t *testing.T, actions ...plugin.PluginAction) (*PluginController, store.Store, *NavigationController) {
+	t.Helper()
+	InitPluginActions([]PluginInfo{{Name: "Detail", Require: []string{"selection:one"}}})
+	t.Cleanup(func() { InitPluginActions(nil) })
+
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "OLD001", "Existing", "ready", 0)
+	pluginDef := &plugin.WorkflowPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes: []plugin.TikiLane{
+			{Name: "Done", Columns: 1, Filter: mustParseStmt(t, `select where status = "done"`)},
+			{Name: "Ready", Columns: 1, Filter: mustParseStmt(t, `select where status = "ready"`)},
+		},
+		Actions: actions,
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1, 1}, nil)
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	nav := newMockNavigationController()
+	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nav, nil, nil, rukiRuntime.NewSchema())
+	return pc, tikiStore, nav
+}
+
+var newFormAction = plugin.PluginAction{
+	Rune: 'n', KeyStr: "n", Label: "New",
+	Kind: plugin.ActionKindView, Mode: plugin.DetailModeNew, TargetView: "Detail",
+}
+
+func openNewForm(t *testing.T, pc *PluginController, nav *NavigationController) *tikipkg.Tiki {
+	t.Helper()
+	if !pc.HandleAction(pluginActionID("n")) {
+		t.Fatal("New action did not fire")
+	}
+	draft := model.DecodePluginViewParams(nav.CurrentView().Params).Draft
+	if draft == nil {
+		t.Fatal("New pushed no draft")
+	}
+	draft.SetTitle("Fresh")
+	draft.Set("status", "ready")
+	return draft
+}
+
+func TestPluginController_SavedNewTikiSelectedOnReturn(t *testing.T) {
+	pc, tikiStore, nav := newCreateSelectBoard(t, newFormAction)
+	draft := openNewForm(t, pc, nav)
+	if err := tikiStore.CreateTiki(draft); err != nil {
+		t.Fatalf("save draft: %v", err)
+	}
+
+	pc.PrepareSelection()
+
+	if got := pc.getSelectedTikiID(pc.GetFilteredTikisForLane); got != draft.ID() {
+		t.Errorf("selected %q, want the new tiki %q", got, draft.ID())
+	}
+}
+
+func TestPluginController_CancelledNewTikiSelectsNothing(t *testing.T) {
+	pc, tikiStore, nav := newCreateSelectBoard(t, newFormAction)
+	draft := openNewForm(t, pc, nav)
+
+	pc.PrepareSelection()
+	if got := pc.getSelectedTikiID(pc.GetFilteredTikisForLane); got != "" {
+		t.Fatalf("selected %q after a cancelled form, want nothing", got)
+	}
+
+	// the board has already rendered, so a later tiki with that id isn't the form's
+	if err := tikiStore.CreateTiki(draft); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	pc.PrepareSelection()
+	if got := pc.getSelectedTikiID(pc.GetFilteredTikisForLane); got != "" {
+		t.Errorf("selected %q on a later render, want nothing", got)
+	}
+}
+
+func TestPluginController_CreateActionSelectsNewTiki(t *testing.T) {
+	create := plugin.PluginAction{
+		Rune: 'c', KeyStr: "c", Label: "Create", Kind: plugin.ActionKindRuki,
+		Action: mustParseStmt(t, `create title="Fresh" status="ready"`),
+	}
+	pc, tikiStore, _ := newCreateSelectBoard(t, create)
+
+	if !pc.HandleAction(pluginActionID("c")) {
+		t.Fatal("create action failed")
+	}
+
+	var created string
+	for _, tk := range tikiStore.GetAllTikis() {
+		if tk.Title() == "Fresh" {
+			created = tk.ID()
+		}
+	}
+	if created == "" {
+		t.Fatal("create action stored nothing")
+	}
+	if got := pc.getSelectedTikiID(pc.GetFilteredTikisForLane); got != created {
+		t.Errorf("selected %q, want the new tiki %q", got, created)
+	}
+}
+
+func TestPluginController_SavedSeededNewTikiSelectedOnReturn(t *testing.T) {
+	seeded := newFormAction
+	seeded.CreateSeed = mustParseStmt(t, `create status="ready"`)
+	pc, tikiStore, nav := newCreateSelectBoard(t, seeded)
+	draft := openNewForm(t, pc, nav)
+	if draft.ID() == "" {
+		t.Fatal("seeded draft has no id")
+	}
+	if err := tikiStore.CreateTiki(draft); err != nil {
+		t.Fatalf("save draft: %v", err)
+	}
+
+	pc.PrepareSelection()
+
+	if got := pc.getSelectedTikiID(pc.GetFilteredTikisForLane); got != draft.ID() {
+		t.Errorf("selected %q, want the new tiki %q", got, draft.ID())
+	}
+}

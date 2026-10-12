@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/testutil"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
@@ -219,3 +220,40 @@ func TestNewTiki_EmptyTitle_DoesNotSave(t *testing.T) {
 // the TikiEditSession edit-session tests in controller/tiki_edit_session_test.go,
 // which directly exercise the StartEditSession/CommitEditSession/
 // ClearDraft state machine without relying on TUI keystroke routing.
+
+func TestNewTiki_SavedTikiSelectedOnBoard(t *testing.T) {
+	ta := testutil.NewTestApp(t)
+	defer ta.Cleanup()
+
+	existing := tikipkg.New()
+	existing.SetTitle("Already Here")
+	existing.Set("type", "story")
+	existing.Set("status", "inbox")
+	existing.Set("priority", "medium")
+	if err := ta.TikiStore.CreateTiki(existing); err != nil {
+		t.Fatalf("CreateTiki failed: %v", err)
+	}
+
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
+	ta.Draw()
+
+	ta.SendKey(tcell.KeyRune, 'n', tcell.ModNone)
+	ta.SendText("Fresh From Form")
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ta.Draw()
+
+	created := findTikiByTitle(ta.TikiStore.GetAllTikis(), "Fresh From Form")
+	if created == nil {
+		t.Fatal("new tiki was not saved")
+	}
+	if got := ta.NavController.CurrentViewID(); got != model.MakePluginViewID("Kanban") {
+		t.Fatalf("current view = %q, want Kanban", got)
+	}
+	sv, ok := ta.NavController.GetActiveView().(controller.SelectableView)
+	if !ok {
+		t.Fatal("board view is not selectable")
+	}
+	if got := sv.GetSelectedID(); got != created.ID() {
+		t.Errorf("board selected %q, want the new tiki %q", got, created.ID())
+	}
+}

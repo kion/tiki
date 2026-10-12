@@ -16,6 +16,10 @@ import (
 // PluginController handles plugin view actions: navigation, open, create, delete.
 type PluginController struct {
 	pluginBase
+	// A new-tiki form's draft only reaches the store once saved,
+	// so the board selects it on its next render rather than when the form opens.
+	// That render drops it either way: a cancelled form's draft never appears.
+	pendingSelectID string
 }
 
 // NewPluginController creates a plugin controller
@@ -99,6 +103,34 @@ func (pc *PluginController) ShowNavigation() bool { return true }
 // EnsureFirstNonEmptyLaneSelection delegates to pluginBase with this controller's filter.
 func (pc *PluginController) EnsureFirstNonEmptyLaneSelection() bool {
 	return pc.pluginBase.EnsureFirstNonEmptyLaneSelection(pc.GetFilteredTikisForLane)
+}
+
+// PrepareSelection runs before each board render.
+func (pc *PluginController) PrepareSelection() bool {
+	if id := pc.pendingSelectID; id != "" {
+		pc.pendingSelectID = ""
+		if pc.selectTiki(pc.tikiStore.GetTiki(id)) {
+			return true
+		}
+	}
+	return pc.EnsureFirstNonEmptyLaneSelection()
+}
+
+func (pc *PluginController) selectTiki(tk *tikipkg.Tiki) bool {
+	if tk == nil {
+		return false
+	}
+	pc.ensureSearchResultIncludesTiki(tk)
+	for lane := range pc.pluginDef.Lanes {
+		for i, laneTiki := range pc.GetFilteredTikisForLane(lane) {
+			if laneTiki.ID() == tk.ID() {
+				pc.pluginConfig.SetSelectedLaneAndIndex(lane, i)
+				pc.pluginConfig.ResumeSelection()
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // HandleAction processes a plugin action
@@ -253,13 +285,15 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 			pc.ensureSearchResultIncludesTiki(tk)
 		}
 	case result.Create != nil:
-		if err := pc.mutationGate.CreateTiki(ctx, tikipkg.UnwrapDoc(result.Create.Tiki)); err != nil {
+		created := tikipkg.UnwrapDoc(result.Create.Tiki)
+		if err := pc.mutationGate.CreateTiki(ctx, created); err != nil {
 			slog.Error("failed to create tiki from plugin action", "key", pa.KeyStr, "error", err)
 			if pc.statusline != nil {
 				pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 			}
 			return false
 		}
+		pc.selectTiki(created)
 	case result.Delete != nil:
 		for _, doc := range result.Delete.Deleted {
 			tk := tikipkg.UnwrapDoc(doc)
@@ -355,6 +389,9 @@ func (pc *PluginController) handleViewAction(pa *plugin.PluginAction) bool {
 		return false
 	}
 	pc.navController.PushView(model.MakePluginViewID(pa.TargetView), model.EncodePluginViewParams(pvp))
+	if pvp.Draft != nil {
+		pc.pendingSelectID = pvp.Draft.ID()
+	}
 	return true
 }
 
