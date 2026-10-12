@@ -33,6 +33,7 @@ type DetailController struct {
 	registry       *ActionRegistry
 	executor       *PluginExecutor
 	selectedTikiID string
+	liveStatus     LiveStatusClearer
 
 	// Phase 2 edit-mode plumbing.
 	editSession *TikiEditSession
@@ -361,6 +362,8 @@ func (dc *DetailController) HandleAction(actionID ActionID) bool {
 		return dc.focusNext()
 	case ActionPrevField:
 		return dc.focusPrev()
+	case ActionClearLiveStatus:
+		return dc.handleClearLiveStatus()
 	}
 	if keyStr := getPluginActionKeyStr(actionID); keyStr != "" {
 		return dc.handlePluginAction(keyStr)
@@ -800,6 +803,8 @@ func DetailViewActions() *ActionRegistry {
 	r.Register(Action{ID: ActionDetailEdit, Key: tcell.KeyRune, Rune: 'e', Label: "Edit", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionEditSource, Key: tcell.KeyRune, Rune: 's', Label: "Edit source", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionChat, Key: tcell.KeyRune, Rune: 'c', Label: "Chat", ShowInHeader: true, Require: []Requirement{RequireAI, RequireID}})
+	// palette-only: no key, so it can't shadow a workflow's own bindings
+	r.Register(Action{ID: ActionClearLiveStatus, Label: "Clear Live Status", Require: idReq})
 	return r
 }
 

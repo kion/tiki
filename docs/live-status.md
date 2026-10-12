@@ -76,8 +76,8 @@ to a temporary file in the same directory and rename it, so tiki never reads a h
 - When the card is too narrow, the status gives way part by part so the message stays readable:
   first the agent, then the age. Only the message is ever cut short with `…`, never the age. On the
   last visible card of a long lane the status also stops before the `▼ N more` hint.
-- To clear a status yourself, select its card and run **Clear Live Status** from the action
-  palette (`Ctrl-A`). It works in every workflow.
+- To clear a status yourself, select its card or open the tiki, and run **Clear Live Status** from
+  the action palette (`Ctrl-A`). It works in every workflow.
 - A status that hasn't been updated for 15 minutes is dimmed and stops animating. Its age keeps
   growing until it is updated or cleared. Change the threshold with `liveStatus.staleAfter` in
   [config.yaml](config.md), or the `TIKI_LIVESTATUS_STALEAFTER` environment variable.

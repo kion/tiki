@@ -206,6 +206,7 @@ func Bootstrap() (*Result, error) {
 	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTikiID string) *controller.DetailController {
 		dc := controller.NewDetailController(def, controllers.Nav, statuslineConfig, progressHub, tikiStore, gate, schema, controllers.TikiEdit)
 		dc.SetSelectedTikiID(selectedTikiID)
+		dc.SetLiveStatus(liveStatus)
 		return dc
 	})
 

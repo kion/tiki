@@ -199,3 +199,32 @@ func TestLiveStatus_ShownInTheDetailView(t *testing.T) {
 		t.Fatalf("current view = %q, want %q", got, want)
 	}
 }
+
+func TestLiveStatus_ClearFromTheDetailViewPalette(t *testing.T) {
+	ta := newLiveBoard(t)
+	ta.SendKey(tcell.KeyCtrlL, 0, tcell.ModCtrl)
+	params := model.EncodePluginViewParams(model.PluginViewParams{TikiID: "000001"})
+	ta.NavController.PushView(model.MakePluginViewID("Detail"), params)
+	ta.Draw()
+	writeLiveStatus(t, ta, "Testing")
+	if !ta.PumpLiveReload(liveReloadWait, shows(ta, "Testing")) {
+		ta.DumpScreen()
+		t.Fatal("live status never appeared in the detail view")
+	}
+
+	ta.SendKey(tcell.KeyCtrlA, 0, tcell.ModCtrl)
+	ta.SendText("Clear Live Status")
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
+	// no pump: the view must update without waiting for the watcher
+	ta.Draw()
+	if shows(ta, "Testing")() {
+		ta.DumpScreen()
+		t.Fatal("status still shown after Clear Live Status")
+	}
+	if _, ok, _ := livestatus.Read(ta.TikiDir, "000001"); ok {
+		t.Fatal("status file still on disk after Clear Live Status")
+	}
+	if msg, _, _ := ta.GetStatuslineConfig().GetMessage(); msg != "cleared the live status of 000001" {
+		t.Fatalf("statusline message = %q", msg)
+	}
+}

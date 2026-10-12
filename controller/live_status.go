@@ -15,9 +15,26 @@ func (pc *PluginController) handleClearLiveStatus() bool {
 	if id == "" {
 		return false
 	}
+	clearLiveStatus(pc.liveStatus, pc.statusline, id)
+	return true
+}
+
+func (dc *DetailController) SetLiveStatus(live LiveStatusClearer) {
+	dc.liveStatus = live
+}
+
+func (dc *DetailController) handleClearLiveStatus() bool {
+	if dc.selectedTikiID == "" {
+		return false
+	}
+	clearLiveStatus(dc.liveStatus, dc.statusline, dc.selectedTikiID)
+	return true
+}
+
+func clearLiveStatus(live LiveStatusClearer, statusline *model.StatuslineConfig, id string) {
 	msg, level := "live status is not available", model.MessageLevelError
-	if pc.liveStatus != nil {
-		cleared, err := pc.liveStatus.Clear(id)
+	if live != nil {
+		cleared, err := live.Clear(id)
 		switch {
 		case err != nil:
 			msg = "clear live status: " + err.Error()
@@ -27,8 +44,7 @@ func (pc *PluginController) handleClearLiveStatus() bool {
 			msg, level = "cleared the live status of "+id, model.MessageLevelInfo
 		}
 	}
-	if pc.statusline != nil {
-		pc.statusline.SetMessage(msg, level, true)
+	if statusline != nil {
+		statusline.SetMessage(msg, level, true)
 	}
-	return true
 }

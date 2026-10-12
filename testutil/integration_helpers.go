@@ -57,6 +57,7 @@ type TestApp struct {
 
 	liveReload     *livereload.Service
 	liveUpdates    chan func()
+	liveStatus     *livestatus.Registry
 	liveStop       chan struct{}
 	liveUpdatesRun int
 }
@@ -547,6 +548,10 @@ func (ta *TestApp) LoadPlugins() error {
 	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTikiID string) *controller.DetailController {
 		dc := controller.NewDetailController(def, ta.NavController, ta.statuslineConfig, nil, ta.TikiStore, ta.MutationGate, ta.Schema, ta.tikiEditSession)
 		dc.SetSelectedTikiID(selectedTikiID)
+		// a typed nil would make Clear panic rather than report "not available"
+		if ta.liveStatus != nil {
+			dc.SetLiveStatus(ta.liveStatus)
+		}
 		return dc
 	})
 	viewFactory.SetWikiControllerFactory(func(def plugin.Plugin, selectedTikiID string) *controller.WikiController {
@@ -737,6 +742,7 @@ func (ta *TestApp) SetupLiveReload() *livereload.Service {
 		StaleAfter: config.GetLiveStatusStaleAfter(),
 		Animator:   anim,
 	})
+	ta.liveStatus = liveStatus
 	ta.ViewFactory.SetLiveStatus(liveStatus)
 	bootstrap.SetLiveStatusClearer(ta.PluginControllers, liveStatus)
 	opts := bootstrap.LiveReloadOptions(ta.TikiDir, concrete, ta.statuslineConfig, ta.InputRouter, liveStatus)
