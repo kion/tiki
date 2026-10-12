@@ -145,6 +145,22 @@ func (pe *PluginExecutor) EvalChooseFilter(pa *plugin.PluginAction, input ruki.E
 	return candidates, true
 }
 
+// PreviewDelete returns the tikis a delete action would remove, leaving the store untouched.
+func (pe *PluginExecutor) PreviewDelete(pa *plugin.PluginAction, input ruki.ExecutionInput) []*tikipkg.Tiki {
+	executor := ruki.NewExecutor(pe.schema, pe.factory(), pe.userFunc(),
+		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
+	result, err := executor.Execute(pa.Action, tikipkg.WrapDocs(pe.tikiStore.GetAllTikis()), input)
+	// a failing statement fails again when it runs, and that run reports the error
+	if err != nil || result.Delete == nil {
+		return nil
+	}
+	return tikipkg.UnwrapDocs(result.Delete.Deleted)
+}
+
+func confirmsDelete(pa *plugin.PluginAction) bool {
+	return pa.Kind == plugin.ActionKindRuki && pa.Action != nil && pa.Action.IsDelete()
+}
+
 // Execute runs a ruki-kind action and applies its result. Returns true on
 // success (including a benign select-only pipeline).
 func (pe *PluginExecutor) Execute(pa *plugin.PluginAction, input ruki.ExecutionInput) bool {

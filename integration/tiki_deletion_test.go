@@ -46,8 +46,19 @@ func TestTikiDeletion_FromKanban(t *testing.T) {
 		t.Fatalf("TIKI-1 should be visible before delete")
 	}
 
-	// Press Delete to delete first tiki
+	// Press Delete: it asks first and deletes nothing yet
 	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
+	ta.Draw()
+	if found, _, _ := ta.FindText("Delete tiki?"); !found {
+		ta.DumpScreen()
+		t.Fatalf("confirmation should be shown after Delete")
+	}
+	if ta.TikiStore.GetTiki("000001") == nil {
+		t.Fatalf("TIKI-1 deleted before confirming")
+	}
+
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
+	ta.Draw()
 
 	// Reload and verify tiki deleted
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -70,6 +81,45 @@ func TestTikiDeletion_FromKanban(t *testing.T) {
 	if !found2 {
 		ta.DumpScreen()
 		t.Errorf("TIKI-2 should still be visible after deleting TIKI-1")
+	}
+}
+
+// TestTikiDeletion_EscCancels verifies a stray key leaves the question open and Esc keeps the tiki
+func TestTikiDeletion_EscCancels(t *testing.T) {
+	ta := testutil.NewTestApp(t)
+	defer ta.Cleanup()
+
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
+	}
+	if err := ta.TikiStore.Reload(); err != nil {
+		t.Fatalf("failed to reload: %v", err)
+	}
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
+	ta.Draw()
+	ta.SelectCursorTiki()
+
+	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
+	ta.Draw()
+	if found, _, _ := ta.FindText("Delete tiki?"); !found {
+		ta.DumpScreen()
+		t.Fatal("a second Delete closed the confirmation")
+	}
+
+	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
+	ta.Draw()
+
+	if ta.TikiStore.GetTiki("000001") == nil {
+		t.Fatal("TIKI-1 deleted without confirming")
+	}
+	if found, _, _ := ta.FindText("Delete tiki?"); found {
+		ta.DumpScreen()
+		t.Error("confirmation still shown after cancelling")
+	}
+	if found, _, _ := ta.FindText("000001"); !found {
+		ta.DumpScreen()
+		t.Error("TIKI-1 should still be on the board")
 	}
 }
 
@@ -113,6 +163,7 @@ func TestTikiDeletion_UnselectsKeepingCursor(t *testing.T) {
 
 	// Delete TIKI-2
 	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	if kanbanConfig.HasSelection() {
 		t.Error("a tiki is selected after delete, want nothing")
@@ -171,6 +222,7 @@ func TestTikiDeletion_LastTikiInLane(t *testing.T) {
 
 	// Delete the only tiki
 	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Reload
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -222,6 +274,7 @@ func TestTikiDeletion_MultipleSequential(t *testing.T) {
 	for range 3 {
 		ta.SelectCursorTiki()
 		ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
+		ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 	}
 
 	// Reload and verify only 2 tikis remain
@@ -276,6 +329,7 @@ func TestTikiDeletion_FromDifferentLane(t *testing.T) {
 
 	// Delete tiki
 	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Reload and verify deleted
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -366,6 +420,7 @@ func TestTikiDeletion_WithMultipleLanes(t *testing.T) {
 
 	// Delete TIKI-1 from todo lane
 	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Reload
 	if err := ta.TikiStore.Reload(); err != nil {

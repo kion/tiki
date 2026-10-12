@@ -297,6 +297,30 @@ func (dc *WikiController) handleGlobalAction(keyStr string) bool {
 	return false
 }
 
+// PreviewDelete returns the tikis the action would delete, or nil when it needs no confirmation.
+func (dc *WikiController) PreviewDelete(actionID ActionID) []*tikipkg.Tiki {
+	keyStr := getPluginActionKeyStr(actionID)
+	if keyStr == "" || dc.executor == nil {
+		return nil
+	}
+	for i := range dc.globalActions {
+		ga := &dc.globalActions[i]
+		if ga.KeyStr != keyStr || !confirmsDelete(ga) {
+			continue
+		}
+		var selection []string
+		if dc.selectedTikiID != "" {
+			selection = []string{dc.selectedTikiID}
+		}
+		input, ok := dc.executor.BuildExecutionInput(ga, selection)
+		if !ok {
+			return nil
+		}
+		return dc.executor.PreviewDelete(ga, input)
+	}
+	return nil
+}
+
 // HandleSearch is not applicable for WikiPlugins (documentation views don't have search)
 func (dc *WikiController) HandleSearch(query string) {}
 

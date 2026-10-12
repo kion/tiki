@@ -52,6 +52,8 @@ type TestApp struct {
 	paletteConfig      *model.ActionPaletteConfig
 	quickSelectConfig  *model.QuickSelectConfig
 	markdownTreeConfig *model.MarkdownTreeConfig
+	confirmConfig      *model.ConfirmConfig
+	confirmDialog      *palette.ConfirmDialog
 	actionPalette      *palette.ActionPalette
 	pages              *tview.Pages
 
@@ -180,6 +182,11 @@ func NewTestApp(t *testing.T) *TestApp {
 	quickSelect.SetChangedFunc()
 	inputRouter.SetQuickSelectView(quickSelect)
 
+	confirmConfig := model.NewConfirmConfig()
+	confirmDialog := palette.NewConfirmDialog(confirmConfig)
+	inputRouter.SetConfirmConfig(confirmConfig)
+	inputRouter.SetConfirmView(confirmDialog)
+
 	// Build Pages root
 	pages := tview.NewPages()
 	pages.AddPage("base", rootLayout.GetPrimitive(), true, true)
@@ -191,6 +198,7 @@ func NewTestApp(t *testing.T) *TestApp {
 	quickSelectBox.AddItem(tview.NewBox(), 0, 1, false)
 	quickSelectBox.AddItem(quickSelect.GetPrimitive(), palette.PaletteMinWidth, 0, true)
 	pages.AddPage("quickselect", quickSelectBox, true, false)
+	pages.AddPage("confirm", palette.NewConfirmOverlay(confirmDialog), true, false)
 
 	// read through ta: LoadPlugins swaps in a palette bound to its new router
 	var ta *TestApp
@@ -229,6 +237,23 @@ func NewTestApp(t *testing.T) *TestApp {
 		}
 	})
 
+	var cfPreviousFocus tview.Primitive
+	confirmConfig.AddListener(func() {
+		if confirmConfig.IsVisible() {
+			cfPreviousFocus = app.GetFocus()
+			pages.ShowPage("confirm")
+			app.SetFocus(confirmDialog.GetPrimitive())
+		} else {
+			pages.HidePage("confirm")
+			if cfPreviousFocus != nil {
+				app.SetFocus(cfPreviousFocus)
+			} else if cv := rootLayout.GetContentView(); cv != nil {
+				app.SetFocus(cv.GetPrimitive())
+			}
+			cfPreviousFocus = nil
+		}
+	})
+
 	// 8. Wire up callbacks
 	navController.SetOnViewChanged(func(viewID model.ViewID, params map[string]interface{}) {
 		layoutModel.SetContent(viewID, params)
@@ -241,6 +266,9 @@ func NewTestApp(t *testing.T) *TestApp {
 			return event
 		}
 		if quickSelectConfig.IsVisible() {
+			return event
+		}
+		if confirmConfig.IsVisible() {
 			return event
 		}
 		statuslineConfig.DismissAutoHide()
@@ -273,6 +301,8 @@ func NewTestApp(t *testing.T) *TestApp {
 		layoutModel:       layoutModel,
 		paletteConfig:     paletteConfig,
 		quickSelectConfig: quickSelectConfig,
+		confirmConfig:     confirmConfig,
+		confirmDialog:     confirmDialog,
 		actionPalette:     actionPalette,
 		pages:             pages,
 	}
@@ -295,7 +325,8 @@ func (ta *TestApp) Draw() {
 
 // SendKey simulates a key press by directly calling the input capture handler.
 // Input flows through app's InputCapture → InputRouter.HandleInput.
-// If InputCapture doesn't consume the event, it's forwarded to the focused primitive.
+// If InputCapture doesn't consume the event, it's routed through the root Pages like tview's event loop,
+// so a page that hides its focused primitive from Pages fails here as it does in the app.
 func (ta *TestApp) SendKey(key tcell.Key, ch rune, mod tcell.ModMask) {
 	event := tcell.NewEventKey(key, ch, mod)
 	// Directly call the input capture handler (synchronous, no event loop needed)
@@ -305,15 +336,8 @@ func (ta *TestApp) SendKey(key tcell.Key, ch rune, mod tcell.ModMask) {
 		consumed = (returnedEvent == nil)
 	}
 
-	// If InputCapture didn't consume the event, send it to the focused primitive
-	if !consumed {
-		focused := ta.App.GetFocus()
-		if focused != nil {
-			handler := focused.InputHandler()
-			if handler != nil {
-				handler(event, func(p tview.Primitive) { ta.App.SetFocus(p) })
-			}
-		}
+	if !consumed && ta.pages.HasFocus() {
+		ta.pages.InputHandler()(event, func(p tview.Primitive) { ta.App.SetFocus(p) })
 	}
 
 	// Redraw after input
@@ -506,6 +530,9 @@ func (ta *TestApp) LoadPlugins() error {
 	markdownTree.SetChangedFunc()
 	ta.InputRouter.SetMarkdownTreeView(markdownTree)
 
+	ta.InputRouter.SetConfirmConfig(ta.confirmConfig)
+	ta.InputRouter.SetConfirmView(ta.confirmDialog)
+
 	// Update global input capture (matches production pipeline)
 	ta.App.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if ta.paletteConfig.IsVisible() {
@@ -515,6 +542,9 @@ func (ta *TestApp) LoadPlugins() error {
 			return event
 		}
 		if ta.markdownTreeConfig.IsVisible() {
+			return event
+		}
+		if ta.confirmConfig.IsVisible() {
 			return event
 		}
 		ta.statuslineConfig.DismissAutoHide()
@@ -622,6 +652,7 @@ func (ta *TestApp) LoadPlugins() error {
 	markdownTreeBox.AddItem(tview.NewBox(), 0, 1, false)
 	markdownTreeBox.AddItem(markdownTree.GetPrimitive(), palette.PaletteMinWidth, 0, true)
 	ta.pages.AddPage("markdowntree", markdownTreeBox, true, false)
+	ta.pages.AddPage("confirm", palette.NewConfirmOverlay(ta.confirmDialog), true, false)
 
 	// wire QuickSelect visibility listener (fresh config = no stale listeners)
 	var qsPrev tview.Primitive

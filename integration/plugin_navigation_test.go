@@ -581,6 +581,7 @@ func TestPluginActions_DeleteTiki_UpdatesSelection(t *testing.T) {
 
 	// Delete it
 	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify: selection resets (typically to 0)
 	// The exact behavior may vary, but selection should be valid

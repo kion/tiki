@@ -663,6 +663,30 @@ func (dc *DetailController) executeRuki(a *plugin.PluginAction, input ruki.Execu
 	return true
 }
 
+// PreviewDelete returns the tikis the action would delete, or nil when it needs no confirmation.
+func (dc *DetailController) PreviewDelete(actionID ActionID) []*tikipkg.Tiki {
+	keyStr := getPluginActionKeyStr(actionID)
+	if keyStr == "" || dc.executor == nil {
+		return nil
+	}
+	for i := range dc.pluginDef.Actions {
+		a := &dc.pluginDef.Actions[i]
+		if a.KeyStr != keyStr || !confirmsDelete(a) {
+			continue
+		}
+		var selection []string
+		if dc.selectedTikiID != "" {
+			selection = []string{dc.selectedTikiID}
+		}
+		input, ok := dc.executor.BuildExecutionInput(a, selection)
+		if !ok {
+			return nil
+		}
+		return dc.executor.PreviewDelete(a, input)
+	}
+	return nil
+}
+
 // HandleSearch is a no-op for detail views.
 func (dc *DetailController) HandleSearch(string) {}
 

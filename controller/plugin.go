@@ -460,6 +460,19 @@ func newModeDraft(pa *plugin.PluginAction, s store.Store, exec *PluginExecutor) 
 	return createDraftTiki(s)
 }
 
+// PreviewDelete returns the tikis the action would delete, or nil when it needs no confirmation.
+func (pc *PluginController) PreviewDelete(actionID ActionID) []*tikipkg.Tiki {
+	pa, ok := pc.getPluginAction(actionID)
+	if !ok || !confirmsDelete(pa) {
+		return nil
+	}
+	input, ok := pc.buildExecutionInput(pa)
+	if !ok {
+		return nil
+	}
+	return pc.pluginExecutor().PreviewDelete(pa, input)
+}
+
 // GetActionInputSpec returns the prompt and input type for an action, if it has input.
 func (pc *PluginController) GetActionInputSpec(actionID ActionID) (string, ruki.ValueType, bool) {
 	pa, ok := pc.getPluginAction(actionID)

@@ -265,6 +265,11 @@ func Bootstrap() (*Result, error) {
 	})
 	inputRouter.SetMarkdownTreeView(markdownTree)
 
+	confirmConfig := model.NewConfirmConfig()
+	confirmDialog := palette.NewConfirmDialog(confirmConfig)
+	inputRouter.SetConfirmConfig(confirmConfig)
+	inputRouter.SetConfirmView(confirmDialog)
+
 	// Phase 11.8: Live reload
 	liveReload := newLiveReload(application, tikiStoreConcrete, statuslineConfig, inputRouter, liveStatus)
 	inputRouter.SetLiveReload(liveReload)
@@ -286,6 +291,7 @@ func Bootstrap() (*Result, error) {
 	pages.AddPage("quickselect", quickSelectOverlay, true, false)
 	markdownTreeOverlay := buildMarkdownTreeOverlay(markdownTree)
 	pages.AddPage("markdowntree", markdownTreeOverlay, true, false)
+	pages.AddPage("confirm", palette.NewConfirmOverlay(confirmDialog), true, false)
 
 	// Wire palette visibility to Pages show/hide and focus management
 	var previousFocus tview.Primitive
@@ -338,9 +344,26 @@ func Bootstrap() (*Result, error) {
 		}
 	})
 
+	var cfPreviousFocus tview.Primitive
+	confirmConfig.AddListener(func() {
+		if confirmConfig.IsVisible() {
+			cfPreviousFocus = application.GetFocus()
+			pages.ShowPage("confirm")
+			application.SetFocus(confirmDialog.GetPrimitive())
+		} else {
+			pages.HidePage("confirm")
+			if cfPreviousFocus != nil {
+				application.SetFocus(cfPreviousFocus)
+			} else if cv := rootLayout.GetContentView(); cv != nil {
+				application.SetFocus(cv.GetPrimitive())
+			}
+			cfPreviousFocus = nil
+		}
+	})
+
 	// Phase 12: Navigation and input wiring
 	wireNavigation(controllers.Nav, layoutModel, rootLayout)
-	app.InstallGlobalInputCapture(application, paletteConfig, quickSelectConfig, markdownTreeConfig, statuslineConfig, inputRouter, controllers.Nav)
+	app.InstallGlobalInputCapture(application, paletteConfig, quickSelectConfig, markdownTreeConfig, confirmConfig, statuslineConfig, inputRouter, controllers.Nav)
 
 	// Phase 13: Initial view — use the first plugin marked default: true,
 	// or fall back to the first plugin in the list.

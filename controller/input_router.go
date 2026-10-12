@@ -32,12 +32,18 @@ type PluginControllerInterface interface {
 	GetActionChooseSpec(ActionID) (label string, hasChoose bool)
 	CanStartActionChoose(ActionID) (label string, candidates []*tikipkg.Tiki, ok bool)
 	HandleActionChoose(ActionID, string) bool
+	PreviewDelete(ActionID) []*tikipkg.Tiki
 }
 
 // QuickSelectView abstracts the QuickSelect view to avoid import cycles.
 type QuickSelectView interface {
 	OnShow(tikis []*tikipkg.Tiki)
 	GetFilterInput() tview.Primitive
+}
+
+// ConfirmView abstracts the delete confirmation dialog to avoid import cycles.
+type ConfirmView interface {
+	OnShow(tikis []*tikipkg.Tiki)
 }
 
 // MarkdownTreeView abstracts the markdown-tree overlay to avoid import cycles.
@@ -82,6 +88,8 @@ type InputRouter struct {
 	quickSelectView    QuickSelectView
 	markdownTreeConfig *model.MarkdownTreeConfig
 	markdownTreeView   MarkdownTreeView
+	confirmConfig      *model.ConfirmConfig
+	confirmView        ConfirmView
 	workflowPath       string
 	clipboardWriter    func([][]string) error
 	liveReload         LiveReloadToggler
@@ -139,6 +147,16 @@ func (ir *InputRouter) SetQuickSelectView(qv QuickSelectView) {
 	ir.quickSelectView = qv
 }
 
+// SetConfirmConfig wires the config that shows the delete confirmation.
+func (ir *InputRouter) SetConfirmConfig(cc *model.ConfirmConfig) {
+	ir.confirmConfig = cc
+}
+
+// SetConfirmView wires the dialog that lists the tikis a delete would remove.
+func (ir *InputRouter) SetConfirmView(cv ConfirmView) {
+	ir.confirmView = cv
+}
+
 func (ir *InputRouter) SetLiveReload(lr LiveReloadToggler) {
 	ir.liveReload = lr
 }
@@ -153,6 +171,9 @@ func (ir *InputRouter) IsModalInteractionActive() bool {
 		return true
 	}
 	if ir.markdownTreeConfig != nil && ir.markdownTreeConfig.IsVisible() {
+		return true
+	}
+	if ir.confirmConfig != nil && ir.confirmConfig.IsVisible() {
 		return true
 	}
 	if ir.navController == nil {
@@ -513,7 +534,7 @@ func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.Vie
 		if _, _, hasInput := ctrl.GetActionInputSpec(action.ID); hasInput {
 			return ir.startActionInput(ctrl, action.ID)
 		}
-		return ctrl.HandleAction(action.ID)
+		return ir.confirmOrRun(ctrl, action.ID)
 	}
 	return false
 }
@@ -798,7 +819,24 @@ func (ir *InputRouter) dispatchPluginAction(id ActionID, viewID model.ViewID) bo
 		return ir.startActionInput(ctrl, id)
 	}
 
-	return ctrl.HandleAction(id)
+	return ir.confirmOrRun(ctrl, id)
+}
+
+// confirmOrRun asks before a delete, since one stray keypress would otherwise lose a tiki.
+// It runs after the choose() and input() dispatch,
+// whose deletes already take a deliberate pick or typed value.
+func (ir *InputRouter) confirmOrRun(ctrl PluginControllerInterface, id ActionID) bool {
+	if ir.confirmConfig == nil || ir.confirmView == nil {
+		return ctrl.HandleAction(id)
+	}
+	doomed := ctrl.PreviewDelete(id)
+	if len(doomed) == 0 {
+		return ctrl.HandleAction(id)
+	}
+	ir.confirmConfig.SetOnConfirm(func() { ctrl.HandleAction(id) })
+	ir.confirmView.OnShow(doomed)
+	ir.confirmConfig.SetVisible(true)
+	return true
 }
 
 // startActionInput opens the input box for an action that requires user input.

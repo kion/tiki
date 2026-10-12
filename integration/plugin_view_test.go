@@ -218,6 +218,7 @@ func TestPluginView_DeleteTiki(t *testing.T) {
 
 	// Press Delete to delete first tiki (TIKI-1)
 	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Reload and verify tiki is deleted
 	if err := ta.TikiStore.Reload(); err != nil {
