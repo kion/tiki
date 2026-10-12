@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/testutil"
 
@@ -72,8 +73,8 @@ func TestTikiDeletion_FromKanban(t *testing.T) {
 	}
 }
 
-// TestTikiDeletion_SelectionMoves verifies selection moves to next tiki after delete
-func TestTikiDeletion_SelectionMoves(t *testing.T) {
+// TestTikiDeletion_UnselectsKeepingCursor verifies a delete leaves nothing selected with the cursor in place
+func TestTikiDeletion_UnselectsKeepingCursor(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -113,10 +114,21 @@ func TestTikiDeletion_SelectionMoves(t *testing.T) {
 	// Delete TIKI-2
 	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
 
-	// Selection should move to next tiki (TIKI-3, which is now at index 1)
-	selectedIndex := kanbanConfig.GetSelectedIndex()
-	if selectedIndex != 1 {
-		t.Errorf("selection after delete = index %d, want index 1", selectedIndex)
+	if kanbanConfig.HasSelection() {
+		t.Error("a tiki is selected after delete, want nothing")
+	}
+	if got := kanbanConfig.GetSelectedIndex(); got != 1 {
+		t.Errorf("cursor after delete = index %d, want index 1", got)
+	}
+
+	// the next key selects the tiki now under the cursor (TIKI-3)
+	ta.SelectCursorTiki()
+	sv, ok := ta.NavController.GetActiveView().(controller.SelectableView)
+	if !ok {
+		t.Fatal("board view is not selectable")
+	}
+	if got := sv.GetSelectedID(); got != "000003" {
+		t.Errorf("selected %q after reselecting, want 000003", got)
 	}
 
 	// Verify TIKI-3 is visible
@@ -206,16 +218,11 @@ func TestTikiDeletion_MultipleSequential(t *testing.T) {
 	// Navigate to Kanban plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
-	ta.SelectCursorTiki()
-
-	// Delete first tiki
-	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
-
-	// Delete first tiki again (was TIKI-2, now at top)
-	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
-
-	// Delete first tiki again (was TIKI-3, now at top)
-	ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
+	// a delete leaves nothing selected, so each one selects the top tiki first
+	for range 3 {
+		ta.SelectCursorTiki()
+		ta.SendKey(tcell.KeyDelete, 0, tcell.ModNone)
+	}
 
 	// Reload and verify only 2 tikis remain
 	if err := ta.TikiStore.Reload(); err != nil {

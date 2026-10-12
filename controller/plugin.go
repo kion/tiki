@@ -20,6 +20,9 @@ type PluginController struct {
 	// so the board selects it on its next render rather than when the form opens.
 	// That render drops it either way: a cancelled form's draft never appears.
 	pendingSelectID string
+	// A tiki deleted in a view this board opened would leave a neighbour selected,
+	// so the board unselects if it's gone by the next render.
+	openedTikiID string
 }
 
 // NewPluginController creates a plugin controller
@@ -107,6 +110,12 @@ func (pc *PluginController) EnsureFirstNonEmptyLaneSelection() bool {
 
 // PrepareSelection runs before each board render.
 func (pc *PluginController) PrepareSelection() bool {
+	if id := pc.openedTikiID; id != "" {
+		pc.openedTikiID = ""
+		if pc.tikiStore.GetTiki(id) == nil {
+			pc.pluginConfig.ClearSelection()
+		}
+	}
 	if id := pc.pendingSelectID; id != "" {
 		pc.pendingSelectID = ""
 		if pc.selectTiki(pc.tikiStore.GetTiki(id)) {
@@ -295,6 +304,7 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 		}
 		pc.selectTiki(created)
 	case result.Delete != nil:
+		selectedID := pc.getSelectedTikiID(pc.GetFilteredTikisForLane)
 		for _, doc := range result.Delete.Deleted {
 			tk := tikipkg.UnwrapDoc(doc)
 			if err := pc.mutationGate.DeleteTiki(ctx, tk); err != nil {
@@ -304,6 +314,10 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 				}
 				return false
 			}
+		}
+		// the cursor stays put, so a neighbour would slide under it and look selected
+		if selectedID != "" && pc.tikiStore.GetTiki(selectedID) == nil {
+			pc.pluginConfig.ClearSelection()
 		}
 	case result.Pipe != nil:
 		for _, row := range result.Pipe.Rows {
@@ -391,6 +405,8 @@ func (pc *PluginController) handleViewAction(pa *plugin.PluginAction) bool {
 	pc.navController.PushView(model.MakePluginViewID(pa.TargetView), model.EncodePluginViewParams(pvp))
 	if pvp.Draft != nil {
 		pc.pendingSelectID = pvp.Draft.ID()
+	} else {
+		pc.openedTikiID = pvp.TikiID
 	}
 	return true
 }

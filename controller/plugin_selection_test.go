@@ -1834,3 +1834,82 @@ func TestPluginController_SavedSeededNewTikiSelectedOnReturn(t *testing.T) {
 		t.Errorf("selected %q, want the new tiki %q", got, draft.ID())
 	}
 }
+
+func selectExistingTiki(t *testing.T, pc *PluginController) {
+	t.Helper()
+	if !pc.selectTiki(pc.tikiStore.GetTiki("OLD001")) {
+		t.Fatal("could not select OLD001")
+	}
+}
+
+func TestPluginController_DeletingSelectedTikiUnselects(t *testing.T) {
+	del := plugin.PluginAction{
+		Key: tcell.KeyDelete, KeyStr: "Delete", Label: "Delete", Kind: plugin.ActionKindRuki,
+		Action: mustParseStmt(t, `delete where id = id()`),
+	}
+	pc, tikiStore, _ := newCreateSelectBoard(t, del)
+	seedTiki(t, tikiStore, "OLD002", "Neighbour", "ready", 0)
+	selectExistingTiki(t, pc)
+
+	if !pc.HandleAction(pluginActionID("Delete")) {
+		t.Fatal("delete action failed")
+	}
+	if pc.pluginConfig.HasSelection() {
+		t.Errorf("selected %q after deleting the selected tiki, want nothing",
+			pc.getSelectedTikiID(pc.GetFilteredTikisForLane))
+	}
+}
+
+func TestPluginController_DeletingOtherTikiKeepsSelection(t *testing.T) {
+	del := plugin.PluginAction{
+		Key: tcell.KeyDelete, KeyStr: "Delete", Label: "Delete", Kind: plugin.ActionKindRuki,
+		Action: mustParseStmt(t, `delete where id = "OLD002"`),
+	}
+	pc, tikiStore, _ := newCreateSelectBoard(t, del)
+	seedTiki(t, tikiStore, "OLD002", "Neighbour", "ready", 0)
+	selectExistingTiki(t, pc)
+
+	if !pc.HandleAction(pluginActionID("Delete")) {
+		t.Fatal("delete action failed")
+	}
+	if got := pc.getSelectedTikiID(pc.GetFilteredTikisForLane); got != "OLD001" {
+		t.Errorf("selected %q, want OLD001 kept", got)
+	}
+}
+
+var openAction = plugin.PluginAction{
+	Key: tcell.KeyEnter, KeyStr: "Enter", Label: "Open",
+	Kind: plugin.ActionKindView, TargetView: "Detail", Require: []string{"selection:one"},
+}
+
+func TestPluginController_TikiDeletedInOpenedViewUnselectsOnReturn(t *testing.T) {
+	pc, tikiStore, _ := newCreateSelectBoard(t, openAction)
+	seedTiki(t, tikiStore, "OLD002", "Neighbour", "ready", 0)
+	selectExistingTiki(t, pc)
+	if !pc.HandleAction(pluginActionID("Enter")) {
+		t.Fatal("open action failed")
+	}
+	tikiStore.DeleteTiki("OLD001")
+
+	pc.PrepareSelection()
+
+	if pc.pluginConfig.HasSelection() {
+		t.Errorf("selected %q after the opened tiki was deleted, want nothing",
+			pc.getSelectedTikiID(pc.GetFilteredTikisForLane))
+	}
+}
+
+func TestPluginController_TikiKeptInOpenedViewStaysSelectedOnReturn(t *testing.T) {
+	pc, tikiStore, _ := newCreateSelectBoard(t, openAction)
+	seedTiki(t, tikiStore, "OLD002", "Neighbour", "ready", 0)
+	selectExistingTiki(t, pc)
+	if !pc.HandleAction(pluginActionID("Enter")) {
+		t.Fatal("open action failed")
+	}
+
+	pc.PrepareSelection()
+
+	if got := pc.getSelectedTikiID(pc.GetFilteredTikisForLane); got != "OLD001" {
+		t.Errorf("selected %q, want OLD001 kept", got)
+	}
+}
