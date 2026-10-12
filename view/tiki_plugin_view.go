@@ -17,7 +17,7 @@ import (
 // PluginView renders a filtered/sorted list of tikis across lanes
 type PluginView struct {
 	root                *tview.Flex
-	titleBar            tview.Primitive
+	titleBar            *GradientCaptionRow
 	inputHelper         *InputHelper
 	lanes               *tview.Flex
 	laneBoxes           []*ScrollableList
@@ -133,6 +133,7 @@ func (pv *PluginView) refresh() {
 	}
 
 	pv.lanes.Clear()
+	laneCounts := make([]int, len(pv.pluginDef.Lanes))
 
 	for laneIdx := range pv.pluginDef.Lanes {
 		laneContainer := pv.laneBoxes[laneIdx]
@@ -143,6 +144,9 @@ func (pv *PluginView) refresh() {
 		pv.lanes.AddItem(laneContainer, 0, pv.pluginConfig.GetWidthForLane(laneIdx), isSelectedLane)
 
 		tikis := pv.getLaneTikis(laneIdx)
+		columns := pv.pluginConfig.GetColumnsForLane(laneIdx)
+		laneCounts[laneIdx] = len(tikis)
+		laneContainer.SetEntryCount(len(tikis), columns)
 		if isSelectedLane {
 			pv.pluginConfig.ClampSelection(len(tikis))
 		}
@@ -151,7 +155,6 @@ func (pv *PluginView) refresh() {
 			continue
 		}
 
-		columns := pv.pluginConfig.GetColumnsForLane(laneIdx)
 		selectedIndex := pv.pluginConfig.GetSelectedIndexForLane(laneIdx)
 		selectedRow := selectedIndex / columns
 
@@ -187,6 +190,7 @@ func (pv *PluginView) refresh() {
 		// Sync scroll offset from view to model for later lane navigation
 		pv.pluginConfig.SetScrollOffsetForLane(laneIdx, laneContainer.GetScrollOffset())
 	}
+	pv.titleBar.SetLaneCounts(laneCounts)
 	pv.pluginConfig.SetSelectionAnchor(cursorID)
 
 	if pv.actionChangeHandler != nil {

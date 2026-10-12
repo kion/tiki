@@ -1,6 +1,11 @@
 package view
 
 import (
+	"fmt"
+	"unicode/utf8"
+
+	"github.com/boolean-maybe/tiki/theme"
+
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -14,6 +19,8 @@ type ScrollableList struct {
 	itemHeight     int
 	scrollOffset   int
 	selectionIndex int
+	entries        int
+	perRow         int
 }
 
 // NewScrollableList creates a new scrollable list container
@@ -24,6 +31,7 @@ func NewScrollableList() *ScrollableList {
 		itemHeight:     1, // default, should be set by caller
 		scrollOffset:   0,
 		selectionIndex: -1,
+		perRow:         1,
 	}
 }
 
@@ -44,6 +52,16 @@ func (s *ScrollableList) Clear() *ScrollableList {
 	s.items = make([]tview.Primitive, 0)
 	// Keep scrollOffset to preserve position during refresh
 	s.selectionIndex = -1
+	s.entries = 0
+	s.perRow = 1
+	return s
+}
+
+// SetEntryCount makes the overflow hints count entries rather than items,
+// for items that each hold up to perRow entries.
+func (s *ScrollableList) SetEntryCount(total, perRow int) *ScrollableList {
+	s.entries = total
+	s.perRow = max(perRow, 1)
 	return s
 }
 
@@ -88,7 +106,7 @@ func (s *ScrollableList) ensureSelectionVisible() {
 		return
 	}
 
-	maxVisible := height / s.itemHeight
+	maxVisible := s.capacity(height)
 	if maxVisible <= 0 {
 		return
 	}
@@ -133,7 +151,7 @@ func (s *ScrollableList) Draw(screen tcell.Screen) {
 	// Re-run scroll calculation in case height changed (resize)
 	s.ensureSelectionVisible()
 
-	maxVisible := height / s.itemHeight
+	maxVisible := s.capacity(height)
 
 	// Loop through visible items
 	for i := 0; i < maxVisible; i++ {
@@ -150,6 +168,78 @@ func (s *ScrollableList) Draw(screen tcell.Screen) {
 
 		// draw the item
 		item.Draw(screen)
+	}
+
+	s.drawHints(screen, x, y, width, height, maxVisible)
+}
+
+func (s *ScrollableList) capacity(height int) int {
+	n := height / s.itemHeight
+	// One-line items have no border to carry the overflow hints,
+	// so an overflowing list gives its last line to them instead.
+	if s.itemHeight == 1 && len(s.items) > n && n > 1 {
+		n--
+	}
+	return n
+}
+
+func (s *ScrollableList) hiddenEntries(visible int) (above, below int) {
+	total := s.entries
+	if total == 0 {
+		total = len(s.items) * s.perRow
+	}
+	shown := min(s.scrollOffset+visible, len(s.items))
+	return s.scrollOffset * s.perRow, max(total-shown*s.perRow, 0)
+}
+
+func (s *ScrollableList) drawHints(screen tcell.Screen, x, y, width, height, visible int) {
+	if visible <= 0 {
+		return
+	}
+	above, below := s.hiddenEntries(visible)
+	if above == 0 && below == 0 {
+		return
+	}
+	fg := theme.Roles().TextMuted().TCell()
+
+	// Hints sit at the right end because items are busiest on the left.
+	if s.itemHeight == 1 {
+		if visible < height {
+			putHint(screen, x, x+width, y+visible, statusLine(above, below), fg)
+		}
+		return
+	}
+	// two cells in from each side keeps a dash between a hint and the border corners
+	if above > 0 {
+		putHint(screen, x+2, x+width-2, y, fmt.Sprintf("▲ %d more", above), fg)
+	}
+	if below > 0 {
+		putHint(screen, x+2, x+width-2, y+visible*s.itemHeight-1, fmt.Sprintf("▼ %d more", below), fg)
+	}
+}
+
+func statusLine(above, below int) string {
+	switch {
+	case above > 0 && below > 0:
+		return fmt.Sprintf("▲ %d · ▼ %d", above, below)
+	case above > 0:
+		return fmt.Sprintf("▲ %d more", above)
+	default:
+		return fmt.Sprintf("▼ %d more", below)
+	}
+}
+
+// putHint keeps each cell's background,
+// so a hint over a focused or selected item doesn't punch a hole in its colour.
+func putHint(screen tcell.Screen, start, end, y int, text string, fg tcell.Color) {
+	x := max(end-utf8.RuneCountInString(text), start)
+	for _, r := range text {
+		if x >= end {
+			return
+		}
+		_, style, _ := screen.Get(x, y)
+		screen.SetContent(x, y, r, nil, style.Foreground(fg))
+		x++
 	}
 }
 

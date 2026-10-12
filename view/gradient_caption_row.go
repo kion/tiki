@@ -1,6 +1,8 @@
 package view
 
 import (
+	"strconv"
+
 	gradcore "github.com/boolean-maybe/tiki/internal/gradient"
 	"github.com/boolean-maybe/tiki/theme"
 
@@ -17,6 +19,7 @@ type GradientCaptionRow struct {
 	*tview.Box
 	laneNames  []string
 	laneWidths []int
+	laneCounts []int
 	paint      theme.PositionPaint
 	textColor  theme.Color
 }
@@ -41,6 +44,11 @@ func NewGradientCaptionRow(laneNames []string, laneWidths []int, bgRole theme.Ro
 	}
 }
 
+// SetLaneCounts shows each lane's count after its name; nil shows names only.
+func (gcr *GradientCaptionRow) SetLaneCounts(counts []int) {
+	gcr.laneCounts = counts
+}
+
 // Draw renders all lane captions with a screen-wide gradient background.
 func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 	gcr.DrawForSubclass(screen, gcr)
@@ -55,7 +63,11 @@ func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 
 	laneRunes := make([][]rune, numLanes)
 	for i, name := range gcr.laneNames {
-		laneRunes[i] = []rune(name)
+		if i < len(gcr.laneCounts) {
+			laneRunes[i] = captionLabel(name, gcr.laneCounts[i], laneEnds[i]-laneStarts[i])
+		} else {
+			laneRunes[i] = []rune(name)
+		}
 	}
 
 	laneIndex := 0
@@ -99,6 +111,22 @@ func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 			screen.SetContent(x+col, y+row, char, nil, style)
 		}
 	}
+}
+
+// captionLabel shortens the name rather than the count when the lane is too narrow,
+// since the count is what tells you a lane holds more than it shows.
+func captionLabel(name string, count, width int) []rune {
+	countRunes := []rune(strconv.Itoa(count))
+	suffix := append([]rune(" · "), countRunes...)
+	nameRunes := []rune(name)
+	if len(nameRunes)+len(suffix) <= width {
+		return append(nameRunes, suffix...)
+	}
+	room := width - len(suffix)
+	if room < 2 {
+		return countRunes
+	}
+	return append(append(nameRunes[:room-1:room-1], '…'), suffix...)
 }
 
 // bgColorAt picks the per-column background color from the widget's

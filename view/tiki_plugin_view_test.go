@@ -135,6 +135,48 @@ func TestPluginViewStatsTrackSearchNarrowing(t *testing.T) {
 	}
 }
 
+func TestPluginViewCaptionAndHintsTrackLaneCounts(t *testing.T) {
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1, 4}, nil)
+	pluginDef := &plugin.WorkflowPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Lane0", Columns: 1}, {Name: "Lane1", Columns: 4}},
+		Layout:     testPluginLayout(t),
+	}
+
+	tikis := make([]*tikipkg.Tiki, 10)
+	for i := range tikis {
+		tikis[i] = boardTiki(fmt.Sprintf("T%05d", i))
+	}
+	provider := func(lane int) []*tikipkg.Tiki {
+		if lane == 1 {
+			return nil
+		}
+		if results := pluginConfig.GetSearchResults(); results != nil {
+			return results
+		}
+		return tikis
+	}
+	pv := NewPluginView(store.NewInMemoryStore(), pluginConfig, pluginDef, provider, nil, controller.PluginViewActions(), true)
+
+	pv.refresh()
+	if got := fmt.Sprint(pv.titleBar.laneCounts); got != "[10 0]" {
+		t.Errorf("caption counts = %s, want [10 0]", got)
+	}
+	if lb := pv.laneBoxes[0]; lb.entries != 10 || lb.perRow != 1 {
+		t.Errorf("lane 0 hints count %d entries %d per row, want 10 per 1", lb.entries, lb.perRow)
+	}
+	if lb := pv.laneBoxes[1]; lb.perRow != 4 {
+		t.Errorf("lane 1 hints count %d per row, want 4", lb.perRow)
+	}
+
+	pluginConfig.SetSearchResults(tikis[:3], "query")
+	pv.refresh()
+	if got := fmt.Sprint(pv.titleBar.laneCounts); got != "[3 0]" {
+		t.Errorf("caption counts after search = %s, want [3 0]", got)
+	}
+}
+
 func TestPluginViewGridLayout_RowCount(t *testing.T) {
 	tests := []struct {
 		name         string

@@ -1,8 +1,12 @@
 package view
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/boolean-maybe/tiki/theme"
+
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -383,5 +387,166 @@ func TestGetScrollOffset(t *testing.T) {
 	if list.GetScrollOffset() != list.scrollOffset {
 		t.Errorf("GetScrollOffset() = %d doesn't match internal scrollOffset = %d",
 			list.GetScrollOffset(), list.scrollOffset)
+	}
+}
+
+func TestHiddenEntriesCountTikisNotRows(t *testing.T) {
+	list := createTestList(10, 5) // 10 rows of 4, the last holding 2
+	list.SetEntryCount(38, 4)
+
+	cases := []struct{ offset, visible, above, below int }{
+		{0, 3, 0, 26},
+		{4, 3, 16, 10},
+		{7, 3, 28, 0},
+	}
+	for _, c := range cases {
+		list.scrollOffset = c.offset
+		above, below := list.hiddenEntries(c.visible)
+		if above != c.above || below != c.below {
+			t.Errorf("offset %d, %d visible: hidden = (%d, %d), want (%d, %d)",
+				c.offset, c.visible, above, below, c.above, c.below)
+		}
+	}
+}
+
+func TestHiddenEntriesDefaultToOnePerItem(t *testing.T) {
+	list := createTestList(10, 5)
+	list.scrollOffset = 2
+
+	if above, below := list.hiddenEntries(5); above != 2 || below != 3 {
+		t.Errorf("hidden = (%d, %d), want (2, 3)", above, below)
+	}
+}
+
+func TestCapacityReservesHintLineOnlyForOverflowingOneLineItems(t *testing.T) {
+	cases := []struct {
+		name                            string
+		items, itemHeight, height, want int
+	}{
+		{"one-line items that overflow give up a line", 10, 1, 5, 4},
+		{"one-line items that fit keep every line", 5, 1, 5, 5},
+		{"framed items carry hints in their borders", 10, 5, 25, 5},
+		{"a lone line is never given up", 10, 1, 1, 1},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			list := createTestList(c.items, c.itemHeight)
+			if got := list.capacity(c.height); got != c.want {
+				t.Errorf("capacity(%d) = %d, want %d", c.height, got, c.want)
+			}
+		})
+	}
+}
+
+// newBorderedTestList builds 5-line framed items, like a 3-row board card.
+func newBorderedTestList(itemCount int) *ScrollableList {
+	list := NewScrollableList().SetItemHeight(5)
+	for i := 0; i < itemCount; i++ {
+		list.AddItem(tview.NewBox().SetBorder(true))
+	}
+	return list
+}
+
+func drawList(t *testing.T, list *ScrollableList, width, height int) tcell.Screen {
+	t.Helper()
+	screen := tcell.NewSimulationScreen("UTF-8")
+	if err := screen.Init(); err != nil {
+		t.Fatalf("screen init: %v", err)
+	}
+	t.Cleanup(screen.Fini)
+	screen.SetSize(width, height)
+	list.SetRect(0, 0, width, height)
+	list.Draw(screen)
+	return screen
+}
+
+func TestFramedListDrawsHintsIntoEdgeBorders(t *testing.T) {
+	list := newBorderedTestList(10)
+	list.SetEntryCount(10, 1)
+	list.SetRect(0, 0, 20, 15)
+	list.SetSelection(5) // rows 3-5 visible
+
+	screen := drawList(t, list, 20, 15)
+
+	top := screenRow(screen, 0, 20)
+	if top != "┌─────────▲ 3 more─┐" {
+		t.Errorf("top border = %q, want the ▲ 3 more hint at its right end", top)
+	}
+	bottom := screenRow(screen, 14, 20)
+	if bottom != "└─────────▼ 4 more─┘" {
+		t.Errorf("bottom border = %q, want the ▼ 4 more hint at its right end", bottom)
+	}
+
+	_, hintStyle, _ := screen.Get(10, 0)
+	_, cornerStyle, _ := screen.Get(0, 0)
+	fg, bg, _ := hintStyle.Decompose()
+	if want := theme.Roles().TextMuted().TCell(); fg != want {
+		t.Errorf("hint foreground = %v, want muted text %v", fg, want)
+	}
+	if _, cornerBg, _ := cornerStyle.Decompose(); bg != cornerBg {
+		t.Errorf("hint background = %v, want the border's %v", bg, cornerBg)
+	}
+}
+
+func TestFramedListAtTopShowsOnlyBelowHint(t *testing.T) {
+	list := newBorderedTestList(10)
+	list.SetEntryCount(10, 1)
+
+	screen := drawList(t, list, 20, 15)
+
+	if top := screenRow(screen, 0, 20); strings.Contains(top, "▲") {
+		t.Errorf("top border = %q, want no ▲ hint at the top of the list", top)
+	}
+	if bottom := screenRow(screen, 14, 20); bottom != "└─────────▼ 7 more─┘" {
+		t.Errorf("bottom border = %q, want the ▼ 7 more hint", bottom)
+	}
+}
+
+func TestListThatFitsShowsNoHints(t *testing.T) {
+	list := newBorderedTestList(3)
+	list.SetEntryCount(3, 1)
+
+	screen := drawList(t, list, 20, 15)
+
+	for y := 0; y < 15; y++ {
+		if row := screenRow(screen, y, 20); strings.ContainsAny(row, "▲▼") {
+			t.Errorf("row %d = %q, want no hints when everything fits", y, row)
+		}
+	}
+}
+
+func TestHintNeverCoversRightCorner(t *testing.T) {
+	list := newBorderedTestList(10)
+	list.SetEntryCount(10, 1)
+
+	screen := drawList(t, list, 8, 15)
+
+	if bottom := screenRow(screen, 14, 8); bottom != "└─▼ 7 ─┘" {
+		t.Errorf("bottom border = %q, want the hint clipped before the corner", bottom)
+	}
+}
+
+func TestOneLineListShowsStatusLine(t *testing.T) {
+	cases := []struct {
+		name      string
+		selection int
+		want      string
+	}{
+		{"at the top", 0, "▼ 6 more"},
+		{"in the middle", 5, "▲ 2 · ▼ 4"},
+		{"at the bottom", 9, "▲ 6 more"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			list := createTestList(10, 1)
+			list.SetEntryCount(10, 1)
+			list.SetSelection(c.selection)
+
+			screen := drawList(t, list, 30, 5)
+
+			if got := screenRow(screen, 4, 30); strings.TrimSpace(got) != c.want || !strings.HasSuffix(got, c.want) {
+				t.Errorf("status line = %q, want %q at its right end", got, c.want)
+			}
+		})
 	}
 }

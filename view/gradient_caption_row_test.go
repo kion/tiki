@@ -1,9 +1,11 @@
 package view
 
 import (
+	"strings"
 	"testing"
 
 	gradcore "github.com/boolean-maybe/tiki/internal/gradient"
+	"github.com/boolean-maybe/tiki/theme"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -134,5 +136,78 @@ func TestComputeLaneBoundaries(t *testing.T) {
 				t.Errorf("last end = %d, want %d", ends[tt.numLanes-1], tt.totalWidth)
 			}
 		})
+	}
+}
+
+func TestCaptionLabel(t *testing.T) {
+	cases := []struct {
+		name  string
+		lane  string
+		count int
+		width int
+		want  string
+	}{
+		{"count follows the name", "Ready", 12, 20, "Ready · 12"},
+		{"exact fit", "Ready", 12, 10, "Ready · 12"},
+		{"narrow lane shortens the name, not the count", "In Progress", 12, 10, "In P… · 12"},
+		{"no room for a name keeps the count", "Ready", 12, 6, "12"},
+		{"empty lane shows zero", "Done", 0, 20, "Done · 0"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := string(captionLabel(c.lane, c.count, c.width)); got != c.want {
+				t.Errorf("captionLabel(%q, %d, %d) = %q, want %q", c.lane, c.count, c.width, got, c.want)
+			}
+		})
+	}
+}
+
+func drawCaptionRow(t *testing.T, gcr *GradientCaptionRow, width int) string {
+	t.Helper()
+	screen := tcell.NewSimulationScreen("UTF-8")
+	if err := screen.Init(); err != nil {
+		t.Fatalf("screen init: %v", err)
+	}
+	defer screen.Fini()
+	screen.SetSize(width, 1)
+	gcr.SetRect(0, 0, width, 1)
+	gcr.Draw(screen)
+	return screenRow(screen, 0, width)
+}
+
+func screenRow(screen tcell.Screen, y, width int) string {
+	var b strings.Builder
+	for x := 0; x < width; x++ {
+		str, _, _ := screen.Get(x, y)
+		if str == "" {
+			str = " "
+		}
+		b.WriteString(str)
+	}
+	return b.String()
+}
+
+func newTestCaptionRow(names []string) *GradientCaptionRow {
+	bg := theme.NewColorRoleAdapter(theme.NewColor(tcell.ColorBlue))
+	return NewGradientCaptionRow(names, nil, bg, theme.NewColor(tcell.ColorWhite))
+}
+
+func TestGradientCaptionRowDrawsLaneCounts(t *testing.T) {
+	gcr := newTestCaptionRow([]string{"Ready", "Done"})
+	gcr.SetLaneCounts([]int{12, 0})
+
+	got := drawCaptionRow(t, gcr, 40)
+	want := "     Ready · 12     " + "      Done · 0      "
+	if got != want {
+		t.Errorf("caption row = %q, want %q", got, want)
+	}
+}
+
+func TestGradientCaptionRowWithoutCountsShowsNamesOnly(t *testing.T) {
+	gcr := newTestCaptionRow([]string{"Wiki page"})
+
+	got := strings.TrimSpace(drawCaptionRow(t, gcr, 30))
+	if got != "Wiki page" {
+		t.Errorf("caption = %q, want %q", got, "Wiki page")
 	}
 }
