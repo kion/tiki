@@ -53,7 +53,7 @@ func TestCreateTikiBox_ReturnsFrame(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	frame := CreateTikiBox(tk, spec, false, theme.Roles())
+	frame := CreateTikiBox(tk, spec, false, theme.Roles(), nil)
 	if frame == nil {
 		t.Fatal("CreateTikiBox returned nil")
 	}
@@ -138,7 +138,7 @@ func TestCreateTikiBox_CompositeWithCountDrawsNumber(t *testing.T) {
 // returned strings are user-visible content only.
 func renderTikiBoxToString(t *testing.T, tk *tikipkg.Tiki, spec gridlayout.GridSpec, width int) []string {
 	t.Helper()
-	frame := CreateTikiBox(tk, spec, false, theme.Roles())
+	frame := CreateTikiBox(tk, spec, false, theme.Roles(), nil)
 	height := tikiBoxItemHeight(spec)
 
 	screen := tcell.NewSimulationScreen("")

@@ -10,6 +10,7 @@ import (
 // otherwise done tikis can't be edited at all,
 // and the after-delete dependsOn cleanup silently skips them.
 func TestRunExec_BundledKanbanAllowsEditingDoneTiki(t *testing.T) {
+	stubTikiOnPath(t)
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Chdir(t.TempDir())
 	config.ResetPathManager()

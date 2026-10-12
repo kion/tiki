@@ -11,6 +11,7 @@
 - [Document format](tiki-format.md)
 - [Quick capture](quick-capture.md)
 - [AI collaboration](ai.md)
+- [Live status](live-status.md)
 - [Recipes](ideas/plugins.md)
 - [Triggers](ideas/triggers.md)
 - [Workflow format versions](workflow-format.md)

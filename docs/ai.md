@@ -11,13 +11,15 @@ manually — there is no in-app installer. Once installed you can:
 - create, find, modify, and delete documents using AI
 - create documents directly from Markdown files
 - reference documents by id when implementing with AI-assisted development — `implement ABC123`
+- watch the agent's progress on the board: it publishes a [live status](live-status.md) on the
+  tiki it is working on
 - keep a history of prompts/plans by saving them as documents alongside your repo
 
 ### Installing a skill
 
 The skill files ship in the tiki repository under `ai/skills/`:
 
-- `ai/skills/tiki/SKILL.md` — document create/find/update/delete
+- `ai/skills/tiki/SKILL.md` — document create/find/update/delete and live status
 
 Copy the directory containing the relevant `SKILL.md` into your tool's skills location, for example:
 

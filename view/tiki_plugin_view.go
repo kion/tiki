@@ -10,6 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/view/liveborder"
 
 	"github.com/rivo/tview"
 )
@@ -28,6 +29,7 @@ type PluginView struct {
 	showNavigation      bool
 	storeListenerID     int
 	selectionListenerID int
+	live                liveborder.Source
 	getLaneTikis        func(lane int) []*tikipkg.Tiki // injected from controller
 	ensureSelection     func() bool                    // injected from controller
 	actionChangeHandler func()
@@ -42,6 +44,7 @@ func NewPluginView(
 	ensureSelection func() bool,
 	registry *controller.ActionRegistry,
 	showNavigation bool,
+	live liveborder.Source,
 ) *PluginView {
 	pv := &PluginView{
 		tikiStore:       tikiStore,
@@ -51,6 +54,7 @@ func NewPluginView(
 		showNavigation:  showNavigation,
 		getLaneTikis:    getLaneTikis,
 		ensureSelection: ensureSelection,
+		live:            live,
 	}
 
 	pv.build()
@@ -170,7 +174,7 @@ func (pv *PluginView) refresh() {
 						cursorID = tiki.ID()
 					}
 					isSelected := isCursor && hasSelection
-					tikiBox := CreateTikiBox(tiki, pv.pluginDef.Layout, isSelected, theme.Roles())
+					tikiBox := CreateTikiBox(tiki, pv.pluginDef.Layout, isSelected, theme.Roles(), pv.live)
 					rowFlex.AddItem(tikiBox, 0, 1, false)
 				} else {
 					spacer := tview.NewBox()

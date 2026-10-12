@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -629,5 +630,33 @@ func TestLoadConfigLiveReloadFlagWithLogLevel(t *testing.T) {
 	}
 	if cfg.Logging.Level != "warn" {
 		t.Errorf("--log-level lost when combined with --live-reload: %q", cfg.Logging.Level)
+	}
+}
+
+func TestLoadConfigLiveStatusStaleAfter(t *testing.T) {
+	tests := []struct {
+		name string
+		file string
+		env  string
+		want time.Duration
+	}{
+		{name: "default", want: 15 * time.Minute},
+		{name: "from file", file: "liveStatus:\n  staleAfter: 30m\n", want: 30 * time.Minute},
+		{name: "env override", env: "45s", want: 45 * time.Second},
+		{name: "unparsable falls back", file: "liveStatus:\n  staleAfter: banana\n", want: 15 * time.Minute},
+		{name: "zero falls back", file: "liveStatus:\n  staleAfter: 0s\n", want: 15 * time.Minute},
+		// viper reads a bare number as nanoseconds, which would make every status stale at once
+		{name: "unitless number falls back", file: "liveStatus:\n  staleAfter: 900\n", want: 15 * time.Minute},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.env != "" {
+				t.Setenv("TIKI_LIVESTATUS_STALEAFTER", tt.env)
+			}
+			isolateConfig(t, tt.file)
+			if got := GetLiveStatusStaleAfter(); got != tt.want {
+				t.Errorf("GetLiveStatusStaleAfter() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

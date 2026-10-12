@@ -41,7 +41,7 @@ func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
 
 	pv := NewPluginView(tikiStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
 		return tikis
-	}, nil, controller.PluginViewActions(), true)
+	}, nil, controller.PluginViewActions(), true, nil)
 
 	itemHeight := 5 // 3-row layout + gridbox.TikiBoxOverhead (2)
 	for _, lb := range pv.laneBoxes {
@@ -108,7 +108,7 @@ func TestPluginViewStatsTrackSearchNarrowing(t *testing.T) {
 		return tikis
 	}
 
-	pv := NewPluginView(tikiStore, pluginConfig, pluginDef, provider, nil, controller.PluginViewActions(), true)
+	pv := NewPluginView(tikiStore, pluginConfig, pluginDef, provider, nil, controller.PluginViewActions(), true, nil)
 
 	// mirror RootLayout: stats are recomputed only when the view signals a change
 	var statsCount int
@@ -157,7 +157,7 @@ func TestPluginViewCaptionAndHintsTrackLaneCounts(t *testing.T) {
 		}
 		return tikis
 	}
-	pv := NewPluginView(store.NewInMemoryStore(), pluginConfig, pluginDef, provider, nil, controller.PluginViewActions(), true)
+	pv := NewPluginView(store.NewInMemoryStore(), pluginConfig, pluginDef, provider, nil, controller.PluginViewActions(), true, nil)
 
 	pv.refresh()
 	if got := fmt.Sprint(pv.titleBar.laneCounts); got != "[10 0]" {
@@ -212,7 +212,7 @@ func TestPluginViewGridLayout_RowCount(t *testing.T) {
 
 			pv := NewPluginView(tikiStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
 				return tikis
-			}, nil, controller.PluginViewActions(), true)
+			}, nil, controller.PluginViewActions(), true, nil)
 
 			pv.refresh()
 
@@ -259,7 +259,7 @@ func TestPluginViewGridLayout_SelectedRow(t *testing.T) {
 
 			pv := NewPluginView(tikiStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
 				return tikis
-			}, nil, controller.PluginViewActions(), true)
+			}, nil, controller.PluginViewActions(), true, nil)
 
 			pluginConfig.SetSelectedLane(0)
 			pluginConfig.SetSelectedIndexForLane(0, tt.selectedIndex)
@@ -296,7 +296,7 @@ func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 
 	pv := NewPluginView(tikiStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
 		return tikis
-	}, nil, controller.PluginViewActions(), true)
+	}, nil, controller.PluginViewActions(), true, nil)
 
 	if len(pv.laneBoxes) != 1 {
 		t.Fatalf("expected 1 lane box, got %d", len(pv.laneBoxes))
@@ -353,7 +353,7 @@ func newSelectionTestView(t *testing.T, board *laneBoard, pc *model.PluginConfig
 		Lanes:      lanes,
 		Layout:     testPluginLayout(t),
 	}
-	return NewPluginView(store.NewInMemoryStore(), pc, pluginDef, board.get, nil, controller.PluginViewActions(), true)
+	return NewPluginView(store.NewInMemoryStore(), pc, pluginDef, board.get, nil, controller.PluginViewActions(), true, nil)
 }
 
 func newSelectionConfig(lanes int) *model.PluginConfig {

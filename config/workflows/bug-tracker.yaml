@@ -358,6 +358,11 @@ triggers:
       after update
         where new.status = "verified" or new.status = "wontFix"
         update where id = new.id set dueBy=empty
+  - description: clear the agent live status on closure
+    ruki: >
+      after update
+        where (new.status = "verified" or new.status = "wontFix") and old.status != new.status
+        run("\"${TIKI_BIN:-tiki}\" live clear " + new.id)
   - description: remove deleted task from dependency lists
     ruki: >
       after delete

@@ -53,3 +53,8 @@ triggers:
     ruki: >
       every 1day
         delete where status = "done" and updatedAt < now() - 1day
+  - description: clear the agent live status when a task is done
+    ruki: >
+      after update
+        where new.status = "done" and old.status != "done"
+        run("\"${TIKI_BIN:-tiki}\" live clear " + new.id)

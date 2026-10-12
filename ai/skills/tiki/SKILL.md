@@ -1,7 +1,7 @@
 ---
 name: tiki
-description: view, create, update, delete tikis (tasks, docs, notes) and manage dependencies via ruki
-allowed-tools: Read, Grep, Glob, Write, WebFetch, Bash(tiki exec:*), Bash(git log:*), Bash(git blame:*), Bash(jq:*)
+description: view, create, update, delete tikis (tasks, docs, notes), manage dependencies via ruki, and publish a live status while working on a tiki
+allowed-tools: Read, Grep, Glob, Write, WebFetch, Bash(tiki exec:*), Bash(tiki live:*), Bash(git log:*), Bash(git blame:*), Bash(jq:*)
 ---
 
 # tiki
@@ -208,6 +208,41 @@ requires an assignee — set both together):
 ```sh
 tiki exec 'update where id = "X7F4K2" set assignee="me" status="inProgress"'
 ```
+Then publish a live status while you work on it (next section).
+
+## Live status
+
+While you work on a tiki, publish what you are doing. Boards show it in the tiki's card border while
+live reload is on, e.g. `└─ ✻ Claude ✢ 3m Implementing parser ─┘`: who is working, a progress
+animation tiki adds, the minutes since your last update (none in the first minute), and your
+message. It is stored in `.tiki/live/<ID>.yaml`, which git ignores; the tiki file itself is not
+changed, so updates never show in `git status` or conflict with edits.
+
+```sh
+# first update: who you are (kept for later updates)
+tiki live set X7F4K2 --agent "✻ Claude" --message "Researching"
+
+# later updates: just the message
+tiki live set X7F4K2 --message "Implementing parser"
+
+# finished, stopped, or handing back to the user
+tiki live clear X7F4K2
+```
+
+- Post a status as soon as you start working on a tiki, then update it at each meaningful milestone,
+  e.g. researching → planning → implementing → testing → fixing → reviewing. Don't update for every
+  small step.
+- `--message`: the current activity in 1–5 words, such as `Researching`, `Implementing status
+  animation`, `Fixing broken unit tests`. Single line, at most 60 characters.
+- `--agent`: a glyph and/or short name for your harness or model, at most 16 characters, such as
+  `✻ Claude`, `◆ Codex` or `✦ Gemini`. Use your own, not these examples. Prefer text-style symbols
+  to emoji: emoji keep their own colours, and terminals disagree on their widths.
+- Clear the status when you finish, stop, or hand control back to the user. The built-in workflow
+  also clears it when the tiki moves to `done`, but don't rely on that alone.
+- A status not updated for 15 minutes is shown dimmed and frozen, so give a long-running step an
+  occasional fresh update.
+- `tiki live set` exits with code 2 if the id is not a tiki under the current directory. Run it from
+  the same directory as `tiki exec`.
 
 ## Delete
 
@@ -271,4 +306,5 @@ tiki exec 'select createdAt, createdBy where id = "X7F4K2"'
 - An id is exactly 6 characters, uppercase letters and digits only (e.g. `X7F4K2`); a value of any other
   shape is rejected. Ids are assigned by tiki on create — obtain one from a query or `created` output,
   never invent or reformat it
-- Exit codes: 0 = ok, 2 = usage error, 3 = startup failure, 4 = query error
+- Exit codes: 0 = ok, 2 = usage error, 3 = startup failure, 4 = query error (`tiki live`: 0 = ok,
+  1 = file error, 2 = usage or input error)

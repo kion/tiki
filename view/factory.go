@@ -11,6 +11,7 @@ import (
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/util"
+	"github.com/boolean-maybe/tiki/view/liveborder"
 	"github.com/boolean-maybe/tiki/view/tikidetail"
 )
 
@@ -27,6 +28,7 @@ type ViewFactory struct {
 	// SetProgressHub after the app + hub exist in bootstrap.
 	progressHub *model.ProgressHub
 	redraw      func(func())
+	liveStatus  liveborder.Source
 	// Plugin support
 	pluginConfigs     map[string]*model.PluginConfig
 	pluginDefs        map[string]plugin.Plugin
@@ -87,6 +89,11 @@ func (f *ViewFactory) SetProgressHub(hub *model.ProgressHub, redraw func(func())
 	f.redraw = redraw
 }
 
+// SetLiveStatus lets cards and the detail view show agents' live statuses.
+func (f *ViewFactory) SetLiveStatus(live liveborder.Source) {
+	f.liveStatus = live
+}
+
 // SetWikiControllerFactory registers a factory function that creates a fresh
 // WikiController per view navigation, capturing nav/status/gate/schema from
 // the bootstrap context. Must be called before any wiki view is created.
@@ -145,6 +152,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 			tikiCtrl.PrepareSelection,
 			tikiCtrl.GetActionRegistry(),
 			tikiCtrl.ShowNavigation(),
+			f.liveStatus,
 		)
 	case plugin.KindWiki:
 		wikiPlugin, ok := pluginDef.(*plugin.WikiPlugin)
@@ -206,6 +214,9 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 			f.progressHub,
 			f.redraw,
 		)
+		if f.liveStatus != nil {
+			cv.SetLiveStatus(f.liveStatus)
+		}
 		if dc != nil {
 			dc.BindEditView(cv)
 			dc.ApplyDetailMode(pluginParams.Mode, pluginParams.Focus, pluginParams.Draft)

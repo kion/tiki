@@ -20,6 +20,8 @@ type Theme struct {
 	statuslineFill                                                    Role
 	// Tiki-specific
 	tikiID Role
+	// Live status
+	liveAgent, liveMessage Role
 	// Logo
 	logoDot, logoShade, logoBorder Role
 	// Pair-list (Go API only)
@@ -47,6 +49,8 @@ func (t *Theme) StatusWarn() Role         { return t.statusWarn }
 func (t *Theme) StatusOk() Role           { return t.statusOk }
 func (t *Theme) StatuslineFill() Role     { return t.statuslineFill }
 func (t *Theme) TikiID() Role             { return t.tikiID }
+func (t *Theme) LiveAgent() Role          { return t.liveAgent }
+func (t *Theme) LiveMessage() Role        { return t.liveMessage }
 func (t *Theme) LogoDot() Role            { return t.logoDot }
 func (t *Theme) LogoShade() Role          { return t.logoShade }
 func (t *Theme) LogoBorder() Role         { return t.logoBorder }

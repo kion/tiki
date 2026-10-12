@@ -170,6 +170,7 @@ Press `?` to open the Action Palette and discover every available action.
 - create documents directly from Markdown files
 - reference documents by id when implementing with AI-assisted development — `implement ABC123`
 - keep a history of prompts/plans by saving them as documents alongside your repo
+- watch the agent's progress on the board through its [live status](docs/live-status.md)
 
 ## Feedback
 

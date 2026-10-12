@@ -39,12 +39,23 @@ type Options struct {
 	OnStateChange func(enabled bool)
 	OnError       func(err error)
 
+	Sidecar *Sidecar
+
 	Quiet     time.Duration
 	MaxDelay  time.Duration
 	BusyRetry time.Duration
 
 	// for tests: replaces the fsnotify watcher
-	startSource func(root string, known func() []string, out *batcher) (io.Closer, error)
+	startSource func(root string, known func() []string, out *batcher, side *sidecarWatch) (io.Closer, error)
+}
+
+// Sidecar changes skip the store and are never held while Busy:
+// they only repaint, so they can't move focus or the selection.
+// OnChange runs on the UI goroutine.
+// The catch-up when live reload turns on is OnStateChange's job.
+type Sidecar struct {
+	Dir      string
+	OnChange func()
 }
 
 // Enabled and SetEnabled are UI-goroutine only; Stop is safe from anywhere.
@@ -60,6 +71,7 @@ type Service struct {
 // lets updates queued by an earlier run detect that they are stale.
 type run struct {
 	batch  *batcher
+	side   *batcher
 	source io.Closer
 	stop   chan struct{}
 	kick   chan struct{}
@@ -81,8 +93,8 @@ func New(opts Options) *Service {
 		opts.BusyRetry = defaultBusyRetry
 	}
 	if opts.startSource == nil {
-		opts.startSource = func(root string, known func() []string, out *batcher) (io.Closer, error) {
-			return startDirWatcher(root, known, out)
+		opts.startSource = func(root string, known func() []string, out *batcher, side *sidecarWatch) (io.Closer, error) {
+			return startDirWatcher(root, known, out, side)
 		}
 	}
 	return &Service{opts: opts}
@@ -112,9 +124,17 @@ func (s *Service) SetEnabled(on bool) error {
 		kick:  make(chan struct{}, 1),
 		held:  map[string]struct{}{},
 	}
-	src, err := s.opts.startSource(s.opts.Root, s.opts.Target.AllPaths, r.batch)
+	var side *sidecarWatch
+	if s.opts.Sidecar != nil {
+		r.side = newBatcher(s.opts.Quiet, s.opts.MaxDelay)
+		side = &sidecarWatch{dir: s.opts.Sidecar.Dir, out: r.side}
+	}
+	src, err := s.opts.startSource(s.opts.Root, s.opts.Target.AllPaths, r.batch, side)
 	if err != nil {
 		r.batch.stop()
+		if r.side != nil {
+			r.side.stop()
+		}
 		err = fmt.Errorf("live reload unavailable: %w", err)
 		s.reportError(err)
 		return err
@@ -169,10 +189,23 @@ func (s *Service) isCurrent(r *run) bool {
 // Dispatch can block for as long as the UI is suspended (e.g. in $EDITOR);
 // the watcher keeps draining fsnotify meanwhile.
 func (s *Service) dispatchLoop(r *run) {
+	var sideReady <-chan struct{}
+	if r.side != nil {
+		sideReady = r.side.ready()
+	}
 	for {
 		select {
 		case <-r.stop:
 			return
+		case <-sideReady:
+			r.side.take()
+			select {
+			case <-r.stop:
+				return
+			default:
+			}
+			s.opts.Dispatch(func() { s.applySidecarOnUI(r) })
+			continue
 		case <-r.batch.ready():
 			paths, reconcile := r.batch.take()
 			if len(paths) > 0 {
@@ -221,6 +254,16 @@ func (s *Service) applyOnUI(r *run) {
 	}
 	// an error is a statusline change too
 	if (res.Changed || err != nil) && s.opts.Redraw != nil {
+		s.opts.Redraw()
+	}
+}
+
+func (s *Service) applySidecarOnUI(r *run) {
+	if !s.isCurrent(r) {
+		return
+	}
+	s.opts.Sidecar.OnChange()
+	if s.opts.Redraw != nil {
 		s.opts.Redraw()
 	}
 }
@@ -286,6 +329,9 @@ func (r *run) shutdown() {
 		_ = r.source.Close()
 	}
 	r.batch.stop()
+	if r.side != nil {
+		r.side.stop()
+	}
 	r.mu.Lock()
 	if r.retry != nil {
 		r.retry.Stop()

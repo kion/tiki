@@ -115,3 +115,22 @@ func mustWrite(t *testing.T, path, content string) {
 		t.Fatalf("write %s: %v", path, err)
 	}
 }
+
+func TestFindIDPath(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, filepath.Join(root, "notes.md"), "plain prose, no frontmatter\n")
+	mustWrite(t, filepath.Join(root, "broken.md"), "---\nid: [unclosed\n---\n")
+	mustWrite(t, filepath.Join(root, "deep", "fix-login.md"), "---\nid: X7F4K2\ntitle: Fix login\n---\nbody\n")
+	mustWrite(t, filepath.Join(root, ".tiki", "live", "ABCDEF.md"), "---\nid: ABCDEF\n---\n")
+
+	path, ok, err := FindIDPath(root, "X7F4K2")
+	if err != nil || !ok || filepath.Base(path) != "fix-login.md" {
+		t.Fatalf("FindIDPath(X7F4K2) = %q, %v, %v; want deep/fix-login.md", path, ok, err)
+	}
+	if _, ok, err := FindIDPath(root, "QQQQQQ"); ok || err != nil {
+		t.Fatalf("FindIDPath(QQQQQQ) = %v, %v; want not found", ok, err)
+	}
+	if _, ok, _ := FindIDPath(root, "ABCDEF"); ok {
+		t.Fatal("FindIDPath found a file under a hidden directory the store never loads")
+	}
+}

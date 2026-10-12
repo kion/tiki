@@ -46,6 +46,7 @@ func TestDarkAllFieldsExercised(t *testing.T) {
 	_ = d.Danger
 	_ = d.Warn
 	_ = d.Ok
+	_ = d.Orange
 	for _, c := range d.CaptionFg {
 		_ = c
 	}

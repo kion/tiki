@@ -16,6 +16,7 @@ import (
 // PluginController handles plugin view actions: navigation, open, create, delete.
 type PluginController struct {
 	pluginBase
+	liveStatus LiveStatusClearer
 	// A new-tiki form's draft only reaches the store once saved,
 	// so the board selects it on its next render rather than when the form opens.
 	// That render drops it either way: a cancelled form's draft never appears.
@@ -157,6 +158,8 @@ func (pc *PluginController) HandleAction(actionID ActionID) bool {
 		return pc.handleMoveTiki(-1)
 	case ActionMoveTikiRight:
 		return pc.handleMoveTiki(1)
+	case ActionClearLiveStatus:
+		return pc.handleClearLiveStatus()
 	default:
 		if keyStr := getPluginActionKeyStr(actionID); keyStr != "" {
 			return pc.handlePluginAction(actionID)

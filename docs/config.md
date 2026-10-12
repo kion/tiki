@@ -143,6 +143,12 @@ liveReload:
                              # Toggle at runtime with Ctrl-L or the action palette
                              # Flag: --live-reload; env: TIKI_LIVERELOAD_ENABLED
 
+# Live status — what an AI agent is doing, shown on cards while live reload is on
+liveStatus:
+  staleAfter: 15m            # Dim a status and stop its animation after this long
+                             # without an update (default: 15m; needs a unit, at least 1s)
+                             # Env: TIKI_LIVESTATUS_STALEAFTER
+
 # Tiki identity — used by `user()` and task attribution
 identity:
   name: "Your Name"          # Display name for the current user
@@ -201,6 +207,8 @@ How it behaves:
   is open, changes wait until it closes.
 - **Editing conflicts.** If the tiki you are editing changes on disk, the statusline warns you.
   Saving would conflict, so press `Esc` and reopen it.
+- **Live status.** An AI agent's [live status](live-status.md) shows on cards only while live
+  reload is on.
 - **Full reload.** `r` still does a full reload. Unlike live reload, it also refreshes the creation
   time and author that tiki reads from git history.
 

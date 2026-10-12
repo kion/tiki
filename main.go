@@ -21,6 +21,8 @@ import (
 
 // main runs the application bootstrap and starts the TUI.
 func main() {
+	exportTikiBin()
+
 	// Handle version flag
 	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
 		fmt.Printf("tiki version %s\ncommit: %s\nbuilt: %s\n",
@@ -67,6 +69,11 @@ func main() {
 		os.Exit(runExec(os.Args[2:]))
 	}
 
+	// before the piped-stdin check: agent shells often run with a non-terminal stdin
+	if len(os.Args) > 1 && os.Args[1] == "live" {
+		os.Exit(runLive(os.Args[2:]))
+	}
+
 	// Handle piped stdin: create a tiki and exit without launching TUI
 	if pipe.IsPipedInput() && !pipe.HasPositionalArgs(os.Args[1:]) {
 		tikiID, err := pipe.CreateTikiFromReader(os.Stdin)
@@ -79,7 +86,7 @@ func main() {
 	}
 
 	// Handle viewer mode (standalone markdown viewer)
-	viewerInput, runViewer, err := viewer.ParseViewerInput(os.Args[1:], map[string]struct{}{"demo": {}, "exec": {}, "workflow": {}})
+	viewerInput, runViewer, err := viewer.ParseViewerInput(os.Args[1:], map[string]struct{}{"demo": {}, "exec": {}, "live": {}, "workflow": {}})
 	if err != nil {
 		if errors.Is(err, viewer.ErrMultipleInputs) {
 			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
@@ -357,6 +364,8 @@ func printUsage() {
 Usage:
   tiki                       Launch TUI over Markdown in the current directory
   tiki exec [--format table|json] '<statement>'    Execute a ruki query and exit
+  tiki live set <ID> --message <text>  Publish an agent's live status on a tiki
+  tiki live clear <ID>       Remove a tiki's live status
   tiki workflow reset [target]  Reset config files (--global, --current)
   tiki workflow install <source> Install a workflow (--global, --current)
   tiki demo                  Launch demo project (extracts embedded files on first run)

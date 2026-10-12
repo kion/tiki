@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/muesli/termenv"
 	"github.com/spf13/pflag"
@@ -64,6 +65,11 @@ type Config struct {
 	LiveReload struct {
 		Enabled bool `mapstructure:"enabled"`
 	} `mapstructure:"liveReload"`
+
+	// a string, so a malformed duration falls back to the default instead of failing startup
+	LiveStatus struct {
+		StaleAfter string `mapstructure:"staleAfter"`
+	} `mapstructure:"liveStatus"`
 
 	// Identity configuration — preferred source for `user()` and UI attribution
 	Identity struct {
@@ -148,6 +154,7 @@ func setDefaults() {
 
 	// without a default, TIKI_LIVERELOAD_ENABLED never reaches the config struct
 	viper.SetDefault("liveReload.enabled", false)
+	viper.SetDefault("liveStatus.staleAfter", defaultLiveStatusStaleAfter.String())
 
 	// Identity defaults — empty so env overrides (TIKI_IDENTITY_*) bind correctly
 	viper.SetDefault("identity.name", "")
@@ -221,6 +228,15 @@ func readWorkflowFile(path string) (*workflowFileData, error) {
 
 func GetLiveReloadEnabled() bool {
 	return viper.GetBool("liveReload.enabled")
+}
+
+const defaultLiveStatusStaleAfter = 15 * time.Minute
+
+func GetLiveStatusStaleAfter() time.Duration {
+	if d := viper.GetDuration("liveStatus.staleAfter"); d >= time.Second {
+		return d
+	}
+	return defaultLiveStatusStaleAfter
 }
 
 // GetHeaderVisible returns the header visibility setting

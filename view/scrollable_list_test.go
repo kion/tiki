@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/theme"
+	"github.com/boolean-maybe/tiki/view/liveborder"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -548,5 +549,67 @@ func TestOneLineListShowsStatusLine(t *testing.T) {
 				t.Errorf("status line = %q, want %q at its right end", got, c.want)
 			}
 		})
+	}
+}
+
+func newLiveTestList(itemCount int, live liveborder.Source) *ScrollableList {
+	list := NewScrollableList().SetItemHeight(5)
+	for i := 0; i < itemCount; i++ {
+		frame := tview.NewFrame(tview.NewBox())
+		frame.SetBorder(true)
+		list.AddItem(liveborder.New(frame, "X7F4K2", live, theme.Roles()))
+	}
+	list.SetEntryCount(itemCount, 1)
+	return list
+}
+
+func TestLastVisibleStatusStopsBeforeTheHint(t *testing.T) {
+	list := newLiveTestList(10, &fakeLive{line: claudeLine, ok: true})
+	screen := drawList(t, list, 30, 15)
+
+	if got, want := visibleRow(screen, 14), "└─ ✢ 1m Implement… ─▼ 7 more─┘"; got != want {
+		t.Fatalf("last card's bottom border\n got %q\nwant %q", got, want)
+	}
+	if got, want := visibleRow(screen, 4), "└─ ✻ Claude ✢ 1m Implement… ─┘"; got != want {
+		t.Fatalf("first card's bottom border\n got %q\nwant %q", got, want)
+	}
+}
+
+func TestStatusLimitFollowsScrolling(t *testing.T) {
+	list := newLiveTestList(4, &fakeLive{line: claudeLine, ok: true})
+	drawList(t, list, 30, 15) // the third card is last visible, above a hint
+
+	list.SetSelection(3)
+	screen := drawList(t, list, 30, 15) // the third card is now in the middle
+	if got, want := visibleRow(screen, 9), "└─ ✻ Claude ✢ 1m Implement… ─┘"; got != want {
+		t.Fatalf("scrolled card's bottom border\n got %q\nwant %q", got, want)
+	}
+}
+
+func TestStatusLimitReachesCardsInARow(t *testing.T) {
+	live := &fakeLive{line: claudeLine, ok: true}
+	list := NewScrollableList().SetItemHeight(5)
+	for i := 0; i < 4; i++ {
+		row := tview.NewFlex().SetDirection(tview.FlexColumn)
+		for col := 0; col < 2; col++ {
+			frame := tview.NewFrame(tview.NewBox())
+			frame.SetBorder(true)
+			row.AddItem(liveborder.New(frame, "X7F4K2", live, theme.Roles()), 0, 1, false)
+		}
+		list.AddItem(row)
+	}
+	list.SetEntryCount(8, 2)
+	screen := drawList(t, list, 40, 10)
+
+	if got, want := visibleRow(screen, 9), "└─ ✢ 1m Implemen… ─┘└─ ✢ ─────▼ 4 more─┘"; got != want {
+		t.Fatalf("last row's bottom borders\n got %q\nwant %q", got, want)
+	}
+}
+
+func TestStatusUnlimitedWithoutAHint(t *testing.T) {
+	list := newLiveTestList(3, &fakeLive{line: claudeLine, ok: true})
+	screen := drawList(t, list, 30, 15)
+	if got, want := visibleRow(screen, 14), "└─ ✻ Claude ✢ 1m Implement… ─┘"; got != want {
+		t.Fatalf("last card's bottom border\n got %q\nwant %q", got, want)
 	}
 }

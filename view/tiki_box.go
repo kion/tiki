@@ -7,6 +7,7 @@ import (
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/view/gridbox"
+	"github.com/boolean-maybe/tiki/view/liveborder"
 	"github.com/boolean-maybe/tiki/view/tikidetail"
 )
 
@@ -69,7 +70,7 @@ func tikiBoxItemHeight(spec gridlayout.GridSpec) int {
 // they are intentionally clipped by tview's natural cell-width truncation
 // in the same way long titles are. For multi-row rendering, declare the
 // field on a `kind: detail` view instead.
-func CreateTikiBox(tk *tikipkg.Tiki, spec gridlayout.GridSpec, selected bool, roles *theme.Theme) tview.Primitive {
+func CreateTikiBox(tk *tikipkg.Tiki, spec gridlayout.GridSpec, selected bool, roles *theme.Theme, live liveborder.Source) tview.Primitive {
 	primitives := buildTikiBoxPrimitives(spec, tk, roles)
 	heightOf := func(gridlayout.Anchor, int) int { return 1 }
 	measure := tikiBoxMeasure(tk, roles)
@@ -86,7 +87,10 @@ func CreateTikiBox(tk *tikipkg.Tiki, spec gridlayout.GridSpec, selected bool, ro
 	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 3)
 	frame.SetBorder(true)
 	applyFrameStyle(frame, selected, roles)
-	return frame
+	if live == nil {
+		return frame
+	}
+	return liveborder.New(frame, tk.ID(), live, roles)
 }
 
 // tikiBoxMeasure builds the content-measure callback for a card's grid solve,

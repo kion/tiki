@@ -10,6 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/internal/bootstrap"
 	"github.com/boolean-maybe/tiki/internal/livereload"
+	"github.com/boolean-maybe/tiki/internal/livestatus"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
@@ -724,7 +725,21 @@ func (ta *TestApp) SetupLiveReload() *livereload.Service {
 	}
 	ta.liveUpdates = make(chan func(), 64)
 	ta.liveStop = make(chan struct{})
-	opts := bootstrap.LiveReloadOptions(ta.TikiDir, concrete, ta.statuslineConfig, ta.InputRouter)
+	queue := func(fn func()) {
+		select {
+		case ta.liveUpdates <- fn:
+		case <-ta.liveStop:
+		}
+	}
+	anim := livestatus.NewAnimator(queue, livestatus.AfterFunc, time.Now)
+	liveStatus := livestatus.NewRegistry(livestatus.RegistryOptions{
+		Root:       ta.TikiDir,
+		StaleAfter: config.GetLiveStatusStaleAfter(),
+		Animator:   anim,
+	})
+	ta.ViewFactory.SetLiveStatus(liveStatus)
+	bootstrap.SetLiveStatusClearer(ta.PluginControllers, liveStatus)
+	opts := bootstrap.LiveReloadOptions(ta.TikiDir, concrete, ta.statuslineConfig, ta.InputRouter, liveStatus)
 	opts.Dispatch = func(fn func()) {
 		// blocks like tview's QueueUpdate until the test goroutine runs fn
 		done := make(chan struct{})
@@ -745,6 +760,7 @@ func (ta *TestApp) SetupLiveReload() *livereload.Service {
 	ta.InputRouter.SetLiveReload(ta.liveReload)
 	ta.t.Cleanup(func() {
 		ta.liveReload.Stop()
+		anim.Stop()
 		close(ta.liveStop)
 	})
 	return ta.liveReload

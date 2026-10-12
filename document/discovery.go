@@ -1,6 +1,7 @@
 package document
 
 import (
+	"os"
 	"sort"
 	"strings"
 )
@@ -61,4 +62,27 @@ func isSkippableDirName(name string) bool {
 		return false
 	}
 	return strings.HasPrefix(name, ".")
+}
+
+// FindIDPath locates a tiki without loading the store,
+// so commands that only need to know a tiki exists skip git and workflow loading.
+func FindIDPath(root, id string) (string, bool, error) {
+	paths, err := WalkDocuments(root)
+	if err != nil {
+		return "", false, err
+	}
+	for _, path := range paths {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		parsed, err := ParseFrontmatter(string(content))
+		if err != nil {
+			continue
+		}
+		if raw, ok := FrontmatterID(parsed.Map); ok && NormalizeID(raw) == id {
+			return path, true, nil
+		}
+	}
+	return "", false, nil
 }

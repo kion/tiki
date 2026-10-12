@@ -26,6 +26,11 @@ type dirWatcher struct {
 	known   func() []string // a removed directory reports no per-file events
 	out     *batcher
 
+	// The sidecar directory is outside the scope (it is hidden),
+	// so its watches live apart from the scope's and survive resync.
+	side        *sidecarWatch
+	sideWatched map[string]bool
+
 	closeOnce sync.Once
 	closeErr  error
 
@@ -33,8 +38,13 @@ type dirWatcher struct {
 	reportedAddErr bool
 }
 
-func startDirWatcher(root string, known func() []string, out *batcher) (*dirWatcher, error) {
-	d, err := newDirWatcher(root, known, out)
+type sidecarWatch struct {
+	dir string
+	out *batcher
+}
+
+func startDirWatcher(root string, known func() []string, out *batcher, side *sidecarWatch) (*dirWatcher, error) {
+	d, err := newDirWatcher(root, known, out, side)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +53,7 @@ func startDirWatcher(root string, known func() []string, out *batcher) (*dirWatc
 }
 
 // Separate from startDirWatcher so tests can simulate lost events.
-func newDirWatcher(root string, known func() []string, out *batcher) (*dirWatcher, error) {
+func newDirWatcher(root string, known func() []string, out *batcher, side *sidecarWatch) (*dirWatcher, error) {
 	scope, err := document.NewScope(root)
 	if err != nil {
 		return nil, fmt.Errorf("loading ignore rules: %w", err)
@@ -59,11 +69,17 @@ func newDirWatcher(root string, known func() []string, out *batcher) (*dirWatche
 		watched: map[string]bool{},
 		known:   known,
 		out:     out,
+
+		sideWatched: map[string]bool{},
+	}
+	if side != nil {
+		d.side = &sidecarWatch{dir: filepath.Clean(side.dir), out: side.out}
 	}
 	if _, err := d.addTree(d.root); err != nil {
 		_ = w.Close()
 		return nil, err
 	}
+	d.watchSideChain()
 	return d, nil
 }
 
@@ -97,6 +113,9 @@ func (d *dirWatcher) handleError(err error) {
 	// events may have been lost: directories created meanwhile have no watch
 	d.resync()
 	d.out.requestReconcile()
+	if d.side != nil {
+		d.side.out.add(d.side.dir)
+	}
 }
 
 func (d *dirWatcher) warnAddFailure(err error) {
@@ -109,6 +128,10 @@ func (d *dirWatcher) warnAddFailure(err error) {
 
 func (d *dirWatcher) handle(ev fsnotify.Event) {
 	path := filepath.Clean(ev.Name)
+
+	if d.handleSidecar(ev, path) {
+		return
+	}
 
 	if d.scope.IsIgnoreFile(path) {
 		if scope, err := document.NewScope(d.root); err == nil {
@@ -212,6 +235,74 @@ func (d *dirWatcher) resync() {
 			continue
 		}
 		d.watched[p] = true
+	}
+	d.watchSideChain()
+}
+
+func (d *dirWatcher) handleSidecar(ev fsnotify.Event, path string) bool {
+	if d.side == nil {
+		return false
+	}
+	parent := filepath.Dir(path)
+	if parent == d.side.dir {
+		d.side.out.add(path)
+		return true
+	}
+	if !d.onSideChain(path) {
+		// consumed, so state files such as .tiki/.gitignore reach neither batch
+		return d.sideWatched[parent]
+	}
+	if ev.Has(fsnotify.Remove | fsnotify.Rename) {
+		d.unwatchSide(path)
+	} else if ev.Has(fsnotify.Create) {
+		d.watchSideChain()
+	}
+	// files already in a directory that just appeared get no events of their own
+	d.side.out.add(path)
+	return true
+}
+
+func (d *dirWatcher) onSideChain(path string) bool {
+	sep := string(filepath.Separator)
+	if !strings.HasPrefix(path, d.root+sep) {
+		return false
+	}
+	return path == d.side.dir || strings.HasPrefix(d.side.dir, path+sep)
+}
+
+// Each level is watched before the next is looked for,
+// so a directory created meanwhile is either found or reported by its own event.
+func (d *dirWatcher) watchSideChain() {
+	if d.side == nil {
+		return
+	}
+	rel, err := filepath.Rel(d.root, d.side.dir)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return
+	}
+	dir := d.root
+	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+		dir = filepath.Join(dir, part)
+		if d.watched[dir] || d.sideWatched[dir] {
+			continue
+		}
+		if err := d.w.Add(dir); err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				d.warnAddFailure(explainWatchErr(err))
+			}
+			return
+		}
+		d.sideWatched[dir] = true
+	}
+}
+
+func (d *dirWatcher) unwatchSide(dir string) {
+	prefix := dir + string(filepath.Separator)
+	for p := range d.sideWatched {
+		if p == dir || strings.HasPrefix(p, prefix) {
+			_ = d.w.Remove(p)
+			delete(d.sideWatched, p)
+		}
 	}
 }
 

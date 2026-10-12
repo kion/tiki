@@ -87,12 +87,13 @@ func (f *fakeTarget) calls() []string {
 type fakeSource struct {
 	mu     sync.Mutex
 	batch  *batcher
+	side   *batcher
 	closed bool
 	err    error
 	target *fakeTarget
 }
 
-func (fs *fakeSource) start(_ string, _ func() []string, out *batcher) (io.Closer, error) {
+func (fs *fakeSource) start(_ string, _ func() []string, out *batcher, side *sidecarWatch) (io.Closer, error) {
 	if fs.err != nil {
 		return nil, fs.err
 	}
@@ -101,8 +102,18 @@ func (fs *fakeSource) start(_ string, _ func() []string, out *batcher) (io.Close
 	}
 	fs.mu.Lock()
 	fs.batch = out
+	if side != nil {
+		fs.side = side.out
+	}
 	fs.mu.Unlock()
 	return fs, nil
+}
+
+func (fs *fakeSource) pushSide(paths ...string) {
+	fs.mu.Lock()
+	b := fs.side
+	fs.mu.Unlock()
+	b.add(paths...)
 }
 
 func (fs *fakeSource) Close() error {
@@ -502,5 +513,73 @@ func TestService_FailedBatchRedrawsSoTheErrorShows(t *testing.T) {
 		}
 	default:
 		t.Error("error not reported")
+	}
+}
+
+func newSidecarHarness(t *testing.T) (*harness, *atomic.Int32) {
+	t.Helper()
+	var changes atomic.Int32
+	h := newHarness(t, func(o *Options) {
+		o.Sidecar = &Sidecar{Dir: filepath.Join(o.Root, ".tiki", "live"), OnChange: func() { changes.Add(1) }}
+	})
+	return h, &changes
+}
+
+func waitCount(t *testing.T, n *atomic.Int32, want int32) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for n.Load() < want {
+		if time.Now().After(deadline) {
+			t.Fatalf("count = %d, want %d", n.Load(), want)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func TestService_SidecarChangeSkipsTheStore(t *testing.T) {
+	h, changes := newSidecarHarness(t)
+	mustEnable(t, h)
+
+	h.source.pushSide("/root/.tiki/live/AAAAAA.yaml")
+	waitCount(t, changes, 1)
+	waitCount(t, &h.redraws, 1)
+	select {
+	case p := <-h.target.reloaded:
+		t.Errorf("sidecar change reloaded the store: %v", p)
+	default:
+	}
+}
+
+func TestService_SidecarChangeIsNotHeldWhileBusy(t *testing.T) {
+	h, changes := newSidecarHarness(t)
+	mustEnable(t, h)
+	h.busy.Store(true)
+
+	h.source.pushSide("/root/.tiki/live/AAAAAA.yaml")
+	waitCount(t, changes, 1)
+}
+
+func TestService_StaleSidecarDispatchIsDropped(t *testing.T) {
+	queued := make(chan func(), 4)
+	var changes atomic.Int32
+	h := newHarness(t, func(o *Options) {
+		o.Dispatch = func(fn func()) { queued <- fn }
+		o.Sidecar = &Sidecar{Dir: filepath.Join(o.Root, ".tiki", "live"), OnChange: func() { changes.Add(1) }}
+	})
+	mustEnable(t, h)
+
+	h.source.pushSide("/root/.tiki/live/AAAAAA.yaml")
+	var fn func()
+	select {
+	case fn = <-queued:
+	case <-time.After(5 * time.Second):
+		t.Fatal("nothing dispatched")
+	}
+	if err := h.svc.SetEnabled(false); err != nil {
+		t.Fatal(err)
+	}
+	fn()
+	if changes.Load() != 0 {
+		t.Error("sidecar change applied after live reload was turned off")
 	}
 }

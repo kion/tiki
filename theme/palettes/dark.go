@@ -28,6 +28,9 @@ type Dark struct {
 	Warn   string
 	Ok     string
 
+	// Claude Code's orange, for live statuses
+	Orange string
+
 	CaptionFg [6]string
 	CaptionBg [6]string
 }
@@ -58,6 +61,8 @@ func NewDark() Dark {
 		Danger: "#ff4444",
 		Warn:   "#ffa500",
 		Ok:     "#a3be8c",
+
+		Orange: "#d77757",
 
 		CaptionFg: [6]string{
 			"#87ceeb",

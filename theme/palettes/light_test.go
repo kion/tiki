@@ -46,6 +46,7 @@ func TestLightAllFieldsExercised(t *testing.T) {
 	_ = l.Danger
 	_ = l.Warn
 	_ = l.Ok
+	_ = l.Orange
 	for _, c := range l.CaptionFg {
 		_ = c
 	}

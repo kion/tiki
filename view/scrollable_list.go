@@ -152,6 +152,11 @@ func (s *ScrollableList) Draw(screen tcell.Screen) {
 	s.ensureSelectionVisible()
 
 	maxVisible := s.capacity(height)
+	lastVisible := min(maxVisible, len(s.items)-s.scrollOffset) - 1
+	hintLimit := 0
+	if _, startX, ok := s.bottomHint(x, width, maxVisible); ok {
+		hintLimit = startX - 1
+	}
 
 	// Loop through visible items
 	for i := 0; i < maxVisible; i++ {
@@ -165,6 +170,13 @@ func (s *ScrollableList) Draw(screen tcell.Screen) {
 		// set position and size for the item
 		itemY := y + (i * s.itemHeight)
 		item.SetRect(x, itemY, width, s.itemHeight)
+
+		// items are reused as the list scrolls, so every one is reset
+		limit := 0
+		if i == lastVisible {
+			limit = hintLimit
+		}
+		applyBottomBorderLimit(item, limit)
 
 		// draw the item
 		item.Draw(screen)
@@ -213,8 +225,37 @@ func (s *ScrollableList) drawHints(screen tcell.Screen, x, y, width, height, vis
 	if above > 0 {
 		putHint(screen, x+2, x+width-2, y, fmt.Sprintf("▲ %d more", above), fg)
 	}
-	if below > 0 {
-		putHint(screen, x+2, x+width-2, y+visible*s.itemHeight-1, fmt.Sprintf("▼ %d more", below), fg)
+	if text, startX, ok := s.bottomHint(x, width, visible); ok {
+		putHint(screen, startX, x+width-2, y+visible*s.itemHeight-1, text, fg)
+	}
+}
+
+// Draw uses the same placement to keep live statuses clear of the hint.
+func (s *ScrollableList) bottomHint(x, width, visible int) (text string, startX int, ok bool) {
+	if s.itemHeight == 1 || visible <= 0 {
+		return "", 0, false
+	}
+	_, below := s.hiddenEntries(visible)
+	if below == 0 {
+		return "", 0, false
+	}
+	text = fmt.Sprintf("▼ %d more", below)
+	return text, max(x+width-2-utf8.RuneCountInString(text), x+2), true
+}
+
+type bottomBorderLimiter interface {
+	SetBottomBorderLimit(x int)
+}
+
+// A list item is a row of cards, so the limit reaches every card in it.
+func applyBottomBorderLimit(p tview.Primitive, x int) {
+	switch v := p.(type) {
+	case bottomBorderLimiter:
+		v.SetBottomBorderLimit(x)
+	case *tview.Flex:
+		for i := 0; i < v.GetItemCount(); i++ {
+			applyBottomBorderLimit(v.GetItem(i), x)
+		}
 	}
 }
 

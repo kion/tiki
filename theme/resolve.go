@@ -45,6 +45,10 @@ func (t *Theme) ResolveByName(name string) (Role, bool) {
 		return t.accentTag, true
 	case "tiki.id":
 		return t.tikiID, true
+	case "live.agent":
+		return t.liveAgent, true
+	case "live.message":
+		return t.liveMessage, true
 
 	// canonical: status
 	case "status.danger":
@@ -126,6 +130,7 @@ var canonicalRoleNames = []string{
 	"border.focus", "border.idle",
 	"surface.transparent", "surface.selection", "surface.canvas",
 	"highlight", "accent.action", "accent.tag", "tiki.id",
+	"live.agent", "live.message",
 	"status.danger", "status.warn", "status.ok",
 	"statusline.main.fg", "statusline.main.bg",
 	"statusline.accent.fg", "statusline.accent.bg",

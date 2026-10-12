@@ -40,6 +40,24 @@ tiki exec -- '-- backlog count
 count(select where status != "done")'
 ```
 
+### live
+
+Publish or clear an AI agent's live status on a tiki. Boards show it in the tiki's card border, and
+the detail view under the tiki's fields, while live reload is on. See [Live status](live-status.md).
+
+```bash
+tiki live set <ID> --message <text> [--agent <text>]
+tiki live clear <ID>
+```
+
+Examples:
+
+```bash
+tiki live set ABC123 --agent "✻ Claude" --message "Researching"
+tiki live set ABC123 --message "Implementing parser"
+tiki live clear ABC123
+```
+
 ### workflow
 
 Manage workflow configuration files.

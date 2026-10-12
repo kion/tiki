@@ -160,6 +160,7 @@ func Bootstrap() (*Result, error) {
 	// redraw func(func()) sink signature.
 	redraw := func(fn func()) { application.QueueUpdateDraw(fn) }
 	progressHub := model.NewProgressHub(statuslineConfig, redraw)
+	liveStatus, liveAnimator := newLiveStatus(application)
 
 	controllers := BuildControllers(
 		application,
@@ -188,6 +189,8 @@ func Bootstrap() (*Result, error) {
 	viewFactory := view.NewViewFactory(tikiStore)
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, controllers.Plugins, globalActions)
 	viewFactory.SetProgressHub(progressHub, redraw)
+	viewFactory.SetLiveStatus(liveStatus)
+	SetLiveStatusClearer(controllers.Plugins, liveStatus)
 
 	// Wire fresh-per-navigation WikiController creation so each view instance
 	// on the nav stack holds its own selectedTikiID (prevents a second wiki
@@ -262,11 +265,12 @@ func Bootstrap() (*Result, error) {
 	inputRouter.SetMarkdownTreeView(markdownTree)
 
 	// Phase 11.8: Live reload
-	liveReload := newLiveReload(application, tikiStoreConcrete, statuslineConfig, inputRouter)
+	liveReload := newLiveReload(application, tikiStoreConcrete, statuslineConfig, inputRouter, liveStatus)
 	inputRouter.SetLiveReload(liveReload)
 	go func() {
 		<-ctx.Done()
 		liveReload.Stop()
+		liveAnimator.Stop()
 	}()
 	if config.GetLiveReloadEnabled() {
 		_ = liveReload.SetEnabled(true) // a start failure is shown in the statusline

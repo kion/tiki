@@ -90,3 +90,24 @@ func TestResolveByName_TikiID(t *testing.T) {
 		t.Fatalf("ResolveByName(\"tiki.id\") = (%v, %v), want non-nil + true", r, ok)
 	}
 }
+
+func TestLiveRoles(t *testing.T) {
+	cases := []struct {
+		theme, agent, message string
+	}{
+		// Claude Code's own orange, as the built-in themes have none of their own
+		{"dark", "#d77757", "#97533d"},
+		{"light", "#d77757", "#e3a089"},
+		// a themed palette keeps its own orange, faded toward its own background
+		{"dracula", "#ffb86c", "#bf8d5c"},
+	}
+	for _, c := range cases {
+		th := LoadByName(c.theme)
+		if got := th.LiveAgent().Hex(); got != c.agent {
+			t.Errorf("[%s] LiveAgent = %s, want %s", c.theme, got, c.agent)
+		}
+		if got := th.LiveMessage().Hex(); got != c.message {
+			t.Errorf("[%s] LiveMessage = %s, want %s", c.theme, got, c.message)
+		}
+	}
+}

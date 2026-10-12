@@ -6,6 +6,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/internal/livereload"
+	"github.com/boolean-maybe/tiki/internal/livestatus"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store/tikistore"
 )
@@ -18,8 +19,8 @@ const liveReloadStatPriority = 5
 // Plain QueueUpdate, plus a redraw only when the store changed:
 // no repaint for no-op batches.
 func newLiveReload(application *tview.Application, store *tikistore.TikiStore,
-	statusline *model.StatuslineConfig, router *controller.InputRouter) *livereload.Service {
-	opts := LiveReloadOptions(config.GetDocDir(), store, statusline, router)
+	statusline *model.StatuslineConfig, router *controller.InputRouter, live *livestatus.Registry) *livereload.Service {
+	opts := LiveReloadOptions(config.GetDocDir(), store, statusline, router, live)
 	opts.Dispatch = func(fn func()) { application.QueueUpdate(fn) }
 	opts.Redraw = func() { application.ForceDraw() } // safe inside a queued update
 	return livereload.New(opts)
@@ -27,15 +28,23 @@ func newLiveReload(application *tview.Application, store *tikistore.TikiStore,
 
 // Shared with the integration test harness, which supplies its own Dispatch.
 func LiveReloadOptions(root string, store *tikistore.TikiStore,
-	statusline *model.StatuslineConfig, router *controller.InputRouter) livereload.Options {
+	statusline *model.StatuslineConfig, router *controller.InputRouter, live *livestatus.Registry) livereload.Options {
 	onState, onErr := liveReloadStatus(statusline)
-	return livereload.Options{
+	opts := livereload.Options{
 		Root:          root,
 		Target:        store,
 		Busy:          router.IsModalInteractionActive,
 		OnStateChange: onState,
 		OnError:       onErr,
 	}
+	if live != nil {
+		opts.OnStateChange = func(on bool) {
+			onState(on)
+			live.SetEnabled(on)
+		}
+		opts.Sidecar = &livereload.Sidecar{Dir: livestatus.Dir(root), OnChange: live.Rescan}
+	}
+	return opts
 }
 
 func liveReloadStatus(statusline *model.StatuslineConfig) (onState func(bool), onErr func(error)) {

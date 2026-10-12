@@ -71,7 +71,7 @@ func startTestWatcher(t *testing.T, root string, known *knownPaths) (*batcher, *
 	if known == nil {
 		known = &knownPaths{}
 	}
-	w, err := startDirWatcher(root, known.get, b)
+	w, err := startDirWatcher(root, known.get, b, nil)
 	if err != nil {
 		t.Fatalf("startDirWatcher: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestWatcher_IgnoreFileChangeRequestsReconcileAndRescopes(t *testing.T) {
 func TestWatcher_CloseIsIdempotent(t *testing.T) {
 	root := t.TempDir()
 	b := newBatcher(20*time.Millisecond, 200*time.Millisecond)
-	w, err := startDirWatcher(root, func() []string { return nil }, b)
+	w, err := startDirWatcher(root, func() []string { return nil }, b, nil)
 	if err != nil {
 		t.Fatalf("startDirWatcher: %v", err)
 	}
@@ -235,7 +235,7 @@ func TestWatcher_ErrorResyncsMissedDirectories(t *testing.T) {
 	root := t.TempDir()
 	b := newBatcher(20*time.Millisecond, 200*time.Millisecond)
 	// no event loop: the create event below is never handled, as if lost
-	d, err := newDirWatcher(root, func() []string { return nil }, b)
+	d, err := newDirWatcher(root, func() []string { return nil }, b, nil)
 	if err != nil {
 		t.Fatalf("newDirWatcher: %v", err)
 	}
@@ -256,5 +256,131 @@ func TestWatcher_ErrorResyncsMissedDirectories(t *testing.T) {
 	}
 	if _, reconcile := b.take(); !reconcile {
 		t.Error("no reconcile requested after a watcher error")
+	}
+}
+
+func startSidecarTestWatcher(t *testing.T, root string) (main, side *batcher, mainAcc, sideAcc *collected) {
+	t.Helper()
+	main = newBatcher(20*time.Millisecond, 200*time.Millisecond)
+	side = newBatcher(20*time.Millisecond, 200*time.Millisecond)
+	w, err := startDirWatcher(root, func() []string { return nil }, main,
+		&sidecarWatch{dir: filepath.Join(root, ".tiki", "live"), out: side})
+	if err != nil {
+		t.Fatalf("startDirWatcher: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = w.Close()
+		main.stop()
+		side.stop()
+	})
+	return main, side, &collected{paths: map[string]bool{}}, &collected{paths: map[string]bool{}}
+}
+
+func anything(c *collected) bool { return len(c.paths) > 0 }
+
+func assertNothingUnder(t *testing.T, acc *collected, dir string) {
+	t.Helper()
+	for p := range acc.paths {
+		if p == dir || filepath.Dir(p) == dir || filepath.Dir(filepath.Dir(p)) == dir {
+			t.Errorf("unexpected path reported: %s", p)
+		}
+	}
+}
+
+func TestWatcher_SidecarDirCreatedLater(t *testing.T) {
+	root := t.TempDir()
+	main, side, mainAcc, sideAcc := startSidecarTestWatcher(t, root)
+
+	write(t, filepath.Join(root, ".tiki", "live", "AAAAAA.yaml"), "message: x\n")
+	waitFor(t, side, sideAcc, anything)
+	second := filepath.Join(root, ".tiki", "live", "BBBBBB.yaml")
+	write(t, second, "message: y\n")
+	waitFor(t, side, sideAcc, has(second))
+
+	sentinel := filepath.Join(root, "sentinel.md")
+	write(t, sentinel, "x")
+	waitFor(t, main, mainAcc, has(sentinel))
+	assertNothingUnder(t, mainAcc, filepath.Join(root, ".tiki"))
+}
+
+func TestWatcher_SidecarDirExistingAtStart(t *testing.T) {
+	root := t.TempDir()
+	write(t, filepath.Join(root, ".tiki", "live", "AAAAAA.yaml"), "message: x\n")
+	_, side, _, sideAcc := startSidecarTestWatcher(t, root)
+
+	p := filepath.Join(root, ".tiki", "live", "BBBBBB.yaml")
+	write(t, p, "message: y\n")
+	waitFor(t, side, sideAcc, has(p))
+}
+
+func TestWatcher_SidecarDirRecreated(t *testing.T) {
+	root := t.TempDir()
+	write(t, filepath.Join(root, ".tiki", "live", "AAAAAA.yaml"), "message: x\n")
+	_, side, _, sideAcc := startSidecarTestWatcher(t, root)
+
+	if err := os.RemoveAll(filepath.Join(root, ".tiki")); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, side, sideAcc, anything)
+
+	p := filepath.Join(root, ".tiki", "live", "CCCCCC.yaml")
+	write(t, p, "message: z\n")
+	waitFor(t, side, sideAcc, func(c *collected) bool {
+		if c.paths[p] {
+			return true
+		}
+		// the new file may land before its directory's watch; rewrite until an event shows up
+		write(t, p, "message: z\n")
+		return false
+	})
+}
+
+func TestWatcher_SidecarIgnoresOtherStateFiles(t *testing.T) {
+	root := t.TempDir()
+	write(t, filepath.Join(root, ".tiki", "live", "AAAAAA.yaml"), "message: x\n")
+	main, side, mainAcc, sideAcc := startSidecarTestWatcher(t, root)
+
+	other := filepath.Join(root, ".tiki", ".gitignore")
+	write(t, other, "*\n")
+	p := filepath.Join(root, ".tiki", "live", "BBBBBB.yaml")
+	write(t, p, "message: y\n")
+	waitFor(t, side, sideAcc, has(p))
+	sentinel := filepath.Join(root, "sentinel.md")
+	write(t, sentinel, "x")
+	waitFor(t, main, mainAcc, has(sentinel))
+
+	if sideAcc.paths[other] || mainAcc.paths[other] {
+		t.Errorf("%s was reported", other)
+	}
+}
+
+func TestWatcher_ResyncKeepsSidecarWatches(t *testing.T) {
+	root := t.TempDir()
+	liveDir := filepath.Join(root, ".tiki", "live")
+	write(t, filepath.Join(liveDir, "AAAAAA.yaml"), "message: x\n")
+	main := newBatcher(20*time.Millisecond, 200*time.Millisecond)
+	side := newBatcher(20*time.Millisecond, 200*time.Millisecond)
+	// no event loop, so the test can call into the watcher directly
+	d, err := newDirWatcher(root, func() []string { return nil }, main, &sidecarWatch{dir: liveDir, out: side})
+	if err != nil {
+		t.Fatalf("newDirWatcher: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = d.Close()
+		main.stop()
+		side.stop()
+	})
+
+	d.handleError(fsnotify.ErrEventOverflow)
+
+	watching := false
+	for _, p := range d.w.WatchList() {
+		watching = watching || p == liveDir
+	}
+	if !watching {
+		t.Errorf("%s unwatched after a resync: %v", liveDir, d.w.WatchList())
+	}
+	if paths, _ := side.take(); len(paths) == 0 {
+		t.Error("no sidecar rescan requested after a watcher error")
 	}
 }

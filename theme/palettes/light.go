@@ -28,6 +28,9 @@ type Light struct {
 	Warn   string
 	Ok     string
 
+	// Claude Code's orange, for live statuses
+	Orange string
+
 	CaptionFg [6]string
 	CaptionBg [6]string
 }
@@ -58,6 +61,8 @@ func NewLight() Light {
 		Danger: "#cc0000",
 		Warn:   "#b85c00",
 		Ok:     "#4c7a5a",
+
+		Orange: "#d77757",
 
 		CaptionFg: [6]string{
 			"#e0f0ff",

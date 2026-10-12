@@ -24,6 +24,7 @@ const (
 
 	ActionOpenMarkdownTree ActionID = "open_markdown_tree"
 	ActionToggleLiveReload ActionID = "toggle_live_reload"
+	ActionClearLiveStatus  ActionID = "clear_live_status"
 )
 
 // ActionID values for tiki navigation and manipulation (used by plugins).
@@ -818,6 +819,8 @@ func PluginViewActions() *ActionRegistry {
 	r.Register(Action{ID: ActionMoveTikiRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: moveReq, HideRequire: hideWhenNotMoveable})
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})
 	r.Register(Action{ID: ActionExecute, Key: tcell.KeyRune, Rune: '!', Label: "Execute", ShowInHeader: true})
+	// palette-only: no key, so it can't shadow a workflow's own bindings
+	r.Register(Action{ID: ActionClearLiveStatus, Label: "Clear Live Status", Require: []Requirement{RequireID}})
 
 	// plugin activation keys are merged dynamically after plugins load
 	r.MergePluginActions()

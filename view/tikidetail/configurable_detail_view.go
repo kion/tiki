@@ -14,6 +14,7 @@ import (
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/view/gridbox"
+	"github.com/boolean-maybe/tiki/view/liveborder"
 	"github.com/boolean-maybe/tiki/view/markdown"
 	"github.com/boolean-maybe/tiki/workflow"
 
@@ -68,6 +69,8 @@ type ConfigurableDetailView struct {
 	// in tests / minimal fixtures, in which case rendering stays synchronous.
 	progressHub *model.ProgressHub
 	redraw      func(func())
+
+	live liveborder.Source
 
 	// edit-mode state
 	editMode          bool
@@ -439,7 +442,7 @@ func (cv *ConfigurableDetailView) specForTiki(tk *tikipkg.Tiki) gridlayout.GridS
 // a focusable editor primitive (cached on cv.editors so user input
 // survives a refresh); other fields render their read-only primitive even
 // in edit mode.
-func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *theme.Theme) *tview.Frame {
+func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *theme.Theme) tview.Primitive {
 	mode := RenderModeView
 	if cv.editMode {
 		mode = RenderModeEdit
@@ -460,7 +463,10 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *them
 		fmt.Sprintf(" %s ", renderTikiIDGradient(tk.ID(), roles)),
 	).SetBorderColor(roles.BorderIdle().TCell())
 	frame.SetBorderPadding(1, 0, 2, 2)
-	return frame
+	if cv.live == nil {
+		return frame
+	}
+	return liveborder.New(frame, tk.ID(), cv.live, roles)
 }
 
 // anchorHeight is the grid's height callback. In view mode it is the rendered
@@ -873,6 +879,12 @@ func (cv *ConfigurableDetailView) ExitFullscreen() {
 }
 
 // --- Phase 2: edit-mode API ---
+
+// SetLiveStatus rebuilds the view, because the constructor has already built the metadata box.
+func (cv *ConfigurableDetailView) SetLiveStatus(live liveborder.Source) {
+	cv.live = live
+	cv.refresh()
+}
 
 // IsEditMode reports whether the view is currently in in-place edit mode.
 func (cv *ConfigurableDetailView) IsEditMode() bool { return cv.editMode }
