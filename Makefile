@@ -23,10 +23,11 @@ build:
 	go build $(LDFLAGS) -o bin/tiki .
 
 # Build, sign, and install to ~/.local/bin
+# install, unlike cp, replaces the binary while tiki is running ("Text file busy")
 install: build
 	@echo "Installing tiki to ~/.local/bin..."
 	@mkdir -p ~/.local/bin
-	cp bin/tiki ~/.local/bin/tiki
+	install -m 755 bin/tiki ~/.local/bin/tiki
 ifeq ($(shell uname),Darwin)
 	codesign -s - ~/.local/bin/tiki
 endif
