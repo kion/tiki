@@ -298,3 +298,75 @@ func TestDetailController_RukiChooseActionRoundTrip(t *testing.T) {
 		t.Errorf("project.dependsOn = %v, want [TASK01]", deps)
 	}
 }
+
+func newDetailOverBoard(t *testing.T, ruki string) (*DetailController, *NavigationController, store.Store) {
+	t.Helper()
+	tikiStore := store.NewInMemoryStore()
+	seedTiki(t, tikiStore, "TASK01", "Doomed", "ready", 0)
+	seedTiki(t, tikiStore, "TASK02", "Bystander", "ready", 0)
+
+	stmt := mustParseStmt(t, ruki)
+	action := plugin.PluginAction{
+		Key:       tcell.KeyDelete,
+		KeyStr:    "Delete",
+		Label:     "Delete",
+		Kind:      plugin.ActionKindRuki,
+		Action:    stmt,
+		HasChoose: stmt.UsesChooseBuiltin(),
+	}
+	if action.HasChoose {
+		action.ChooseFilter = stmt.ChooseFilter()
+	}
+	pluginDef := newTestDetailPlugin([]string{"status"}, []plugin.PluginAction{action})
+
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	nav := newMockNavigationController()
+	nav.PushView(model.MakePluginViewID("Kanban"), nil)
+	nav.PushView(model.MakePluginViewID("Detail"), nil)
+	dc := NewDetailController(pluginDef, nav, nil, nil, tikiStore, gate, rukiRuntime.NewSchema(), nil)
+	dc.SetSelectedTikiID("TASK01")
+	return dc, nav, tikiStore
+}
+
+func TestDetailController_DeletingShownTikiGoesBack(t *testing.T) {
+	dc, nav, tikiStore := newDetailOverBoard(t, `delete where id = id()`)
+
+	if !dc.HandleAction(pluginActionID("Delete")) {
+		t.Fatal("delete action returned false")
+	}
+	if tikiStore.GetTiki("TASK01") != nil {
+		t.Fatal("TASK01 still in store after delete")
+	}
+	if got, want := nav.CurrentViewID(), model.MakePluginViewID("Kanban"); got != want {
+		t.Errorf("current view = %q, want %q", got, want)
+	}
+}
+
+func TestDetailController_DeletingOtherTikiStays(t *testing.T) {
+	dc, nav, tikiStore := newDetailOverBoard(t, `delete where id = "TASK02"`)
+
+	if !dc.HandleAction(pluginActionID("Delete")) {
+		t.Fatal("delete action returned false")
+	}
+	if tikiStore.GetTiki("TASK02") != nil {
+		t.Fatal("TASK02 still in store after delete")
+	}
+	if got, want := nav.CurrentViewID(), model.MakePluginViewID("Detail"); got != want {
+		t.Errorf("current view = %q, want %q", got, want)
+	}
+}
+
+func TestDetailController_ChooseDeletingShownTikiGoesBack(t *testing.T) {
+	dc, nav, tikiStore := newDetailOverBoard(t, `delete where id = choose(select where status = "ready")`)
+
+	if !dc.HandleActionChoose(pluginActionID("Delete"), "TASK01") {
+		t.Fatal("choose delete returned false")
+	}
+	if tikiStore.GetTiki("TASK01") != nil {
+		t.Fatal("TASK01 still in store after delete")
+	}
+	if got, want := nav.CurrentViewID(), model.MakePluginViewID("Kanban"); got != want {
+		t.Errorf("current view = %q, want %q", got, want)
+	}
+}

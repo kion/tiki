@@ -643,7 +643,21 @@ func (dc *DetailController) dispatchRukiAction(a *plugin.PluginAction) bool {
 	if !ok {
 		return false
 	}
-	return dc.executor.Execute(a, input)
+	return dc.executeRuki(a, input)
+}
+
+// executeRuki goes back once an action has deleted the shown tiki,
+// rather than leaving an empty page.
+// It checks the store, not the statement,
+// because a delete's where clause or a trigger decides which tikis go.
+func (dc *DetailController) executeRuki(a *plugin.PluginAction, input ruki.ExecutionInput) bool {
+	if !dc.executor.Execute(a, input) {
+		return false
+	}
+	if dc.selectedTikiID != "" && dc.executor.tikiStore.GetTiki(dc.selectedTikiID) == nil {
+		dc.navController.PopView()
+	}
+	return true
 }
 
 // HandleSearch is a no-op for detail views.
@@ -774,7 +788,7 @@ func (dc *DetailController) handleRukiActionWithChosenID(a *plugin.PluginAction,
 	}
 	input.ChooseValue = tikiID
 	input.HasChoose = true
-	return dc.executor.Execute(a, input)
+	return dc.executeRuki(a, input)
 }
 
 // DetailViewActions returns the built-in action registry for kind: detail
