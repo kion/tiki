@@ -249,8 +249,8 @@ Rules that follow from presence:
 - Equality with `empty` treats absent as empty: `where <field> = empty` is **true** for absent fields,
   and `where <field> != empty` is **false**. This is the only equality form where absent and
   present-zero behave the same.
-- Ordering comparisons (`<`, `>`, `<=`, `>=`) on an absent field hard-error — there is no defined ordering
-  for "no value". Guard ordering predicates with `has(<field>)` when the input could be sparse.
+- Ordering comparisons (`<`, `>`, `<=`, `>=`) on an absent field hard-error, since a predicate can't say
+  whether "no value" is less or greater. Guard ordering predicates with `has(<field>)` when the input could be sparse.
 - `where <field> is empty` treats absent as empty and evaluates **true**; `where <field> is not empty`
   evaluates **false**. So `is empty` cannot distinguish "absent" from "present-but-zero" — use
   `has(<field>)` when you need that distinction.
@@ -266,9 +266,9 @@ Rules that follow from presence:
 - `where has(<field>)` is the only predicate that distinguishes "present with zero value" from "absent".
   `has()` also accepts qualified references — `has(new.assignee)` is the canonical "new tiki declares an
   assignee" predicate in triggers.
-- `order by <field>` requires every row to have a defined value. Absent values raise an error; gate the
-  query with `has(<field>)` or sort on a different field. (Some sparse-friendly views may add documented
-  null-ordering in the future.)
+- `order by <field>` accepts rows where the field is absent. They sort after every present value in
+  ascending order and before them with `desc`. In `order by priority, points`, tikis without `points`
+  come last within their priority. Use `has(<field>)` to leave them out instead.
 - Projections (`select id, title, priority`) render absent scalar fields as empty cells in the table
   formatter and as JSON `null` in the JSON formatter. List fields always render as `[]` so downstream
   scripts can iterate without a null check; if the caller needs to distinguish "absent list" from

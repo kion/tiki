@@ -136,9 +136,10 @@ priority: medium-high
 ### `points`
 
 Optional. Like `priority`, points is an `enum` field defined in `workflow.yaml` — there is no built-in
-numeric scale or `maxPoints` setting. The stock kanban workflow ships with the estimation values
-`1`, `3`, `7`, `11` (stored as strings), defaulting to `3`. Redefine the `points` field in your own
-workflow to use a different scale.
+numeric scale or `maxPoints` setting. The stock kanban workflow ships with a 1–10 estimation scale,
+`1` (small, easy) through `10` (large, hard), stored as strings. It has no default, so a new tiki stays
+unestimated until someone sets its points. Redefine the `points` field in your own workflow to use a
+different scale.
 
 ```yaml
 points: 3

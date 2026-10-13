@@ -1,6 +1,6 @@
 ---
 name: tiki
-description: view, create, update, delete tikis (tasks, docs, notes), manage dependencies via ruki, and publish a live status while working on a tiki
+description: view, create, update, delete tikis (tasks, docs, notes), estimate their points, manage dependencies via ruki, and publish a live status while working on a tiki
 allowed-tools: Read, Grep, Glob, Write, WebFetch, Bash(tiki exec:*), Bash(tiki live:*), Bash(git log:*), Bash(git blame:*), Bash(jq:*)
 ---
 
@@ -90,7 +90,7 @@ These seven fields exist regardless of workflow and cannot be redeclared by a `w
 | `status` | enum | `inbox`, `ready`, `inProgress`, `done` (default `inbox`) |
 | `type` | enum | `story` (default), `bug`, `spike`, `project` (groups tikis via its `dependsOn`) |
 | `priority` | enum | `"high"`, `"medium-high"`, `"medium"` (default), `"medium-low"`, `"low"` — pass the key as a string |
-| `points` | enum | `"1"`, `"3"` (default), `"7"`, `"11"` — pass the key as a string |
+| `points` | enum | `"1"` (small, easy) to `"10"` (large, hard), no default — pass the key as a string; see "Estimate points" |
 | `assignee` | user | free text; ruki still treats it as `string` |
 | `tags` | list&lt;string&gt; | e.g. `["bug", "urgent"]` (default `["idea"]`) |
 | `dependsOn` | list&lt;ref&gt; | bare tiki ids, e.g. `["ABC123", "DEF456"]` |
@@ -154,7 +154,7 @@ for example, `select where has(status)` lists only tikis that carry a status, re
 
 ```sh
 tiki exec 'create title="Fix login"'                                             # minimal
-tiki exec 'create title="Fix login" priority="medium-high" status="ready" tags=["bug"]'      # full
+tiki exec 'create title="Fix login" priority="medium-high" points="3" status="ready" tags=["bug"]'      # full
 tiki exec 'create title="Review" due=2026-04-01 + 2day'                          # date arithmetic
 tiki exec 'create title="Sprint review" recurrence=weekly("monday")'             # recurrence (constructor)
 ```
@@ -162,8 +162,9 @@ tiki exec 'create title="Sprint review" recurrence=weekly("monday")'            
 Output: `created <ID>` (bare 6-char id).
 Defaults: every enum field takes its `default: true` value from `workflow.yaml` (`type` falls back to the
 first type), and any field with a field-level `default:` gets that value. In the built-in workflow a new
-tiki gets `status = "inbox"`, `type = "story"`, `priority = "medium"`, `points = "3"`, and
-`tags = ["idea"]` unless the statement sets them.
+tiki gets `status = "inbox"`, `type = "story"`, `priority = "medium"`, and `tags = ["idea"]` unless the
+statement sets them. `points` has no default: set it in every `create` you run, as described in
+"Estimate points" below.
 
 ### Create from file
 
@@ -176,6 +177,45 @@ When asked to create a task from a file:
    ```
 Escape backslashes as `\\` first, then double quotes as `\"`. Line breaks can stay as they are.
 The statement is single-quoted for the shell, so write each `'` in the content as `'\''`.
+
+## Estimate points
+
+`points` is a relative estimate of how big and hard a tiki is. In the built-in workflow the scale is
+`"1"` to `"10"`. Estimate every tiki you create and set `points` in the same `create` statement. A
+tiki without `points` reads as "not estimated yet", so don't leave it unset and don't pick a filler value.
+
+Base the estimate on three things, and let the largest one drive it:
+
+- **Effort**: the amount of work, in files, components and layers touched and tests to write.
+- **Complexity**: how hard the work is, from design decisions, tricky logic, or care it needs.
+- **Uncertainty**: how much is unknown, such as unclear requirements, unfamiliar code, or a bug with no
+  known cause. More unknowns mean a higher estimate.
+
+| Points | Size | Typical work |
+|---|---|---|
+| 1 | trivial | a typo, a config value, a one-line fix with an obvious cause |
+| 2–3 | small | a contained change in one or two files with a clear approach |
+| 4–5 | medium | several files or one component in depth; a few design decisions; a bug that needs investigation |
+| 6–7 | large | a feature across several components, a migration, or work with notable unknowns |
+| 8–9 | very large | a cross-cutting change, significant design or research, a high risk of surprises |
+| 10 | huge | the largest work the project takes on as one tiki |
+
+- Before estimating work on code in the current project, look at the code it touches. A title alone is
+  not enough to estimate on.
+- Points are relative. Compare with tikis the project has already estimated:
+  `tiki exec 'select id, title, points where has(points) order by points'`.
+- If a tiki rates 9 or 10 and has parts that could ship separately, suggest splitting it into smaller
+  tikis grouped under a `project` tiki.
+- A `project` tiki's points rate the whole initiative against other projects, not the sum of its tikis.
+- When you start work on a tiki that has no `points`, estimate it first.
+- To estimate existing tikis, find the unestimated ones with
+  `tiki exec 'select id, title where has(status) and not has(points)'` and set each with
+  `tiki exec 'update where id = "X7F4K2" set points="5"'`.
+- Don't change an estimate that is already set, unless the user asks or the tiki's scope has changed.
+  Tell the user when you change one.
+- Read the `points` values in the project's `workflow.yaml`. If it declares a different scale, estimate
+  with the table above, then pick the closest of its values, treating its smallest as 1 and its largest
+  as 10. If it declares no `points` field, skip estimating.
 
 ## Update
 

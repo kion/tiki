@@ -19,7 +19,7 @@ manually — there is no in-app installer. Once installed you can:
 
 The skill files ship in the tiki repository under `ai/skills/`:
 
-- `ai/skills/tiki/SKILL.md` — document create/find/update/delete and live status
+- `ai/skills/tiki/SKILL.md` — document create/find/update/delete, points estimation, and live status
 
 Copy the directory containing the relevant `SKILL.md` into your tool's skills location, for example:
 

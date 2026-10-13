@@ -188,8 +188,8 @@ tiki < bug-report.md
 What fields the new tiki carries is decided by the active workflow:
 
 - If the workflow declares a status with `default: true` (as kanban, todo, and bug-tracker do),
-  captured input gets the default status, type, priority, and points filled in. The result appears
-  on board/list views whose lane filters match.
+  captured input gets the workflow's defaults filled in (in kanban: status, type, priority, and tags).
+  The result appears on board/list views whose lane filters match.
 - If the workflow has no `default: true` status, captured input is saved with only `id` and `title`
   in the frontmatter. It is reachable by id and file path; views that filter on workflow-declared fields
   via `has(...)` will skip it.

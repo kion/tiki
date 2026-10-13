@@ -414,8 +414,9 @@ func TestInMemoryStore_NewTikiTemplate(t *testing.T) {
 	if p, _, _ := tmpl.StringField("priority"); p != "medium" {
 		t.Errorf("Priority = %q, want %q", p, "medium")
 	}
-	if pts, _, _ := tmpl.StringField("points"); pts != "3" {
-		t.Errorf("Points = %q, want %q", pts, "3")
+	// points has no default, so a new tiki stays unestimated
+	if tmpl.Has("points") {
+		t.Errorf("Points present on template, want absent")
 	}
 	if tags, _, _ := tmpl.StringSliceField("tags"); len(tags) != 1 || tags[0] != "idea" {
 		t.Errorf("Tags = %v, want [idea]", tags)

@@ -51,10 +51,16 @@ fields:
     type: enum
     caption: "Points"
     values:
-      - {value: "11", label: "11", visual: "<action>❚❚❚❚❚❚❚❚❚❚❚"}
-      - {value: "7",  label: "7",  visual: "<action>❚❚❚❚❚❚❚<muted>❘❘❘❘"}
-      - {value: "3",  label: "3",  visual: "<action>❚❚❚<muted>❘❘❘❘❘❘❘❘", default: true}
-      - {value: "1",  label: "1",  visual: "<action>❚<muted>❘❘❘❘❘❘❘❘❘❘"}
+      - {value: "10", label: "10", visual: "<action>❚❚❚❚❚❚❚❚❚❚"}
+      - {value: "9",  label: "9",  visual: "<action>❚❚❚❚❚❚❚❚❚<muted>❘"}
+      - {value: "8",  label: "8",  visual: "<action>❚❚❚❚❚❚❚❚<muted>❘❘"}
+      - {value: "7",  label: "7",  visual: "<action>❚❚❚❚❚❚❚<muted>❘❘❘"}
+      - {value: "6",  label: "6",  visual: "<action>❚❚❚❚❚❚<muted>❘❘❘❘"}
+      - {value: "5",  label: "5",  visual: "<action>❚❚❚❚❚<muted>❘❘❘❘❘"}
+      - {value: "4",  label: "4",  visual: "<action>❚❚❚❚<muted>❘❘❘❘❘❘"}
+      - {value: "3",  label: "3",  visual: "<action>❚❚❚<muted>❘❘❘❘❘❘❘"}
+      - {value: "2",  label: "2",  visual: "<action>❚❚<muted>❘❘❘❘❘❘❘❘"}
+      - {value: "1",  label: "1",  visual: "<action>❚<muted>❘❘❘❘❘❘❘❘❘"}
   - name: tags
     type: stringList
     caption: "Tags"
@@ -235,17 +241,17 @@ views:
       - name: Now
         columns: 1
         width: 25
-        filter: select where type = "project" and status in ["ready", "inProgress", "done"] and has(priority) and has(points) order by priority, points
+        filter: select where type = "project" and status in ["ready", "inProgress", "done"] and has(priority) order by priority, points
         action: update where id = id() set status="ready"
       - name: Next
         columns: 1
         width: 25
-        filter: select where type = "project" and status = "inbox" and has(priority) and priority = "high" and has(points) order by priority, points
+        filter: select where type = "project" and status = "inbox" and has(priority) and priority = "high" order by priority, points
         action: update where id = id() set status="inbox" priority="high"
       - name: Later
         columns: 2
         width: 50
-        filter: select where type = "project" and status = "inbox" and has(priority) and priority > "high" and has(points) order by priority, points
+        filter: select where type = "project" and status = "inbox" and has(priority) and priority > "high" order by priority, points
         action: update where id = id() set status="inbox" priority="medium-high"
     actions:
       - key: Enter
