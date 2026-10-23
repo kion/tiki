@@ -250,6 +250,49 @@ func TestCreateTikiBox_NarrowLaneStillRenders(t *testing.T) {
 	}
 }
 
+const longCardTitle = "Battery ISR race condition corrupts the shared voltage sample buffer during a burst read on the bus"
+
+func assertTitleTruncated(t *testing.T, rows []string) {
+	t.Helper()
+	if len(rows) < 2 || !strings.Contains(rows[1], "│Battery ISR") || !strings.Contains(rows[1], "…") {
+		t.Fatalf("title row not truncated with an ellipsis:\n%s", strings.Join(rows, "\n"))
+	}
+}
+
+func TestCreateTikiBox_LongTitleSpanningGrowColumnTruncates(t *testing.T) {
+	tk := makeTiki("K3X9M2", "story", "medium")
+	tk.SetTitle(longCardTitle)
+	spec, err := gridlayout.ParseGrid([][]string{
+		{"<text.secondary>title", "--"},
+		{`type.visual + " " + id`, "priority:fr"},
+	})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	rows := renderTikiBoxToString(t, tk, spec, 32)
+	assertTitleTruncated(t, rows)
+	if !strings.Contains(rows[2], "K3X9M2") || !strings.Contains(rows[2], "Medium") {
+		t.Errorf("second row lost a column: %q", rows[2])
+	}
+}
+
+func TestCreateTikiBox_LongTitleInFirstColumnTruncates(t *testing.T) {
+	tk := makeTiki("K3X9M2", "story", "medium")
+	tk.SetTitle(longCardTitle)
+	spec, err := gridlayout.ParseGrid([][]string{
+		{"<text.secondary>title", "id"},
+		{"type.visual", "_"},
+	})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	rows := renderTikiBoxToString(t, tk, spec, 32)
+	assertTitleTruncated(t, rows)
+	if !strings.HasSuffix(rows[1], "    │") {
+		t.Errorf("title overran the card's right inset: %q", rows[1])
+	}
+}
+
 // TestBuildTikiBoxPrimitives_TitleAnchorEscapesTviewTags pins that a
 // title primitive's rendered text body contains the literal title
 // characters and not any unresolved role-token bytes. tview.TextView

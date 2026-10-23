@@ -453,3 +453,49 @@ func TestSolveLayout_CompositeColumnFloor(t *testing.T) {
 		}
 	}
 }
+
+func TestSolveLayout_LongTitleSpanningGrowColumnKeepsCard(t *testing.T) {
+	spec := mustParse(t, [][]string{
+		{"<text.secondary>title", "--"},
+		{`priority.visual + " " + area.label`, "--"},
+		{"progress?.visual", "<text.muted>tally?:fr"},
+	})
+	measure := func(a Anchor) int {
+		switch a.Name {
+		case "title":
+			return 98
+		case "progress":
+			return 6
+		case "tally":
+			return 4
+		}
+		return 20
+	}
+	plan := SolveLayout(spec, 27, 2, measure, nil)
+	if plan.Dropped[0] || plan.Dropped[1] {
+		t.Fatalf("columns shed for a long title: dropped=%v", plan.Dropped)
+	}
+	if plan.ColumnWidths[0] != 6 {
+		t.Errorf("col0 = %d, want 6 (its own content, not the title's)", plan.ColumnWidths[0])
+	}
+	if plan.Placed[0].Name != "title" || plan.Placed[0].Width != 27 {
+		t.Errorf("title placed %+v, want the full width 27", plan.Placed[0])
+	}
+}
+
+func TestSolveLayout_NeverShedsTheLastColumn(t *testing.T) {
+	spec := mustParse(t, [][]string{{"title", "priority"}})
+	measure := func(a Anchor) int {
+		if a.Name == "title" {
+			return 98
+		}
+		return 8
+	}
+	plan := SolveLayout(spec, 27, 2, measure, nil)
+	if plan.Dropped[0] || !plan.Dropped[1] {
+		t.Fatalf("dropped = %v, want only the right column shed", plan.Dropped)
+	}
+	if plan.ColumnWidths[0] != 27 {
+		t.Errorf("col0 = %d, want it clamped to the available 27", plan.ColumnWidths[0])
+	}
+}

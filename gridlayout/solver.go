@@ -45,6 +45,7 @@ type Plan struct {
 //     (the primary fields) survive longest; rightmost (optional)
 //     content sheds first. A floored grow column at the right end sheds before
 //     any interior column rather than clinging on as a useless sliver.
+//     The last visible column never sheds; it is clamped to the width instead.
 //  3. Grow columns split the residual width left after fixed/content columns
 //     in proportion to their weights; leftover units go to the last grow.
 //
@@ -116,12 +117,10 @@ func SolveLayout(spec GridSpec, width, gap int, measure func(a Anchor) int, heig
 		return s
 	}
 
-	for computeFixed() > width {
-		victim := rightmostVisibleColumn(cols, plan.Dropped)
-		if victim < 0 {
-			break
-		}
-		plan.Dropped[victim] = true
+	// The last column is clamped below rather than shed:
+	// its content truncates, and an empty box is never the better layout.
+	for computeFixed() > width && visibleColumns(plan.Dropped) > 1 {
+		plan.Dropped[rightmostVisibleColumn(cols, plan.Dropped)] = true
 	}
 
 	// Hard rule: a field's value and its `.caption` shed together. The two may
@@ -151,7 +150,7 @@ func SolveLayout(spec GridSpec, width, gap int, measure func(a Anchor) int, heig
 			continue
 		}
 		if !grow[c] {
-			plan.ColumnWidths[c] = base[c]
+			plan.ColumnWidths[c] = min(base[c], width)
 		}
 	}
 
@@ -347,9 +346,17 @@ func dropTrailingSpanOnlyColumns(spec GridSpec, grow, dropped []bool) {
 // columns are sized by mode; grow columns get base 0 (their width is assigned
 // from residual). A spanning anchor distributes its preferred width across its
 // non-grow columns (remainder to the rightmost), contributing only a minimum.
+//
+// A span that covers a grow column contributes nothing:
+// the grow column already hands it the residual width.
+// Pushing its content into the fixed columns instead made a long title
+// widen its neighbours until every column was shed and the card drew empty.
 func computeColumnWidths(spec GridSpec, grow []bool, measure func(a Anchor) int) (base []int) {
 	base = make([]int, spec.Cols)
 	for _, a := range spec.Anchors {
+		if spansGrowColumn(a, grow) {
+			continue
+		}
 		want := anchorBaseWidth(a, measure)
 		distributeAcrossColumns(a, grow, want, base)
 	}
@@ -362,6 +369,15 @@ func computeColumnWidths(spec GridSpec, grow []bool, measure func(a Anchor) int)
 		}
 	}
 	return base
+}
+
+func spansGrowColumn(a Anchor, grow []bool) bool {
+	for cc := a.Col; cc < a.Col+a.ColSpan && cc < len(grow); cc++ {
+		if grow[cc] {
+			return true
+		}
+	}
+	return false
 }
 
 // anchorBaseWidth is the preferred width an anchor wants for its whole span.
@@ -566,6 +582,16 @@ func rightmostVisibleColumn(cols int, dropped []bool) int {
 		}
 	}
 	return -1
+}
+
+func visibleColumns(dropped []bool) int {
+	n := 0
+	for _, d := range dropped {
+		if !d {
+			n++
+		}
+	}
+	return n
 }
 
 // assignGrowWidths splits the residual width among visible grow columns in
