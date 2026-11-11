@@ -182,6 +182,7 @@ var systemFieldCatalog = []FieldDef{
 	{Name: "createdBy", Type: TypeString},
 	{Name: "createdAt", Type: TypeTimestamp},
 	{Name: "updatedAt", Type: TypeTimestamp},
+	{Name: "activeAt", Type: TypeTimestamp},
 	{Name: "filepath", Type: TypeString},
 }
 

@@ -614,7 +614,7 @@ Single highest-priority file wins — no cross-file merging.
 ### Workflow fields
 
 `workflow.yaml fields:` is the single source of truth for every workflow field. The runtime hardcodes only
-system fields — `id`, `title`, `description`/`body`, `createdAt`, `updatedAt`, `createdBy`, `filepath` — and
+system fields — `id`, `title`, `description`/`body`, `createdAt`, `updatedAt`, `activeAt`, `createdBy`, `filepath` — and
 loads everything else (status, type, priority, points, tags, dependsOn, due, recurrence, assignee, plus any
 project-specific fields) from the `fields:` list. Reserved system field names cannot be redeclared.
 

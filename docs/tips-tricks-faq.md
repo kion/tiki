@@ -58,20 +58,23 @@ Plain Markdown links also work — use them for anchored links inside a document
 ### Find recently edited tikis
 
 Press `Ctrl-R` to open the **Recent** view. It shows every tiki touched in the last 24 hours,
-most recently updated first. Useful for "what did I work on yesterday?" or picking up where you
-left off after lunch.
+most recent first, counting an agent's [live status](live-status.md) updates as activity. Useful for
+"what did I work on yesterday?", picking up where you left off after lunch, or seeing what agents
+are busy with.
 
 Defined in the stock workflow YAML:
 
 ```yaml
 - name: Recent
-  description: "Tasks changed in the last 24 hours, most recent first"
+  description: "Tasks changed or worked on by an agent in the last 24 hours, most recent first"
   key: Ctrl-R
   lanes:
     - name: Recent
       columns: 4
-      filter: select where now() - updatedAt < 24hour order by updatedAt desc
+      filter: select where now() - activeAt < 24hour order by activeAt desc
 ```
+
+Use `updatedAt` instead of `activeAt` to leave agent activity out.
 
 Widen the window by editing the filter — e.g. `< 7day` for a week, `< 1hour` for the last hour.
 

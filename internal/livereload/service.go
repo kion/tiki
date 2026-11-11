@@ -20,6 +20,7 @@ const (
 type Target interface {
 	ReloadPaths(paths []string) (tikistore.ReloadResult, error)
 	Reconcile() (tikistore.ReloadResult, error)
+	ReloadLive() tikistore.ReloadResult
 	ExternallyChanged(paths []string) []string
 	AllPaths() []string
 }
@@ -49,8 +50,10 @@ type Options struct {
 	startSource func(root string, known func() []string, out *batcher, side *sidecarWatch) (io.Closer, error)
 }
 
-// Sidecar changes skip the store and are never held while Busy:
-// they only repaint, so they can't move focus or the selection.
+// A sidecar change runs OnChange at once, even while Busy:
+// it only repaints, so it can't move focus or the selection.
+// The store's copy of the live times can reorder lanes,
+// so that reload is held while Busy like a batch of tiki files.
 // OnChange runs on the UI goroutine.
 // The catch-up when live reload turns on is OnStateChange's job.
 type Sidecar struct {
@@ -79,6 +82,7 @@ type run struct {
 	mu            sync.Mutex
 	held          map[string]struct{}
 	heldReconcile bool
+	heldLive      bool
 	retry         *time.Timer
 }
 
@@ -205,7 +209,7 @@ func (s *Service) dispatchLoop(r *run) {
 			default:
 			}
 			s.opts.Dispatch(func() { s.applySidecarOnUI(r) })
-			continue
+			r.holdLive()
 		case <-r.batch.ready():
 			paths, reconcile := r.batch.take()
 			if len(paths) > 0 {
@@ -234,17 +238,22 @@ func (s *Service) applyOnUI(r *run) {
 		r.recheckAfter(s.opts.BusyRetry)
 		return
 	}
-	paths, reconcile := r.takeHeld()
-	if len(paths) == 0 && !reconcile {
+	paths, reconcile, live := r.takeHeld()
+	if len(paths) == 0 && !reconcile && !live {
 		return
 	}
 
 	var res tikistore.ReloadResult
 	var err error
 	if reconcile {
-		res, err = s.opts.Target.Reconcile() // covers the held paths too
+		res, err = s.opts.Target.Reconcile() // covers the held paths and live times too
 	} else {
-		res, err = s.opts.Target.ReloadPaths(paths)
+		if len(paths) > 0 {
+			res, err = s.opts.Target.ReloadPaths(paths)
+		}
+		if live && s.opts.Target.ReloadLive().Changed {
+			res.Changed = true
+		}
 	}
 	if err != nil {
 		s.reportError(fmt.Errorf("live reload: %w", err))
@@ -289,23 +298,29 @@ func (r *run) hold(paths []string, reconcile bool) {
 	r.heldReconcile = r.heldReconcile || reconcile
 }
 
+func (r *run) holdLive() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.heldLive = true
+}
+
 func (r *run) hasHeld() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return len(r.held) > 0 || r.heldReconcile
+	return len(r.held) > 0 || r.heldReconcile || r.heldLive
 }
 
-func (r *run) takeHeld() ([]string, bool) {
+func (r *run) takeHeld() (paths []string, reconcile, live bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	paths := make([]string, 0, len(r.held))
+	paths = make([]string, 0, len(r.held))
 	for p := range r.held {
 		paths = append(paths, p)
 	}
-	reconcile := r.heldReconcile
+	reconcile, live = r.heldReconcile, r.heldLive
 	r.held = map[string]struct{}{}
-	r.heldReconcile = false
-	return paths, reconcile
+	r.heldReconcile, r.heldLive = false, false
+	return paths, reconcile, live
 }
 
 func (r *run) recheckAfter(d time.Duration) {

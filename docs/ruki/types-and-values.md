@@ -38,7 +38,7 @@ the values, expressions, built-in functions, and tiki fields you use.
 ## Field catalog
 
 The runtime hardcodes a small set of system fields (`id`, `title`, `description`, `createdBy`,
-`createdAt`, `updatedAt`, `filepath`). Every other field — including `status`, `type`, `priority`,
+`createdAt`, `updatedAt`, `activeAt`, `filepath`). Every other field — including `status`, `type`, `priority`,
 `points`, `tags`, and any project-specific fields — is declared in `workflow.yaml fields:` and joins
 the same catalog at load time. From `ruki`'s perspective, all fields behave identically.
 
@@ -59,6 +59,7 @@ the same catalog at load time. From `ruki`'s perspective, all fields behave iden
 | `createdBy` | `string` |
 | `createdAt` | `timestamp` |
 | `updatedAt` | `timestamp` |
+| `activeAt` | `timestamp` |
 | `filepath` | `string` |
 
 Workflow fields declared as `type: user` also appear as `string` in ruki. The `user` type affects only the
@@ -67,6 +68,11 @@ detail editor; ruki has no separate user value type.
 `filepath` is a synthetic, read-only field populated by the file-backed store. It holds the absolute path to the tiki's
 markdown file for persisted tikis, and is an empty string for in-memory or unsaved tikis. It never appears in YAML
 frontmatter and cannot be assigned via `create` or `update`.
+
+`activeAt` is computed and read-only: the later of `updatedAt` and the time of the tiki's agent
+[live status](../live-status.md), if it has one. Order by it to rank tikis an agent is working on alongside
+recently changed ones. It never appears in YAML frontmatter, and a `create` or `update` that assigns it is
+rejected when the tiki is saved.
 
 The `filepath()` and `filepaths()` builtins (see
 [operators-and-builtins.md](operators-and-builtins.md)) expose the same value for the currently selected tiki(s)

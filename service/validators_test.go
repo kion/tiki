@@ -2,6 +2,7 @@ package service
 
 import (
 	"testing"
+	"time"
 
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
@@ -31,5 +32,17 @@ func TestWrapTikiFieldValidator_DeleteCase(t *testing.T) {
 	}
 	if rejection.Reason != "title required" {
 		t.Errorf("expected 'title required', got %q", rejection.Reason)
+	}
+}
+
+func TestValidateTikiActiveAt_RejectsAStoredValue(t *testing.T) {
+	tk := tikipkg.New()
+	tk.SetTitle("t")
+	if msg := validateTikiActiveAt(tk); msg != "" {
+		t.Fatalf("rejected a tiki without activeAt: %s", msg)
+	}
+	tk.Set("activeAt", time.Now())
+	if msg := validateTikiActiveAt(tk); msg == "" {
+		t.Fatal("accepted a tiki that sets activeAt")
 	}
 }

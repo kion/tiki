@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/internal/git"
@@ -29,6 +30,7 @@ type TikiStore struct {
 	mu             sync.RWMutex
 	dir            string // directory containing tiki files
 	tikis          map[string]*tiki.Tiki
+	live           map[string]time.Time // live-status times by tiki id
 	listeners      map[int]store.ChangeListener
 	nextListenerID int
 	gitUtil        git.GitOps        // read-only: tiki never stages or commits

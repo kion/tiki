@@ -60,7 +60,7 @@ present, tiki uses its embedded default workflow:
 | Kanban | F1 | The main board with Inbox, Ready, In Progress, Done columns |
 | Docs | F2 | Project documentation files |
 | Roadmap | F4 | Projects organized by Now, Next, Later |
-| Recent | Ctrl-R | Tasks changed in the last 24 hours |
+| Recent | Ctrl-R | Tasks changed or worked on by an agent in the last 24 hours |
 
 Plus a set of keyboard shortcuts (actions) and automation rules (triggers) that
 we will explore in later sections.

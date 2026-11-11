@@ -46,6 +46,9 @@ type Tiki struct {
 	// updatedAt is max(file mtime, latest git commit time). Read via UpdatedAt().
 	updatedAt time.Time
 
+	// liveAt comes from an agent's live-status sidecar, so it is never saved. Read via LiveAt().
+	liveAt time.Time
+
 	// stale records the subset of Fields keys that were loaded from disk
 	// with unknown-field provenance despite matching a registered Custom
 	// field (e.g. a value that failed coercion on load and was demoted).
@@ -79,6 +82,16 @@ func (t *Tiki) Body() string         { return t.body }
 func (t *Tiki) Path() string         { return t.path }
 func (t *Tiki) CreatedAt() time.Time { return t.createdAt }
 func (t *Tiki) UpdatedAt() time.Time { return t.updatedAt }
+func (t *Tiki) LiveAt() time.Time    { return t.liveAt }
+
+// ActiveAt counts an agent's live status as activity
+// without making it an update to the tiki.
+func (t *Tiki) ActiveAt() time.Time {
+	if t.liveAt.After(t.updatedAt) {
+		return t.liveAt
+	}
+	return t.updatedAt
+}
 
 // setters for the store/service/template construction paths.
 func (t *Tiki) SetID(v string)           { t.id = v }
@@ -87,6 +100,7 @@ func (t *Tiki) SetBody(v string)         { t.body = v }
 func (t *Tiki) SetPath(v string)         { t.path = v }
 func (t *Tiki) SetCreatedAt(v time.Time) { t.createdAt = v }
 func (t *Tiki) SetUpdatedAt(v time.Time) { t.updatedAt = v }
+func (t *Tiki) SetLiveAt(v time.Time)    { t.liveAt = v }
 
 // Clone returns a deep copy. Slice values inside Fields are copied; maps
 // nested inside Fields are copied one level (sufficient for all current
@@ -104,6 +118,7 @@ func (t *Tiki) Clone() *Tiki {
 		LoadedSize:  t.LoadedSize,
 		createdAt:   t.createdAt,
 		updatedAt:   t.updatedAt,
+		liveAt:      t.liveAt,
 	}
 	if t.Fields != nil {
 		clone.Fields = make(map[string]interface{}, len(t.Fields))

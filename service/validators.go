@@ -43,7 +43,17 @@ func AllTikiValidators() []func(*tikipkg.Tiki) string {
 	return []func(*tikipkg.Tiki) string{
 		validateTikiTitle,
 		validateTikiWorkflowFields,
+		validateTikiActiveAt,
 	}
+}
+
+// ruki only knows its own immutable fields,
+// so `set activeAt = …` gets this far and would otherwise be saved into the file.
+func validateTikiActiveAt(tk *tikipkg.Tiki) string {
+	if tk.Has("activeAt") {
+		return "activeAt is computed and can't be set"
+	}
+	return ""
 }
 
 func validateTikiTitle(tk *tikipkg.Tiki) string {

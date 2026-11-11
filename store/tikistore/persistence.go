@@ -70,6 +70,8 @@ func (s *TikiStore) loadLocked() error {
 		tk, err := s.loadTikiFile(filePath, authorMap, lastCommitMap)
 		admitDocument(filePath, tk, err, idIndex, s.diagnostics, prev, s.tikis)
 	}
+	s.live = scanLiveTimes(s.dir)
+	applyLiveTimes(s.tikis, s.live)
 	slog.Info("finished loading tikis", "num_tikis", len(s.tikis), "rejections", len(s.diagnostics.Rejections()))
 	return nil
 }
@@ -314,6 +316,7 @@ func (s *TikiStore) ReloadTiki(tikiID string) error {
 				normalizedID, newID, newID, peer.Path())
 		}
 	}
+	tk.SetLiveAt(s.live[tk.ID()])
 	s.tikis[tk.ID()] = tk
 	s.mu.Unlock()
 

@@ -15,7 +15,7 @@
 
 Workflow fields — including `status`, `type`, `priority`, `points`, `tags`, and any project-specific
 fields you add — are all defined in `workflow.yaml`'s `fields:` list. The runtime hardcodes only system
-fields: `id`, `title`, `description`/`body`, `createdAt`, `updatedAt`, `createdBy`, `filepath`. Everything
+fields: `id`, `title`, `description`/`body`, `createdAt`, `updatedAt`, `activeAt`, `createdBy`, `filepath`. Everything
 else is declared by the workflow.
 
 This document describes how to declare and use any non-system field. Historically the codebase
@@ -64,7 +64,7 @@ fields:
 ```
 
 Workflow field names must not collide with reserved system fields (`id`, `title`, `description`,
-`createdBy`, `createdAt`, `updatedAt`, `filepath`) or ruki reserved keywords. `status` and `type`
+`createdBy`, `createdAt`, `updatedAt`, `activeAt`, `filepath`) or ruki reserved keywords. `status` and `type`
 are ordinary enum fields — they have no special semantics in the runtime, only the meaning you
 encode via the values you declare.
 

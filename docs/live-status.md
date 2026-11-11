@@ -59,8 +59,9 @@ updatedAt: "2026-10-11T18:22:05Z"
 ```
 
 The tiki file itself is never changed: a status update doesn't touch git, doesn't change the tiki's
-`updatedAt`, and can't conflict with an edit you have open. `.tiki/` contains a `.gitignore` that
-ignores everything in it, so statuses never reach git.
+`updatedAt`, and can't conflict with an edit you have open. It does count as activity, through
+[`activeAt`](#recent-activity). `.tiki/` contains a `.gitignore` that ignores everything in it, so
+statuses never reach git.
 
 Other tools may write these files directly instead of calling `tiki live`. Only `message` is
 required; `updatedAt` defaults to the file's modification time, and unknown keys are ignored. Write
@@ -81,6 +82,26 @@ to a temporary file in the same directory and rename it, so tiki never reads a h
 - A status that hasn't been updated for 15 minutes is dimmed and stops animating. Its age keeps
   growing until it is updated or cleared. Change the threshold with `liveStatus.staleAfter` in
   [config.yaml](config.md), or the `TIKI_LIVESTATUS_STALEAFTER` environment variable.
+
+## Recent activity
+
+The `activeAt` field is the later of a tiki's `updatedAt` and the time of its live status, so a
+query can rank what agents are working on alongside what people changed. The kanban workflow's
+**Recent** view (`Ctrl-R`) uses it: an agent's update moves its tiki to the top, and brings in a tiki
+whose file hasn't changed in the last 24 hours.
+
+```yaml
+filter: select where now() - activeAt < 24hour and has(type) and type != "project" order by activeAt desc
+```
+
+- Clearing a status takes its time with it, and the tiki falls back to its `updatedAt`. Closing a
+  tiki changes the tiki itself, so it stays recent.
+- While the action palette, a dialog or an input box is open, lanes keep their order and reorder when
+  you close it, so the selection never moves under you. Card borders still update meanwhile.
+- `activeAt` follows status updates while live reload is on. With it off, tiki uses the statuses it
+  read at startup or the last Refresh (`r`), the way `tiki exec` uses the ones it reads when it runs.
+- A workflow you installed before `activeAt` existed still sorts Recent by `updatedAt`. Change its
+  filter as above, or reinstall the bundled workflow with `tiki workflow reset`.
 
 ## Clearing on completion
 

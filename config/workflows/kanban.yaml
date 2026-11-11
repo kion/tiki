@@ -179,7 +179,7 @@ views:
 
   - name: Recent
     kind: board
-    description: "Tasks changed in the last 24 hours, most recent first"
+    description: "Tasks changed or worked on by an agent in the last 24 hours, most recent first"
     key: Ctrl-R
     layout: |
       type.visual + " " + id
@@ -188,7 +188,7 @@ views:
     lanes:
       - name: Recent
         columns: 4
-        filter: select where now() - updatedAt < 24hour and has(type) and type != "project" order by updatedAt desc
+        filter: select where now() - activeAt < 24hour and has(type) and type != "project" order by activeAt desc
     actions:
       - key: Enter
         label: Open

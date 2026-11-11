@@ -39,7 +39,7 @@ func TestIdentityFieldsAreNotInFieldsMap(t *testing.T) {
 func TestIsIdentityFieldRecognizesAuditAndIdentity(t *testing.T) {
 	identity := []string{
 		"id", "title", "description", "body",
-		"createdBy", "createdAt", "updatedAt",
+		"createdBy", "createdAt", "updatedAt", "activeAt",
 		"filepath", "path",
 	}
 	for _, name := range identity {

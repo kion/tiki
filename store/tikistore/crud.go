@@ -72,6 +72,7 @@ func (s *TikiStore) storeNewDocumentLocked(tk *tikipkg.Tiki) error {
 		return err
 	}
 
+	tk.SetLiveAt(s.live[tk.ID()])
 	s.tikis[tk.ID()] = tk
 	if err := s.saveTiki(tk); err != nil {
 		delete(s.tikis, tk.ID())
@@ -145,6 +146,7 @@ func (s *TikiStore) updateTikiCore(tk *tikipkg.Tiki, _ bool) error {
 		return err
 	}
 
+	tk.SetLiveAt(s.live[tk.ID()])
 	s.tikis[tk.ID()] = tk
 	if err := s.saveTiki(tk); err != nil {
 		s.tikis[tk.ID()] = old

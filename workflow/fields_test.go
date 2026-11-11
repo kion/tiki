@@ -55,6 +55,7 @@ func TestSystemField(t *testing.T) {
 		{"createdBy", TypeString, true},
 		{"createdAt", TypeTimestamp, true},
 		{"updatedAt", TypeTimestamp, true},
+		{"activeAt", TypeTimestamp, true},
 		{"filepath", TypeString, true},
 		{"status", 0, false}, // workflow field, not system
 		{"type", 0, false},   // workflow field, not system
@@ -76,7 +77,7 @@ func TestSystemField(t *testing.T) {
 }
 
 func TestIsSystemField(t *testing.T) {
-	for _, name := range []string{"id", "title", "description", "createdBy", "createdAt", "updatedAt", "filepath", "body"} {
+	for _, name := range []string{"id", "title", "description", "createdBy", "createdAt", "updatedAt", "activeAt", "filepath", "body"} {
 		if !IsSystemField(name) {
 			t.Errorf("IsSystemField(%q) = false, want true", name)
 		}
@@ -90,8 +91,8 @@ func TestIsSystemField(t *testing.T) {
 
 func TestSystemFields(t *testing.T) {
 	fields := SystemFields()
-	if len(fields) != 7 {
-		t.Fatalf("expected 7 system fields, got %d", len(fields))
+	if len(fields) != 8 {
+		t.Fatalf("expected 8 system fields, got %d", len(fields))
 	}
 	// verify it returns a copy
 	fields[0].Name = "modified"
@@ -175,7 +176,7 @@ func TestRegisterWorkflowFields_StatusIsOrdinaryEnum(t *testing.T) {
 func TestRegisterWorkflowFields_RejectsSystemFieldCollision(t *testing.T) {
 	t.Cleanup(func() { ClearWorkflowFields() })
 
-	for _, name := range []string{"id", "title", "description", "createdAt", "createdBy", "updatedAt", "filepath", "body"} {
+	for _, name := range []string{"id", "title", "description", "createdAt", "createdBy", "updatedAt", "activeAt", "filepath", "body"} {
 		t.Run(name, func(t *testing.T) {
 			err := RegisterWorkflowFields([]FieldDef{{Name: name, Type: TypeString}})
 			if err == nil {

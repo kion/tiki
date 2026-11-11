@@ -86,6 +86,8 @@ create title="x" foo="bar"
 Immutable field errors:
 
 - `id`, `createdBy`, `createdAt`, and `updatedAt` cannot be assigned in `create` or `update`
+- `activeAt` is computed too, but assigning it passes validation:
+  the change is rejected when the tiki is saved
 
 ```sql
 create title="x" id="ABC123"           -- id is immutable and cannot be assigned

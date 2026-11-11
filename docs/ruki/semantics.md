@@ -48,6 +48,7 @@ This page explains how `ruki` statements, triggers, conditions, and expressions 
 - Duplicate assignments to the same field are rejected.
 - Every assigned field must exist in the injected schema.
 - `id`, `createdBy`, `createdAt`, `updatedAt`, and `filepath` are immutable and cannot be assigned.
+- `activeAt` is computed: an assignment to it passes validation but is rejected when the tiki is saved.
 
 `update`
 
@@ -56,6 +57,7 @@ This page explains how `ruki` statements, triggers, conditions, and expressions 
 - The `where` clause and every right-hand side expression are validated.
 - Duplicate assignments inside `set` are rejected.
 - `id`, `createdBy`, `createdAt`, `updatedAt`, and `filepath` are immutable and cannot be assigned.
+- `activeAt` is computed: an assignment to it passes validation but is rejected when the tiki is saved.
 
 `delete`
 

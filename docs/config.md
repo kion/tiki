@@ -319,12 +319,12 @@ views:                          # top-level list of views (no plugins: wrapper)
         action: update where id = choose(select where type = "project") set dependsOn = dependsOn + id()
   - name: Recent
     kind: board
-    description: "Tasks changed in the last 24 hours, most recent first"
+    description: "Tasks changed or worked on by an agent in the last 24 hours, most recent first"
     key: Ctrl-R
     lanes:
       - name: Recent
         columns: 4
-        filter: select where now() - updatedAt < 24hour order by updatedAt desc
+        filter: select where now() - activeAt < 24hour order by activeAt desc
   - name: Roadmap
     kind: board
     description: "Projects organized by Now, Next, and Later horizons"

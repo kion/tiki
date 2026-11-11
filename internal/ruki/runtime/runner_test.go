@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/service"
@@ -992,5 +993,38 @@ func TestRunQueryDeleteValidatorRejection(t *testing.T) {
 	// tiki should still exist
 	if s.GetTiki("TIKI-AAA001") == nil {
 		t.Error("tiki should not have been deleted")
+	}
+}
+
+func TestRunQueryRejectsSettingActiveAt(t *testing.T) {
+	s := setupRunnerTest(t)
+	g := gateFor(s)
+	service.RegisterFieldValidators(g)
+
+	var buf bytes.Buffer
+	err := RunQuery(g, `update where id = "TIKI-AAA001" set activeAt = now()`, &buf)
+	if err == nil || !strings.Contains(err.Error(), "activeAt is computed") {
+		t.Fatalf("err = %v, want a rejection naming activeAt", err)
+	}
+	if s.GetTiki("TIKI-AAA001").Has("activeAt") {
+		t.Error("activeAt was stored")
+	}
+}
+
+func TestRunSelectQueryOrdersByActiveAt(t *testing.T) {
+	s := setupRunnerTest(t)
+	now := time.Now()
+	a, b := s.GetTiki("TIKI-AAA001"), s.GetTiki("TIKI-BBB002")
+	a.SetUpdatedAt(now.Add(-2 * time.Hour))
+	b.SetUpdatedAt(now.Add(-time.Hour))
+	a.SetLiveAt(now.Add(-time.Minute))
+
+	var buf bytes.Buffer
+	if err := RunSelectQuery(s, `select id where now() - activeAt < 24hour order by activeAt desc`, &buf); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if ia, ib := strings.Index(out, "AAA001"), strings.Index(out, "BBB002"); ia < 0 || ib < 0 || ia > ib {
+		t.Fatalf("want AAA001 (newest live status) before BBB002:\n%s", out)
 	}
 }

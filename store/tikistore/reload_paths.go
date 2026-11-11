@@ -206,6 +206,7 @@ func (s *TikiStore) reloadPathsLocked(scope *document.Scope, paths []string) (Re
 		if u.old != nil {
 			carryForwardGitMeta(u.loaded, u.old)
 		}
+		u.loaded.SetLiveAt(s.live[id])
 		s.tikis[id] = u.loaded
 		if u.old != nil || removed[id] {
 			// a rename is an update to listeners, not a remove + add
@@ -280,6 +281,8 @@ func (s *TikiStore) reconcileLocked(keep map[string]bool) (ReloadResult, error) 
 		admitDocument(filePath, tk, loadErr, idIndex, diags, s.diagnostics, next)
 	}
 
+	s.live = scanLiveTimes(s.dir)
+	applyLiveTimes(next, s.live)
 	res := diffTikis(s.tikis, next)
 	res.Reconciled = true
 	s.tikis = next

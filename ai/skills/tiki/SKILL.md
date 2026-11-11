@@ -61,7 +61,7 @@ unless they ask you to do it.
 
 ### Intrinsic fields (every project)
 
-These seven fields exist regardless of workflow and cannot be redeclared by a `workflow.yaml`:
+These eight fields exist regardless of workflow and cannot be redeclared by a `workflow.yaml`:
 
 | Field | Type | Notes |
 |---|---|---|
@@ -71,6 +71,7 @@ These seven fields exist regardless of workflow and cannot be redeclared by a `w
 | `createdBy` | `string` | immutable |
 | `createdAt` | `timestamp` | immutable |
 | `updatedAt` | `timestamp` | immutable |
+| `activeAt` | `timestamp` | computed: the later of `updatedAt` and the tiki's live status time |
 | `filepath` | `string` | synthetic — the tiki's absolute path on disk |
 
 ### Workflow fields — EXAMPLE ONLY, not guaranteed

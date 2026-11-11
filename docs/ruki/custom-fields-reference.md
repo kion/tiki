@@ -39,7 +39,7 @@ Field names must:
 - not collide with ruki reserved keywords (`select`, `update`, `where`, `and`, `or`, `not`, `in`, `is`,
   `empty`, `order`, `by`, `asc`, `desc`, `set`, `create`, `delete`, `limit`, etc.)
 - not collide with reserved system field names, case-insensitively (`id`, `title`, `description`,
-  `createdBy`, `createdAt`, `updatedAt`, `filepath`, or the `body` alias)
+  `createdBy`, `createdAt`, `updatedAt`, `activeAt`, `filepath`, or the `body` alias)
 - not be `true` or `false` (reserved boolean literals)
 
 Collision checks against system fields are case-insensitive: `Title` and `TITLE` both collide with `title`.

@@ -19,11 +19,19 @@ func (d Doc) CreatedAt() time.Time             { return d.T.CreatedAt() }
 func (d Doc) UpdatedAt() time.Time             { return d.T.UpdatedAt() }
 func (d Doc) SetTitle(v string)                { d.T.SetTitle(v) }
 func (d Doc) SetBody(v string)                 { d.T.SetBody(v) }
-func (d Doc) Get(n string) (interface{}, bool) { return d.T.Get(n) }
+func (d Doc) Get(n string) (interface{}, bool) { return computedOrField(d.T, n) }
 func (d Doc) Set(n string, v interface{})      { d.T.Set(n, v) }
-func (d Doc) Has(n string) bool                { return d.T.Has(n) }
+func (d Doc) Has(n string) bool                { return n == "activeAt" || d.T.Has(n) }
 func (d Doc) Delete(n string)                  { d.T.Delete(n) }
 func (d Doc) Clone() ruki.Document             { return Doc{T: d.T.Clone()} }
+
+// ruki reads the system fields it doesn't know itself through Get.
+func computedOrField(t *Tiki, n string) (interface{}, bool) {
+	if n == "activeAt" {
+		return t.ActiveAt(), true
+	}
+	return t.Get(n)
+}
 
 // WrapDoc / WrapDocs / UnwrapDoc / UnwrapDocs bridge *Tiki and ruki.Document.
 //

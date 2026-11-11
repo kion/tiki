@@ -20,6 +20,7 @@ type fakeTarget struct {
 	reloads    [][]string
 	reloaded   chan []string
 	reconciled chan struct{}
+	liveLoaded chan struct{}
 	checked    chan []string
 	external   func(string) bool
 	result     func(paths []string) tikistore.ReloadResult
@@ -30,6 +31,7 @@ func newFakeTarget() *fakeTarget {
 	return &fakeTarget{
 		reloaded:   make(chan []string, 64),
 		reconciled: make(chan struct{}, 64),
+		liveLoaded: make(chan struct{}, 64),
 		checked:    make(chan []string, 64),
 	}
 }
@@ -57,6 +59,12 @@ func (f *fakeTarget) Reconcile() (tikistore.ReloadResult, error) {
 	f.record("reconcile")
 	f.reconciled <- struct{}{}
 	return tikistore.ReloadResult{}, nil
+}
+
+func (f *fakeTarget) ReloadLive() tikistore.ReloadResult {
+	f.record("live")
+	f.liveLoaded <- struct{}{}
+	return tikistore.ReloadResult{Changed: true}
 }
 
 func (f *fakeTarget) ExternallyChanged(paths []string) []string {
@@ -536,7 +544,7 @@ func waitCount(t *testing.T, n *atomic.Int32, want int32) {
 	}
 }
 
-func TestService_SidecarChangeSkipsTheStore(t *testing.T) {
+func TestService_SidecarChangeReloadsOnlyLiveTimes(t *testing.T) {
 	h, changes := newSidecarHarness(t)
 	mustEnable(t, h)
 
@@ -544,19 +552,39 @@ func TestService_SidecarChangeSkipsTheStore(t *testing.T) {
 	waitCount(t, changes, 1)
 	waitCount(t, &h.redraws, 1)
 	select {
+	case <-h.target.liveLoaded:
+	case <-time.After(5 * time.Second):
+		t.Fatal("live times never reloaded")
+	}
+	waitCount(t, &h.redraws, 2)
+	select {
 	case p := <-h.target.reloaded:
-		t.Errorf("sidecar change reloaded the store: %v", p)
+		t.Errorf("sidecar change reloaded tiki files: %v", p)
 	default:
 	}
 }
 
-func TestService_SidecarChangeIsNotHeldWhileBusy(t *testing.T) {
+// The repaint can't move the selection, but reordering lanes by activeAt can.
+func TestService_SidecarRepaintsButHoldsLiveTimesWhileBusy(t *testing.T) {
 	h, changes := newSidecarHarness(t)
 	mustEnable(t, h)
 	h.busy.Store(true)
 
 	h.source.pushSide("/root/.tiki/live/AAAAAA.yaml")
 	waitCount(t, changes, 1)
+	waitCount(t, &h.dispatch, 3) // the repaint, then a held attempt and at least one retry
+	select {
+	case <-h.target.liveLoaded:
+		t.Fatal("live times reloaded while busy")
+	default:
+	}
+
+	h.busy.Store(false)
+	select {
+	case <-h.target.liveLoaded:
+	case <-time.After(5 * time.Second):
+		t.Fatal("live times never reloaded after busy cleared")
+	}
 }
 
 func TestService_StaleSidecarDispatchIsDropped(t *testing.T) {

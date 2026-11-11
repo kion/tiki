@@ -8,11 +8,11 @@ import (
 
 // IsIdentityField reports whether name is one of the tiki identity/audit fields
 // that live as struct fields or reserved metadata rather than in the generic
-// Fields map (id, title, body, createdBy, createdAt, updatedAt, path/filepath).
+// Fields map (id, title, body, createdBy, createdAt, updatedAt, activeAt, path/filepath).
 func IsIdentityField(name string) bool {
 	switch name {
 	case "id", "title", "description", "body",
-		"createdBy", "createdAt", "updatedAt",
+		"createdBy", "createdAt", "updatedAt", "activeAt",
 		"filepath", "path":
 		return true
 	}
