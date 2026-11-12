@@ -151,6 +151,39 @@ tiki workflow describe ./custom.yaml
 tiki workflow describe https://example.com/workflow.yaml
 ```
 
+#### workflow schema
+
+Print the fields and triggers of the workflow that applies to the current directory, in a compact form
+for AI agents. The bundled [AI skill](ai.md) runs it once per session instead of reading `workflow.yaml`.
+
+```bash
+tiki workflow schema
+```
+
+It prints the path of the resolved `workflow.yaml`, then:
+
+- the intrinsic fields every tiki has
+- each workflow field with its type, its allowed values (`*` marks the default on create) or its literal
+  syntax, and its default
+- each trigger with when it fires, what it does (`deny`, `update`, `create`, `delete` or `run`) and its
+  description; a trigger without a description shows its rule instead
+
+Views, actions, captions and visuals are left out. For the bundled kanban workflow the output is about
+1.7 KB, a tenth of the file:
+
+```text
+workflow fields (* = default on create):
+  status      enum          inbox* ready inProgress done
+  tags        list<string>  default ["idea"]
+  due         date          YYYY-MM-DD
+  ...
+
+triggers (deny refuses the change; the rest are side effects):
+  before update  deny    block completion with open dependencies
+  after delete   update  remove deleted task from dependency lists
+  ...
+```
+
 ### demo
 
 Launch the demo project. The demo files are extracted into a `tiki-demo/` directory in the current working directory.

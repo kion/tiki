@@ -27,6 +27,8 @@ func runWorkflow(args []string) int {
 		return runWorkflowInstall(args[1:])
 	case "describe":
 		return runWorkflowDescribe(args[1:])
+	case "schema":
+		return runWorkflowSchema(args[1:])
 	case "--help", "-h":
 		printWorkflowUsage()
 		return exitOK
@@ -289,6 +291,7 @@ Commands:
   reset [target] [--scope]      Reset config files to defaults
   install <source> [--scope]    Install a workflow (embedded name, file path, or URL)
   describe <source>             Print a workflow's description
+  schema                        Print the current workflow's fields and triggers, for AI agents
 
 Run 'tiki workflow <command> --help' for details.
 `)

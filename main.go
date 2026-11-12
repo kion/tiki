@@ -368,6 +368,7 @@ Usage:
   tiki live clear <ID>       Remove a tiki's live status
   tiki workflow reset [target]  Reset config files (--global, --current)
   tiki workflow install <source> Install a workflow (--global, --current)
+  tiki workflow schema       Print the current workflow's fields and triggers, for AI agents
   tiki demo                  Launch demo project (extracts embedded files on first run)
   tiki file.md/URL           View markdown file or image
   echo "Title" | tiki        Create a document from piped input
