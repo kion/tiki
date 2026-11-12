@@ -100,7 +100,8 @@ this will open a demo project. Once done you can try your own:
 Move a task around the board with `Shift ←/Shift →`.
 
 ### AI skills
-Copy the bundled skill directory (`ai/skills/tiki/`) into your AI tool's skills directory to enable
+Install the bundled skill into a project with `./install-skill.sh /path/to/project`
+(see [AI collaboration](docs/ai.md#installing-a-skill)) to enable
 - [Claude Code](https://code.claude.com)
 - [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 - [Codex](https://openai.com/codex)

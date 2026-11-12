@@ -24,24 +24,40 @@ The skill ships in the tiki repository as the directory `ai/skills/tiki/`:
 - `references/*.md` — modules the agent reads only when their case comes up: points estimation,
   dependencies, long and quoted text, more query patterns, file layout, and provenance
 
-Copy the whole `ai/skills/tiki/` directory, not just `SKILL.md`, into your tool's skills location, for
-example:
+From a checkout of the tiki repository, `install-skill.sh` copies it into a project:
 
-| Tool | Target location |
-|---|---|
-| Claude Code | `.claude/skills/tiki/SKILL.md` (project) or `~/.claude/skills/tiki/SKILL.md` (global) |
-| Gemini CLI | the skills directory configured for `gemini` |
-| Codex | the skills directory configured for `codex` |
-| Opencode | the skills directory configured for `opencode` |
+```bash
+./install-skill.sh /path/to/project                # every AI tool the project already uses
+./install-skill.sh --claude-code /path/to/project  # exactly the named tools
+./install-skill.sh --all /path/to/project
+```
 
-Consult each tool's own documentation for its exact skills path; the skill's content is tool-agnostic.
+| Flag | Installs into | Detected by |
+|---|---|---|
+| `--claude-code` | `.claude/skills/tiki/` | `.claude/` or `CLAUDE.md` |
+| `--codex` | `.agents/skills/tiki/` | `.codex/`, `.agents/` or `AGENTS.md` |
+| `--gemini` | `.gemini/skills/tiki/` | `.gemini/` or `GEMINI.md` |
+| `--opencode` | `.opencode/skills/tiki/` | `.opencode/`, `opencode.json` or `opencode.jsonc` |
+
+- Without a flag, the script installs for each tool whose files it finds in the project, and stops
+  with an error when it finds none. With flags it installs for exactly those tools, which is how you
+  set up a project that has no AI tool files yet.
+- Running it again updates the copy. The skill's directory is replaced as a whole, so don't keep your
+  own files in it. A directory at that path that isn't a copy of the skill is left alone, with an
+  error.
+- Gemini CLI and Opencode also read `.agents/skills/`, and Opencode `.claude/skills/`, so a project
+  that already has the skill there doesn't need a second copy for them.
+- The script needs `bash`. On Windows, or for a user-wide install such as `~/.claude/skills/tiki/`,
+  copy the whole `ai/skills/tiki/` directory by hand, not just `SKILL.md`.
+
+The skill's content is tool-agnostic.
 
 The same copy works in every project. The skill doesn't describe any workflow's fields: the agent runs
 [`tiki workflow schema`](command-line.md#workflow-schema) once per session to learn the fields, values and
 triggers of the project it is in, so it stays correct when a `workflow.yaml` changes. This needs a `tiki`
 that has the command; with an older one the skill falls back to reading `workflow.yaml`.
 
-When you update tiki, copy the directory again to pick up changes to the skill.
+When you update tiki, run the script again to pick up changes to the skill.
 
 ## Chat with AI
 

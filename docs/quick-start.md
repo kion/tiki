@@ -22,7 +22,8 @@ Press `Ctrl-L` to toggle live reload: views refresh on their own when documents 
 tiki, for example while an AI agent works on them (start with it on via `tiki --live-reload`).
 
 ## AI skills
-Copy the bundled skill into your AI tool's skills directory to enable
+Install the bundled skill into a project with `./install-skill.sh /path/to/project`
+(see [AI collaboration](ai.md#installing-a-skill)) to enable
 - [Claude Code](https://code.claude.com)
 - [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 - [Codex](https://openai.com/codex)
