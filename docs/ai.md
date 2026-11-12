@@ -17,11 +17,15 @@ manually — there is no in-app installer. Once installed you can:
 
 ### Installing a skill
 
-The skill files ship in the tiki repository under `ai/skills/`:
+The skill ships in the tiki repository as the directory `ai/skills/tiki/`:
 
-- `ai/skills/tiki/SKILL.md` — document create/find/update/delete, points estimation, and live status
+- `SKILL.md` — the core, loaded whenever the skill is used: querying, creating, updating and deleting
+  documents, implementing one, and live status
+- `references/*.md` — modules the agent reads only when their case comes up: points estimation,
+  dependencies, long and quoted text, more query patterns, file layout, and provenance
 
-Copy the directory containing the relevant `SKILL.md` into your tool's skills location, for example:
+Copy the whole `ai/skills/tiki/` directory, not just `SKILL.md`, into your tool's skills location, for
+example:
 
 | Tool | Target location |
 |---|---|
@@ -30,8 +34,14 @@ Copy the directory containing the relevant `SKILL.md` into your tool's skills lo
 | Codex | the skills directory configured for `codex` |
 | Opencode | the skills directory configured for `opencode` |
 
-Consult each tool's own documentation for its exact skills path; the `SKILL.md` content itself is
-tool-agnostic.
+Consult each tool's own documentation for its exact skills path; the skill's content is tool-agnostic.
+
+The same copy works in every project. The skill doesn't describe any workflow's fields: the agent runs
+[`tiki workflow schema`](command-line.md#workflow-schema) once per session to learn the fields, values and
+triggers of the project it is in, so it stays correct when a `workflow.yaml` changes. This needs a `tiki`
+that has the command; with an older one the skill falls back to reading `workflow.yaml`.
+
+When you update tiki, copy the directory again to pick up changes to the skill.
 
 ## Chat with AI
 

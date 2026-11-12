@@ -30,7 +30,7 @@ tiki manages Markdown documents under `.doc/`. Each document is identified by a 
 ## AI Skills
 
 - [AI Collaboration](docs/ai.md): overview of AI integration, supported tools, prompt conventions
-- [Tiki Skill](ai/skills/tiki/SKILL.md): AI skill for creating, querying, updating, and deleting tikis
+- [Tiki Skill](ai/skills/tiki/SKILL.md): AI skill for creating, querying, updating, and deleting tikis; on-demand modules in `ai/skills/tiki/references/`; learns a project's fields from `tiki workflow schema`
 - [Live Status](docs/live-status.md): agent progress on board cards — `tiki live` CLI, `.tiki/live/` file format, stale handling
 
 ## Optional

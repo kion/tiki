@@ -35,6 +35,16 @@ tiki live clear X7F4K2
 | `--message <text>` | What is happening now, in 1–5 words. Required; single line, at most 60 characters. |
 | `--agent <text>` | Who is working: a glyph and/or a short name, at most 16 characters. |
 
+`tiki live` prints nothing on success, so its output needs no redirecting.
+
+For an agent, each tool call costs far more than the command it runs, so the bundled skill tells agents
+never to post a status as a call of its own. They put it in front of the next command they were going to
+run anyway, joined with `;` so that a failed status update can't block that command:
+
+```sh
+tiki live set X7F4K2 --message "Running tests"; go test ./...
+```
+
 `--agent` is kept between updates. Pass an empty value (`--agent=`) to clear it. Every `set`
 records the current time. Once a minute has passed, the card shows the age of the status in whole
 minutes: `1m`, `3m`, `2h 5m`, `3d 4h`. A fresher status shows no age.
