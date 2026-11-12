@@ -96,10 +96,10 @@ func TestLiveRoles(t *testing.T) {
 		theme, agent, message string
 	}{
 		// Claude Code's own orange, as the built-in themes have none of their own
-		{"dark", "#d77757", "#97533d"},
-		{"light", "#d77757", "#e3a089"},
-		// a themed palette keeps its own orange, faded toward its own background
-		{"dracula", "#ffb86c", "#bf8d5c"},
+		{"dark", "#97533d", "#d77757"},
+		{"light", "#e3a089", "#d77757"},
+		// a themed palette keeps its own orange; the agent is faded toward its own background
+		{"dracula", "#bf8d5c", "#ffb86c"},
 	}
 	for _, c := range cases {
 		th := LoadByName(c.theme)

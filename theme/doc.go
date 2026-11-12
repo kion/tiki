@@ -35,8 +35,8 @@
 //	accent.action    — view-scoped action keys (e.g. n=new, e=edit)
 //	accent.tag       — tag-value text in compact tiki boxes
 //
-//	live.agent       — agent and progress glyph in a tiki's live status
-//	live.message     — live status message (live.agent faded toward the background)
+//	live.agent       — agent name in a tiki's live status (live.message faded toward the background)
+//	live.message     — live status message and progress glyph
 //
 //	status.danger    — critical/error/blocker
 //	status.warn      — warning/header info labels/plugin keys

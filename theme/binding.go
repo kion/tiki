@@ -47,9 +47,9 @@ func LoadByName(name string) *Theme {
 // roleOf wraps a palette color string as a single-color Role.
 func roleOf(s string) Role { return newColorRole(NewColorHex(s)) }
 
-// The message is a dimmer shade of the agent's hue rather than another colour,
-// so the status reads as one piece with the agent standing out.
-const liveMessageFade = 0.3
+// The agent is a dimmer shade of the message's hue rather than another colour,
+// so the status reads as one piece with the message, which changes, standing out.
+const liveAgentFade = 0.3
 
 func fadedRole(fg, bg string) Role {
 	fr, fgr, fb := NewColorHex(fg).RGB()
@@ -57,7 +57,7 @@ func fadedRole(fg, bg string) Role {
 	c := gradcore.InterpolateRGB(
 		[3]int{int(fr), int(fgr), int(fb)},
 		[3]int{int(br), int(bgr), int(bb)},
-		liveMessageFade,
+		liveAgentFade,
 	)
 	return roleOf(fmt.Sprintf("#%02x%02x%02x", c[0], c[1], c[2]))
 }
@@ -112,8 +112,8 @@ func bindDark() *Theme {
 
 		tikiID: roleOf(p.DeepSkyBlue),
 
-		liveAgent:   roleOf(p.Orange),
-		liveMessage: fadedRole(p.Orange, "#000000"), // the terminal's background, so assume black
+		liveAgent:   fadedRole(p.Orange, "#000000"), // the terminal's background, so assume black
+		liveMessage: roleOf(p.Orange),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -156,8 +156,8 @@ func bindLight() *Theme {
 
 		tikiID: roleOf(p.DeepSkyBlue),
 
-		liveAgent:   roleOf(p.Orange),
-		liveMessage: fadedRole(p.Orange, "#ffffff"), // the terminal's background, so assume white
+		liveAgent:   fadedRole(p.Orange, "#ffffff"), // the terminal's background, so assume white
+		liveMessage: roleOf(p.Orange),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -200,8 +200,8 @@ func bindDracula() *Theme {
 
 		tikiID: roleOf(p.Cyan),
 
-		liveAgent:   roleOf(p.Orange),
-		liveMessage: fadedRole(p.Orange, p.Background),
+		liveAgent:   fadedRole(p.Orange, p.Background),
+		liveMessage: roleOf(p.Orange),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -244,8 +244,8 @@ func bindNord() *Theme {
 
 		tikiID: roleOf(p.Frost1),
 
-		liveAgent:   roleOf(p.Aurora1),
-		liveMessage: fadedRole(p.Aurora1, p.PolarNight0),
+		liveAgent:   fadedRole(p.Aurora1, p.PolarNight0),
+		liveMessage: roleOf(p.Aurora1),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -288,8 +288,8 @@ func bindGruvboxDark() *Theme {
 
 		tikiID: roleOf(p.NeutralBlue),
 
-		liveAgent:   roleOf(p.NeutralOrange),
-		liveMessage: fadedRole(p.NeutralOrange, p.Bg0),
+		liveAgent:   fadedRole(p.NeutralOrange, p.Bg0),
+		liveMessage: roleOf(p.NeutralOrange),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -332,8 +332,8 @@ func bindGruvboxLight() *Theme {
 
 		tikiID: roleOf(p.NeutralBlue),
 
-		liveAgent:   roleOf(p.NeutralOrange),
-		liveMessage: fadedRole(p.NeutralOrange, p.Bg0),
+		liveAgent:   fadedRole(p.NeutralOrange, p.Bg0),
+		liveMessage: roleOf(p.NeutralOrange),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -376,8 +376,8 @@ func bindTokyoNight() *Theme {
 
 		tikiID: roleOf(p.Cyan),
 
-		liveAgent:   roleOf(p.Orange),
-		liveMessage: fadedRole(p.Orange, p.Background),
+		liveAgent:   fadedRole(p.Orange, p.Background),
+		liveMessage: roleOf(p.Orange),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -420,8 +420,8 @@ func bindMonokai() *Theme {
 
 		tikiID: roleOf(p.Cyan),
 
-		liveAgent:   roleOf(p.Orange),
-		liveMessage: fadedRole(p.Orange, p.Background),
+		liveAgent:   fadedRole(p.Orange, p.Background),
+		liveMessage: roleOf(p.Orange),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -464,8 +464,8 @@ func bindOneDark() *Theme {
 
 		tikiID: roleOf(p.Blue),
 
-		liveAgent:   roleOf(p.Orange),
-		liveMessage: fadedRole(p.Orange, p.Background),
+		liveAgent:   fadedRole(p.Orange, p.Background),
+		liveMessage: roleOf(p.Orange),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -508,8 +508,8 @@ func bindCatppuccinMocha() *Theme {
 
 		tikiID: roleOf(p.Sky),
 
-		liveAgent:   roleOf(p.Peach),
-		liveMessage: fadedRole(p.Peach, p.Base),
+		liveAgent:   fadedRole(p.Peach, p.Base),
+		liveMessage: roleOf(p.Peach),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -552,8 +552,8 @@ func bindCatppuccinLatte() *Theme {
 
 		tikiID: roleOf(p.Sky),
 
-		liveAgent:   roleOf(p.Peach),
-		liveMessage: fadedRole(p.Peach, p.Base),
+		liveAgent:   fadedRole(p.Peach, p.Base),
+		liveMessage: roleOf(p.Peach),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -596,8 +596,8 @@ func bindSolarizedDark() *Theme {
 
 		tikiID: roleOf(p.Blue),
 
-		liveAgent:   roleOf(p.Orange),
-		liveMessage: fadedRole(p.Orange, p.Base03),
+		liveAgent:   fadedRole(p.Orange, p.Base03),
+		liveMessage: roleOf(p.Orange),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -640,8 +640,8 @@ func bindSolarizedLight() *Theme {
 
 		tikiID: roleOf(p.Blue),
 
-		liveAgent:   roleOf(p.Orange),
-		liveMessage: fadedRole(p.Orange, p.Base3),
+		liveAgent:   fadedRole(p.Orange, p.Base3),
+		liveMessage: roleOf(p.Orange),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -684,8 +684,8 @@ func bindGithubLight() *Theme {
 
 		tikiID: roleOf(p.BlueAccent),
 
-		liveAgent:   roleOf(p.Orange),
-		liveMessage: fadedRole(p.Orange, p.CanvasDefault),
+		liveAgent:   fadedRole(p.Orange, p.CanvasDefault),
+		liveMessage: roleOf(p.Orange),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}

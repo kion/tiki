@@ -175,7 +175,7 @@ func TestFrame_Colors(t *testing.T) {
 		want theme.Role
 	}{
 		"agent":   {agentX, roles.LiveAgent()},
-		"glyph":   {glyphX, roles.LiveAgent()},
+		"glyph":   {glyphX, roles.LiveMessage()},
 		"age":     {ageX, roles.TextMuted()},
 		"message": {messageX, roles.LiveMessage()},
 	} {

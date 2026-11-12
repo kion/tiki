@@ -95,14 +95,14 @@ func paintLiveLine(screen tcell.Screen, start, end, y int, line livestatus.Line,
 // fitLiveLine gives way part by part rather than cutting from the right:
 // the message says the most, and a cut age would read as a different value.
 func fitLiveLine(line livestatus.Line, roles *theme.Theme, avail int) []liveCell {
-	accent, muted, faded := roles.LiveAgent().TCell(), roles.TextMuted().TCell(), roles.LiveMessage().TCell()
+	who, muted, what := roles.LiveAgent().TCell(), roles.TextMuted().TCell(), roles.LiveMessage().TCell()
 	if line.Stale {
-		accent, faded = muted, muted
+		who, what = muted, muted
 	}
-	agent := livePart{line.Agent, accent}
-	glyph := livePart{line.Glyph, accent}
+	agent := livePart{line.Agent, who}
+	glyph := livePart{line.Glyph, what}
 	age := livePart{line.Age, muted}
-	message := livePart{line.Message, faded}
+	message := livePart{line.Message, what}
 
 	for _, lead := range [][]livePart{
 		{agent, glyph, age},

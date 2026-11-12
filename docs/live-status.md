@@ -82,8 +82,9 @@ to a temporary file in the same directory and rename it, so tiki never reads a h
 - Statuses show only while live reload is on: with it off, tiki can't see updates, so a status
   would be out of date. Toggle live reload with `Ctrl-L`.
 - Updates appear within about a second, and the age keeps counting between updates.
-- The agent and glyph are orange and the message a dimmer orange. The default themes use the
-  orange of Claude Code's status line; the others use their own orange.
+- The glyph and the message are orange and the agent a dimmer orange, so what is happening stands
+  out from who is doing it. The default themes use the orange of Claude Code's status line; the others
+  use their own orange.
 - When the card is too narrow, the status gives way part by part so the message stays readable:
   first the agent, then the age. Only the message is ever cut short with `…`, never the age. On the
   last visible card of a long lane the status also stops before the `▼ N more` hint.
