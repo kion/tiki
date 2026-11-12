@@ -26,9 +26,14 @@ tiki exec [--format table|json] [--] '<ruki-statement>'
 | `--format <table\|json>` | Output format. `table` (default) prints human-readable text; `json` emits compact JSON |
 | `--` | End-of-options marker. Use when the statement starts with `-` (e.g. a `--` ruki line comment) |
 
+A `select` without a field list returns every field except `description`, the Markdown body. Name
+`description` or use `select *` to get the body. In table output a column is padded to its widest cell,
+up to 60 characters: a longer cell is printed in full and only its own row loses alignment.
+
 Examples:
 ```bash
 tiki exec 'select where status = "ready" order by priority'
+tiki exec 'select title, description where id = "ABC123"'
 tiki exec 'update where id = "ABC123" set status="done"'
 
 # JSON output for scripting

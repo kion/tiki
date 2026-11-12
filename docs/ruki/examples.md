@@ -16,10 +16,16 @@ The examples show common patterns, useful combinations, and a few edge cases.
 
 ## Simple statements
 
-Select all tikis:
+Select all tikis, with every field except the `description` body:
 
 ```sql
 select
+```
+
+Select every field, bodies included:
+
+```sql
+select * where id = "ABC123"
 ```
 
 Select with a basic filter:

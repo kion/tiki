@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"time"
 
@@ -16,6 +17,10 @@ type Formatter interface {
 	Format(w io.Writer, proj *ruki.TikiProjection) error
 }
 
+// A cell wider than this overflows its own row,
+// so one long value (a body, a long text field) doesn't pad every other row to its width.
+const maxColumnPad = 60
+
 // TableFormatter renders results as an ASCII table.
 type TableFormatter struct{}
 
@@ -25,28 +30,22 @@ func NewTableFormatter() Formatter {
 }
 
 func (f *TableFormatter) Format(w io.Writer, proj *ruki.TikiProjection) error {
-	fields := resolveFields(proj.Fields)
+	fields := resolveFields(proj)
 
-	// build cell grid
 	rows := make([][]string, len(proj.Tikis))
 	widths := make([]int, len(fields))
 	for i, fd := range fields {
-		if len(fd.Name) > widths[i] {
-			widths[i] = len(fd.Name)
-		}
+		widths[i] = len(fd.Name)
 	}
 	for r, t := range proj.Tikis {
 		row := make([]string, len(fields))
 		for c, fd := range fields {
 			row[c] = formatCell(t, fd)
-			if len(row[c]) > widths[c] {
-				widths[c] = len(row[c])
-			}
+			widths[c] = max(widths[c], min(len(row[c]), maxColumnPad))
 		}
 		rows[r] = row
 	}
 
-	// render
 	sep := buildSeparator(widths)
 	header := buildRow(fieldNames(fields), widths)
 
@@ -70,14 +69,19 @@ func (f *TableFormatter) Format(w io.Writer, proj *ruki.TikiProjection) error {
 	return nil
 }
 
-// resolveFields returns the FieldDefs for the requested field names.
-// If names is nil/empty (bare select), returns all fields in canonical order.
-func resolveFields(names []string) []workflow.FieldDef {
-	if len(names) == 0 {
-		return workflow.Fields()
+// A bare select leaves the body out,
+// because one query over every tiki would otherwise return every body.
+// `select *` and a named `description` still return it.
+func resolveFields(proj *ruki.TikiProjection) []workflow.FieldDef {
+	if len(proj.Fields) == 0 {
+		all := workflow.Fields()
+		if proj.Star {
+			return all
+		}
+		return slices.DeleteFunc(all, func(fd workflow.FieldDef) bool { return fd.Name == "description" })
 	}
-	result := make([]workflow.FieldDef, 0, len(names))
-	for _, name := range names {
+	result := make([]workflow.FieldDef, 0, len(proj.Fields))
+	for _, name := range proj.Fields {
 		if fd, ok := workflow.Field(name); ok {
 			result = append(result, fd)
 		}
@@ -290,7 +294,7 @@ func NewJSONFormatter() Formatter {
 }
 
 func (f *JSONFormatter) Format(w io.Writer, proj *ruki.TikiProjection) error {
-	fields := resolveFields(proj.Fields)
+	fields := resolveFields(proj)
 
 	rows := make([]map[string]interface{}, len(proj.Tikis))
 	for i, t := range proj.Tikis {

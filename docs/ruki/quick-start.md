@@ -46,6 +46,9 @@ select where "bug" in tags and priority <= "medium-high"
 select where status != "done" order by priority limit 3
 ```
 
+A field list returns just those fields. Bare `select` returns every field except `description`, the Markdown
+body; `select *` returns the body too.
+
 `create` writes one or more assignments:
 
 ```sql

@@ -271,6 +271,10 @@ Rules that follow from presence:
 - `order by <field>` accepts rows where the field is absent. They sort after every present value in
   ascending order and before them with `desc`. In `order by priority, points`, tikis without `points`
   come last within their priority. Use `has(<field>)` to leave them out instead.
+- Bare `select` leaves `description` out of the output; name it (`select title, description`) or use
+  `select *` to get it.
+- The table formatter pads a column to its widest cell, up to 60 characters. A longer cell is printed in
+  full and only its own row loses alignment, so a body or a long text field never widens every row.
 - Projections (`select id, title, priority`) render absent scalar fields as empty cells in the table
   formatter and as JSON `null` in the JSON formatter. List fields always render as `[]` so downstream
   scripts can iterate without a null check; if the caller needs to distinguish "absent list" from

@@ -76,7 +76,7 @@ func TestRunSelectQueryBareSelect(t *testing.T) {
 	}
 
 	out := buf.String()
-	// bare select returns all tikis with all fields
+	// bare select returns all tikis
 	if !strings.Contains(out, "TIKI-AAA001") || !strings.Contains(out, "TIKI-BBB002") {
 		t.Errorf("bare select should return all tikis:\n%s", out)
 	}

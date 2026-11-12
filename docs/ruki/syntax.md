@@ -89,8 +89,10 @@ Notes:
 - `order by` is only valid on `select`, not on subqueries inside `count(...)`, `choose(...)`, or `exists(...)`.
 - `limit` truncates the result set to at most N rows, applied after filtering and sorting but before any pipe action.
 - `asc`, `desc`, `order`, `by`, and `limit` are contextual keywords — they are only special in the SELECT clause.
-- Bare `select` and `select *` both mean all fields. A field list like `select title, status` projects only the
-  named fields.
+- A field list like `select title, status` projects only the named fields. Bare `select` returns every field
+  except `description` (the Markdown body), so that a query over many tikis doesn't return every body.
+  `select *` returns every field, `description` included. Both are output rules of `tiki exec`: in a view
+  filter or a subquery, a `select` without a field list simply matches tikis.
 - `every` wraps a CRUD statement with a periodic interval. Only `create`, `update`, and `delete` are allowed
 - An `exprStmt` is any expression used as a top-level statement. It returns a single scalar (or list) value
   instead of a table of rows. Typical uses: `count(select where status = "done")`, `exists(select where priority = "high")`,

@@ -300,7 +300,7 @@ func TestTableFormatterEmptyString(t *testing.T) {
 }
 
 func TestTableFormatterAllFieldsDefault(t *testing.T) {
-	// bare select with nil fields resolves to all canonical fields
+	// bare select with nil fields resolves to the canonical fields, minus the body
 	proj := &ruki.TikiProjection{
 		Fields: nil,
 		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-A00001", Title: "Test", Status: "ready", Priority: "medium"})},
@@ -312,7 +312,7 @@ func TestTableFormatterAllFieldsDefault(t *testing.T) {
 	}
 	out := buf.String()
 
-	// should include all canonical fields in the header
+	// should include canonical fields in the header
 	if !strings.Contains(out, "id") || !strings.Contains(out, "title") || !strings.Contains(out, "priority") {
 		t.Errorf("all-fields table should contain canonical fields:\n%s", out)
 	}
@@ -725,5 +725,118 @@ func TestFormatFilepath(t *testing.T) {
 	row2 := strings.Split(lines[4], "|")
 	if s := strings.TrimSpace(row2[2]); s != "" {
 		t.Errorf("unset FilePath should render as empty, got %q", s)
+	}
+}
+
+func headerLine(t *testing.T, proj *ruki.TikiProjection) string {
+	t.Helper()
+	var buf bytes.Buffer
+	if err := NewTableFormatter().Format(&buf, proj); err != nil {
+		t.Fatal(err)
+	}
+	return strings.Split(buf.String(), "\n")[1]
+}
+
+func TestTableFormatterBareSelectOmitsDescription(t *testing.T) {
+	proj := &ruki.TikiProjection{
+		Tikis: []ruki.Document{tikiFromLegacy(legacyFields{ID: "AAA001", Title: "Test", Description: "the body", Status: "ready"})},
+	}
+
+	var buf bytes.Buffer
+	if err := NewTableFormatter().Format(&buf, proj); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+
+	if strings.Contains(out, "description") || strings.Contains(out, "the body") {
+		t.Errorf("bare select should leave the body out:\n%s", out)
+	}
+	for _, name := range []string{"id", "title", "createdAt", "filepath", "status"} {
+		if !strings.Contains(headerLine(t, proj), " "+name+" ") {
+			t.Errorf("bare select header missing %q:\n%s", name, out)
+		}
+	}
+}
+
+func TestTableFormatterSelectStarIncludesDescription(t *testing.T) {
+	proj := &ruki.TikiProjection{
+		Star:  true,
+		Tikis: []ruki.Document{tikiFromLegacy(legacyFields{ID: "AAA001", Title: "Test", Description: "the body"})},
+	}
+
+	var buf bytes.Buffer
+	if err := NewTableFormatter().Format(&buf, proj); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+
+	if !strings.Contains(headerLine(t, proj), " description ") || !strings.Contains(out, "the body") {
+		t.Errorf("select * should include the body:\n%s", out)
+	}
+}
+
+func TestTableFormatterNamedDescription(t *testing.T) {
+	proj := &ruki.TikiProjection{
+		Fields: []string{"description"},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "AAA001", Description: "the body"})},
+	}
+
+	var buf bytes.Buffer
+	if err := NewTableFormatter().Format(&buf, proj); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "the body") {
+		t.Errorf("a named description should be returned:\n%s", buf.String())
+	}
+}
+
+func TestTableFormatterLongCellDoesNotWidenOtherRows(t *testing.T) {
+	long := strings.Repeat("long text ", 50)
+	proj := &ruki.TikiProjection{
+		Fields: []string{"id", "title", "status"},
+		Tikis: []ruki.Document{
+			tikiFromLegacy(legacyFields{ID: "AAA001", Title: "Short", Status: "ready"}),
+			tikiFromLegacy(legacyFields{ID: "BBB002", Title: long, Status: "done"}),
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := NewTableFormatter().Format(&buf, proj); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+	sep, header, short, wide := lines[0], lines[1], lines[3], lines[4]
+
+	if len(sep) >= len(long) {
+		t.Errorf("separator is as wide as the long cell: %d chars", len(sep))
+	}
+	if len(header) != len(sep) || len(short) != len(sep) {
+		t.Errorf("header and short row should stay aligned with the separator: sep=%d header=%d short=%d",
+			len(sep), len(header), len(short))
+	}
+	if !strings.Contains(wide, "| "+long+" | done ") {
+		t.Errorf("long cell should be printed in full, followed by the rest of its row:\n%s", wide)
+	}
+}
+
+func TestTableFormatterPadsUpToTheCap(t *testing.T) {
+	atCap := strings.Repeat("x", maxColumnPad)
+	proj := &ruki.TikiProjection{
+		Fields: []string{"id", "title"},
+		Tikis: []ruki.Document{
+			tikiFromLegacy(legacyFields{ID: "AAA001", Title: "Short"}),
+			tikiFromLegacy(legacyFields{ID: "BBB002", Title: atCap}),
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := NewTableFormatter().Format(&buf, proj); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+	for i, line := range lines {
+		if len(line) != len(lines[0]) {
+			t.Errorf("line %d is not aligned when every cell fits the cap:\n%s", i, buf.String())
+		}
 	}
 }

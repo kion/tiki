@@ -377,3 +377,42 @@ func TestFormatClipboardSummary(t *testing.T) {
 		t.Errorf("json: got %q", got)
 	}
 }
+
+func jsonRows(t *testing.T, proj *ruki.TikiProjection) []map[string]interface{} {
+	t.Helper()
+	var buf bytes.Buffer
+	if err := NewJSONFormatter().Format(&buf, proj); err != nil {
+		t.Fatal(err)
+	}
+	var rows []map[string]interface{}
+	if err := json.Unmarshal(buf.Bytes(), &rows); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, buf.String())
+	}
+	return rows
+}
+
+func TestJSONFormatterBareSelectOmitsDescription(t *testing.T) {
+	rows := jsonRows(t, &ruki.TikiProjection{
+		Tikis: []ruki.Document{tikiFromLegacy(legacyFields{ID: "AAA001", Title: "Test", Description: "the body", Status: "ready"})},
+	})
+
+	if _, ok := rows[0]["description"]; ok {
+		t.Errorf("bare select should leave the body out: %v", rows[0])
+	}
+	for _, name := range []string{"id", "title", "createdAt", "filepath", "status"} {
+		if _, ok := rows[0][name]; !ok {
+			t.Errorf("bare select row missing %q: %v", name, rows[0])
+		}
+	}
+}
+
+func TestJSONFormatterSelectStarIncludesDescription(t *testing.T) {
+	rows := jsonRows(t, &ruki.TikiProjection{
+		Star:  true,
+		Tikis: []ruki.Document{tikiFromLegacy(legacyFields{ID: "AAA001", Title: "Test", Description: "the body"})},
+	})
+
+	if rows[0]["description"] != "the body" {
+		t.Errorf("select * should include the body: %v", rows[0])
+	}
+}
