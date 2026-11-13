@@ -250,8 +250,9 @@ Layout traversal and edit order:
   parsed grid.
 
 Per-view actions register *after* built-in detail actions, so a per-view entry that reuses a built-in
-key (such as `e` for Edit) shadows the built-in. Avoid the keys the detail view already uses for Edit,
-Fullscreen, and Edit source unless you intentionally want to replace them.
+key (such as `e` for Edit) shadows the built-in. Avoid the keys the detail view already uses for Edit
+(`e`), Fullscreen (`f`), View source (`v`), Edit source (`s`), and Chat (`c`) unless you intentionally
+want to replace them. A shadowed built-in stays reachable from the action palette.
 
 Validation rules for `layout:` on `kind: detail`:
 

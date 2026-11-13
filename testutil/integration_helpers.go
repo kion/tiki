@@ -573,6 +573,8 @@ func (ta *TestApp) LoadPlugins() error {
 
 	viewFactory := view.NewViewFactory(ta.TikiStore)
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, pluginControllers, globalActions)
+	// no saver: production's writes to the user's cache dir, which tests must not touch
+	viewFactory.SetDetailBodyMode(model.NewDetailBodyMode(false, nil))
 	// Mirror production wiring: fresh-per-navigation controllers for kind: detail
 	// and wiki so two pushed views don't share selectedTikiID.
 	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTikiID string) *controller.DetailController {

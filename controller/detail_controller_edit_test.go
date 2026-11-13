@@ -24,6 +24,7 @@ type fakeDetailEditView struct {
 	editing            bool
 	enterReturn        bool
 	fullscreen         bool
+	sourceToggles      int
 	registry           *ActionRegistry
 	changeHandler      func(bool)
 	fieldHandlers      map[string]func(string)
@@ -878,5 +879,64 @@ func TestDetailController_ExternalChangeWhileEditingWarns(t *testing.T) {
 	}
 	if level != model.MessageLevelError || autoHide {
 		t.Errorf("warning must be an error that does not vanish on the next key: level %v, autoHide %v", level, autoHide)
+	}
+}
+
+func (f *fakeDetailEditView) ToggleSourceMode() bool {
+	f.sourceToggles++
+	return true
+}
+
+func TestDetailController_ToggleSourceAction(t *testing.T) {
+	dc, fv, _, _ := newDetailEditTestRig(t)
+
+	if !dc.HandleAction(ActionToggleSource) {
+		t.Fatal("ActionToggleSource should be handled")
+	}
+	if fv.sourceToggles != 1 {
+		t.Errorf("view toggled %d times, want 1", fv.sourceToggles)
+	}
+}
+
+func TestDetailViewActions_SourceToggleIsKeyedAndViewOnly(t *testing.T) {
+	a := DetailViewActions().GetByID(ActionToggleSource)
+	if a == nil {
+		t.Fatal("missing ActionToggleSource")
+	}
+	if a.Key != tcell.KeyRune || a.Rune != 'v' || !a.ShowInHeader {
+		t.Errorf("source toggle = key %v rune %q header %v, want rune 'v' in the header", a.Key, a.Rune, a.ShowInHeader)
+	}
+	if DetailEditModeActions().ContainsID(ActionToggleSource) {
+		t.Error("the source toggle must not be offered while editing")
+	}
+}
+
+func TestActionRegistry_SetLabel(t *testing.T) {
+	r := NewActionRegistry()
+	r.Register(Action{ID: ActionToggleSource, Key: tcell.KeyRune, Rune: 'v', Label: "View source"})
+	r.Register(Action{ID: ActionFullscreen, Key: tcell.KeyRune, Rune: 'f', Label: "Full screen"})
+
+	r.SetLabel(ActionToggleSource, "View rendered")
+
+	if got := r.GetByID(ActionToggleSource).Label; got != "View rendered" {
+		t.Errorf("listed label = %q", got)
+	}
+	if a, ok := r.LookupRune('v'); !ok || a.Label != "View rendered" {
+		t.Errorf("key lookup label = %q (found %v)", a.Label, ok)
+	}
+	if got := r.GetByID(ActionFullscreen).Label; got != "Full screen" {
+		t.Errorf("another action's label changed to %q", got)
+	}
+}
+
+func TestActionRegistry_SetLabelLeavesAShadowingActionAlone(t *testing.T) {
+	r := NewActionRegistry()
+	r.Register(Action{ID: ActionToggleSource, Key: tcell.KeyRune, Rune: 'v', Label: "View source"})
+	r.Register(Action{ID: "workflow_v", Key: tcell.KeyRune, Rune: 'v', Label: "Workflow action"})
+
+	r.SetLabel(ActionToggleSource, "View rendered")
+
+	if a, ok := r.LookupRune('v'); !ok || a.ID != "workflow_v" || a.Label != "Workflow action" {
+		t.Errorf("key now resolves to %q %q", a.ID, a.Label)
 	}
 }

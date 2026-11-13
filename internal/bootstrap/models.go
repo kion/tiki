@@ -1,6 +1,8 @@
 package bootstrap
 
 import (
+	"log/slog"
+
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store/tikistore"
@@ -18,6 +20,23 @@ func InitHeaderAndLayoutModels() (*model.HeaderConfig, *model.LayoutModel) {
 	headerConfig.SetVisible(headerVisible)
 
 	return headerConfig, layoutModel
+}
+
+// InitDetailBodyMode restores the detail body mode the last run ended in
+// and saves every later change.
+func InitDetailBodyMode() *model.DetailBodyMode {
+	source := config.LoadUIState().Detail.BodyMode == config.BodyModeSource
+	return model.NewDetailBodyMode(source, func(source bool) {
+		// read-modify-write, so other remembered keys survive
+		st := config.LoadUIState()
+		st.Detail.BodyMode = config.BodyModeRendered
+		if source {
+			st.Detail.BodyMode = config.BodyModeSource
+		}
+		if err := config.SaveUIState(st); err != nil {
+			slog.Warn("could not remember the detail body mode", "error", err)
+		}
+	})
 }
 
 // InitStatuslineModel creates and populates the statusline config with base stats (version, workflow scope, branch, user).

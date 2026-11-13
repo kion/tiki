@@ -41,6 +41,21 @@ func (p *tikiDescriptionProvider) FetchContent(elem nav.NavElement) (string, err
 	return p.fileHTTP.FetchContent(elem)
 }
 
+// isTikiSource reports whether a page shown in the detail viewer is a tiki body:
+// the viewed tiki itself (ownPath) or a tiki followed by id.
+// A page reached by a file link is a document, even if that file carries an id:
+// the model has no separate document class, so how a page is addressed decides.
+func isTikiSource(s store.ReadStore, ownPath, source string) bool {
+	if source == "" {
+		return false
+	}
+	if source == ownPath {
+		return true
+	}
+	id, ok := extractTikiID(source)
+	return ok && s.GetTiki(id) != nil
+}
+
 // extractTikiID returns the canonical bare document id for url and whether
 // the URL was shaped like one. Only bare ids are recognized; the unified
 // format has no legacy identity to parse.

@@ -29,6 +29,7 @@ type ViewFactory struct {
 	progressHub *model.ProgressHub
 	redraw      func(func())
 	liveStatus  liveborder.Source
+	bodyMode    *model.DetailBodyMode
 	// Plugin support
 	pluginConfigs     map[string]*model.PluginConfig
 	pluginDefs        map[string]plugin.Plugin
@@ -92,6 +93,12 @@ func (f *ViewFactory) SetProgressHub(hub *model.ProgressHub, redraw func(func())
 // SetLiveStatus lets cards and the detail view show agents' live statuses.
 func (f *ViewFactory) SetLiveStatus(live liveborder.Source) {
 	f.liveStatus = live
+}
+
+// SetDetailBodyMode shares one rendered/source mode across every detail view,
+// so the mode a view was left in is the mode the next one opens in.
+func (f *ViewFactory) SetDetailBodyMode(mode *model.DetailBodyMode) {
+	f.bodyMode = mode
 }
 
 // SetWikiControllerFactory registers a factory function that creates a fresh
@@ -217,6 +224,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 		if f.liveStatus != nil {
 			cv.SetLiveStatus(f.liveStatus)
 		}
+		cv.SetBodyMode(f.bodyMode)
 		if dc != nil {
 			dc.BindEditView(cv)
 			dc.ApplyDetailMode(pluginParams.Mode, pluginParams.Focus, pluginParams.Draft)

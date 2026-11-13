@@ -18,6 +18,16 @@ Files stored here:
 - `config.yaml` - User-global configuration
 - `workflow.yaml` - Statuses and plugin/view definitions
 
+**User Cache** (state tiki keeps on its own):
+- **Linux**: `~/.cache/tiki` (or `$XDG_CACHE_HOME/tiki`)
+- **macOS**: `~/Library/Caches/tiki`
+- **Windows**: `%LOCALAPPDATA%\tiki`
+
+Files stored here:
+- `state.yaml` - Interface choices remembered between runs, currently whether the detail view shows a
+  tiki body rendered or as source (`detail.bodyMode`). tiki writes this file itself; it never rewrites
+  `config.yaml`. Deleting it is safe and resets those choices.
+
 **Environment Variables**:
 - `XDG_CONFIG_HOME` - Override config directory location (all platforms)
 - `XDG_CACHE_HOME` - Override cache directory location (all platforms)

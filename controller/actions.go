@@ -43,8 +43,10 @@ const (
 	ActionEditTitle  ActionID = "edit_title"
 	ActionEditSource ActionID = "edit_source"
 	ActionFullscreen ActionID = "fullscreen"
-	ActionCloneTiki  ActionID = "clone_tiki"
-	ActionChat       ActionID = "chat"
+	// ActionToggleSource switches the detail body between rendered and source.
+	ActionToggleSource ActionID = "toggle_source"
+	ActionCloneTiki    ActionID = "clone_tiki"
+	ActionChat         ActionID = "chat"
 
 	// ActionDetailEditStub: registered on configurable detail views so the
 	// Edit keybinding stays reserved during Phase 1. Phase 2 replaces the
@@ -571,6 +573,29 @@ func (r *ActionRegistry) MergePluginActions() {
 // GetActions returns all registered actions
 func (r *ActionRegistry) GetActions() []Action {
 	return r.actions
+}
+
+// SetLabel relabels a registered action whose label follows a state.
+func (r *ActionRegistry) SetLabel(id ActionID, label string) {
+	for i := range r.actions {
+		a := &r.actions[i]
+		if a.ID != id {
+			continue
+		}
+		a.Label = label
+		// a later action may have taken the same key; leave its entry alone
+		if a.Key == tcell.KeyRune {
+			k := runeWithMod{a.Rune, a.Modifier}
+			if r.byRune[k].ID == id {
+				r.byRune[k] = *a
+			}
+		} else if a.Key != 0 {
+			k := keyWithMod{a.Key, a.Modifier}
+			if r.byKey[k].ID == id {
+				r.byKey[k] = *a
+			}
+		}
+	}
 }
 
 // LookupRune returns the action registered for the given rune (with no modifier), if any.

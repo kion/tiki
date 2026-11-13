@@ -350,6 +350,8 @@ func (dc *DetailController) HandleAction(actionID ActionID) bool {
 	switch actionID {
 	case ActionFullscreen:
 		return dc.toggleFullscreen()
+	case ActionToggleSource:
+		return dc.toggleSource()
 	case ActionDetailEdit:
 		return dc.enterEditMode()
 	case ActionDetailSave:
@@ -395,6 +397,20 @@ func (dc *DetailController) toggleFullscreen() bool {
 		fv.EnterFullscreen()
 	}
 	return true
+}
+
+// sourceToggler is separate from DetailEditableView, like fullscreenToggler,
+// so test fakes opt in.
+type sourceToggler interface {
+	ToggleSourceMode() bool
+}
+
+func (dc *DetailController) toggleSource() bool {
+	sv, ok := dc.editView.(sourceToggler)
+	if !ok {
+		return false
+	}
+	return sv.ToggleSourceMode()
 }
 
 // enterEditMode starts a TikiEditSession edit session and flips the view
@@ -818,16 +834,26 @@ func (dc *DetailController) handleRukiActionWithChosenID(a *plugin.PluginAction,
 	return dc.executeRuki(a, input)
 }
 
+// ToggleSourceLabel names the source toggle after what pressing it does next.
+func ToggleSourceLabel(inSource bool) string {
+	if inSource {
+		return "View rendered"
+	}
+	return "View source"
+}
+
 // DetailViewActions returns the built-in action registry for kind: detail
 // when the view is in read-only mode.
 func DetailViewActions() *ActionRegistry {
 	r := NewActionRegistry()
 	idReq := []Requirement{RequireID}
 	r.Register(Action{ID: ActionFullscreen, Key: tcell.KeyRune, Rune: 'f', Label: "Full screen", ShowInHeader: true})
+	// the view relabels this as the body mode changes
+	r.Register(Action{ID: ActionToggleSource, Key: tcell.KeyRune, Rune: 'v', Label: ToggleSourceLabel(false), ShowInHeader: true})
 	r.Register(Action{ID: ActionDetailEdit, Key: tcell.KeyRune, Rune: 'e', Label: "Edit", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionEditSource, Key: tcell.KeyRune, Rune: 's', Label: "Edit source", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionChat, Key: tcell.KeyRune, Rune: 'c', Label: "Chat", ShowInHeader: true, Require: []Requirement{RequireAI, RequireID}})
-	// palette-only: no key, so it can't shadow a workflow's own bindings
+	// palette-only: rarely needed, so it takes no key
 	r.Register(Action{ID: ActionClearLiveStatus, Label: "Clear Live Status", Require: idReq})
 	return r
 }

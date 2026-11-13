@@ -82,3 +82,5 @@ require (
 )
 
 replace github.com/boolean-maybe/ruki => github.com/kion/ruki v0.0.0-20261112085027-bf3ada639528
+
+replace github.com/boolean-maybe/navidown => github.com/kion/navidown v0.0.0-20261113203942-ff7697b9694c

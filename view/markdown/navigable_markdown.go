@@ -26,6 +26,9 @@ type NavigableMarkdownConfig struct {
 	OnStateChange  func() // called on navigation state changes
 	ImageManager   *navtview.ImageManager
 	MermaidOptions *nav.MermaidOptions // nil = disabled
+	// PreserveLineBreaks decides, per page shown, whether typed line breaks and indents are kept.
+	// It receives the page's source path; nil joins lines everywhere.
+	PreserveLineBreaks func(source string) bool
 }
 
 // NewNavigableMarkdown creates a new navigable markdown viewer.
@@ -48,6 +51,7 @@ func NewNavigableMarkdown(cfg NavigableMarkdownConfig) *NavigableMarkdown {
 		renderer = renderer.WithCodeBorder(b)
 	}
 	nm.viewer.SetRenderer(renderer)
+	nm.viewer.Core().SetPreserveNewLinesFunc(cfg.PreserveLineBreaks)
 	nm.viewer.SetBackgroundColor(theme.Roles().SurfaceCanvas().TCell())
 	if cfg.ImageManager != nil && cfg.ImageManager.Supported() {
 		nm.viewer.SetImageManager(cfg.ImageManager)

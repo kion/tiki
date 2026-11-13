@@ -190,6 +190,7 @@ func Bootstrap() (*Result, error) {
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, controllers.Plugins, globalActions)
 	viewFactory.SetProgressHub(progressHub, redraw)
 	viewFactory.SetLiveStatus(liveStatus)
+	viewFactory.SetDetailBodyMode(InitDetailBodyMode())
 	SetLiveStatusClearer(controllers.Plugins, liveStatus)
 
 	// Wire fresh-per-navigation WikiController creation so each view instance

@@ -72,6 +72,10 @@ type ConfigurableDetailView struct {
 
 	live liveborder.Source
 
+	// bodyMode is shared by every detail view once the factory installs it,
+	// so the last used mode carries from tiki to tiki.
+	bodyMode *model.DetailBodyMode
+
 	// edit-mode state
 	editMode          bool
 	focusedIdx        int                          // position in layout (-1 = not editing)
@@ -170,6 +174,7 @@ func NewConfigurableDetailView(
 		onEditFieldChange: make(map[string]func(string)),
 		progressHub:       progressHub,
 		redraw:            redraw,
+		bodyMode:          model.NewDetailBodyMode(false, nil),
 	}
 
 	cv.build()
@@ -791,7 +796,11 @@ func (cv *ConfigurableDetailView) ensureEditor(name string, tk *tikipkg.Tiki, ct
 // the legacy TikiDetailView's description path so wikilink rewriting and
 // image resolution stay identical.
 func (cv *ConfigurableDetailView) buildDescription(tk *tikipkg.Tiki) tview.Primitive {
-	desc := defaultString(tk.Body(), "(No description)")
+	if cv.bodyMode.Source() {
+		cv.descView = newSourceView(tk.Body())
+		return cv.descView
+	}
+	desc := defaultString(tk.Body(), noDescription)
 	tikiSourcePath := tikiSourcePathFor(tk)
 
 	searchRoots := []string{config.GetDocDir()}
@@ -809,6 +818,9 @@ func (cv *ConfigurableDetailView) buildDescription(tk *tikipkg.Tiki) tview.Primi
 		SearchRoots:    searchRoots,
 		ImageManager:   cv.imageManager,
 		MermaidOptions: cv.mermaidOpts,
+		PreserveLineBreaks: func(source string) bool {
+			return isTikiSource(cv.tikiStore, tikiSourcePath, source)
+		},
 	})
 	desc = markdown.RewriteWikilinks(desc, resolver)
 	cv.navMarkdown.Viewer().SetBorderPadding(1, 1, 2, 2)
@@ -876,6 +888,41 @@ func (cv *ConfigurableDetailView) ExitFullscreen() {
 	if cv.onFullscreenChange != nil {
 		cv.onFullscreenChange(false)
 	}
+}
+
+// SetBodyMode installs the app-wide body mode in place of the view's private one.
+func (cv *ConfigurableDetailView) SetBodyMode(mode *model.DetailBodyMode) {
+	if mode == nil {
+		return
+	}
+	changed := mode.Source() != cv.bodyMode.Source()
+	cv.bodyMode = mode
+	cv.syncSourceLabel()
+	if changed {
+		cv.refresh()
+	}
+}
+
+// ToggleSourceMode switches the body between rendered markdown and source.
+// It is refused in edit mode, where the keys belong to the field editors.
+func (cv *ConfigurableDetailView) ToggleSourceMode() bool {
+	if cv.editMode {
+		return false
+	}
+	cv.bodyMode.Toggle()
+	cv.syncSourceLabel()
+	cv.refresh()
+	if cv.focusSetter != nil && cv.descView != nil {
+		cv.focusSetter(cv.descView)
+	}
+	if cv.actionChangeHandler != nil {
+		cv.actionChangeHandler()
+	}
+	return true
+}
+
+func (cv *ConfigurableDetailView) syncSourceLabel() {
+	cv.viewRegistry.SetLabel(controller.ActionToggleSource, controller.ToggleSourceLabel(cv.bodyMode.Source()))
 }
 
 // --- Phase 2: edit-mode API ---

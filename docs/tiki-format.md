@@ -287,3 +287,26 @@ disappearing.
 
 Plain Markdown links to relative paths also work inside bodies; use them for anchored links to specific
 sections within a tiki.
+
+## How the body is displayed
+
+The detail view renders a tiki body as Markdown, with one difference from a rendered `.md` file: the
+line breaks you typed are kept, and so is the indentation of continuation lines. A hand-laid-out block
+such as
+
+```markdown
+The options:
+A. First option, wrapped by hand
+   onto an indented line.
+B. Second option.
+```
+
+shows as four rows, not as one joined paragraph. A line longer than the pane still wraps, and the
+wrapped part keeps its line's indent. This applies to tiki bodies only: wiki pages, the standalone
+Markdown viewer, and a doc page opened by following a link from a tiki body all join a paragraph's
+lines as usual.
+
+Press `v` in the detail view to switch the body between **rendered** and **source**. Source shows the
+body text exactly as typed, with Markdown syntax colouring; links and images are not active there. The
+mode you last used is remembered from tiki to tiki and across restarts (see `state.yaml` in
+[Configuration](config.md)).
