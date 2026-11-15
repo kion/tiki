@@ -5,10 +5,12 @@ import (
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/gridlayout"
+	"github.com/boolean-maybe/tiki/internal/livestatus"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
@@ -86,8 +88,11 @@ type ConfigurableDetailView struct {
 	editTikiSource    func() *tikipkg.Tiki         // returns editing copy during edit mode
 
 	// skipping rebuilds that wouldn't change anything keeps scroll and focus
-	lastRenderKey         renderKey
-	rendered              bool
+	lastRenderKey renderKey
+	rendered      bool
+	// OnBlur closes the body viewer, so the next focus has to rebuild
+	blurred               bool
+	descSection           tview.Primitive
 	onExternalChange      func()
 	externalReported      bool
 	externalReportedStore *tikipkg.Tiki
@@ -219,7 +224,16 @@ func (cv *ConfigurableDetailView) SetSelectedID(id string) {
 // OnFocus subscribes to store updates so external mutations re-render the view.
 func (cv *ConfigurableDetailView) OnFocus() {
 	cv.listenerID = cv.tikiStore.AddListener(cv.onStoreChange)
-	cv.refresh()
+	// A view focused right after it was built is already current:
+	// rebuilding it would render the whole body a second time.
+	stale := cv.blurred || !cv.rendered ||
+		!computeRenderKey(cv.getTiki(), cv.tikiStore).equal(cv.lastRenderKey)
+	cv.blurred = false
+	if stale {
+		cv.refresh()
+		return
+	}
+	cv.focusContent()
 }
 
 func (cv *ConfigurableDetailView) SetExternalChangeHandler(handler func()) {
@@ -268,6 +282,7 @@ func (cv *ConfigurableDetailView) OnBlur() {
 		cv.navMarkdown.Close()
 		cv.navMarkdown = nil
 	}
+	cv.blurred = true
 }
 
 // RestoreFocus pushes focus back to the description viewer after the palette
@@ -296,6 +311,7 @@ func (cv *ConfigurableDetailView) getTiki() *tikipkg.Tiki {
 func (cv *ConfigurableDetailView) refresh() {
 	cv.content.Clear()
 	cv.descView = nil
+	cv.descSection = nil
 	if cv.navMarkdown != nil {
 		cv.navMarkdown.Close()
 		cv.navMarkdown = nil
@@ -317,15 +333,18 @@ func (cv *ConfigurableDetailView) refresh() {
 		cv.content.AddItem(metadataBox, cv.spec.Rows+gridbox.DetailBoxOverhead, 0, false)
 	}
 
-	descPrimitive := cv.buildDescriptionSection(tk)
-	cv.content.AddItem(descPrimitive, 0, 1, true)
+	cv.descSection = cv.buildDescriptionSection(tk)
+	cv.content.AddItem(cv.descSection, 0, 1, true)
+	cv.focusContent()
+}
 
+func (cv *ConfigurableDetailView) focusContent() {
 	if cv.editMode {
 		cv.focusActiveEditor()
 		return
 	}
-	if cv.focusSetter != nil {
-		cv.focusSetter(descPrimitive)
+	if cv.focusSetter != nil && cv.descSection != nil {
+		cv.focusSetter(cv.descSection)
 	}
 }
 
@@ -469,10 +488,24 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *them
 		fmt.Sprintf(" %s ", renderTikiIDGradient(tk.ID(), roles)),
 	).SetBorderColor(roles.BorderIdle().TCell())
 	frame.SetBorderPadding(1, 0, 2, 2)
-	if cv.live == nil {
-		return frame
+	return liveborder.New(frame, tk.ID(), currentLive{cv}, roles)
+}
+
+// currentLive reads the view's live source at draw time,
+// so installing the source after the box is built needs no rebuild.
+type currentLive struct{ cv *ConfigurableDetailView }
+
+func (l currentLive) Line(id string) (livestatus.Line, bool) {
+	if l.cv.live == nil {
+		return livestatus.Line{}, false
 	}
-	return liveborder.New(frame, tk.ID(), cv.live, roles)
+	return l.cv.live.Line(id)
+}
+
+func (l currentLive) Drawn(next time.Duration) {
+	if l.cv.live != nil {
+		l.cv.live.Drawn(next)
+	}
 }
 
 // anchorHeight is the grid's height callback. In view mode it is the rendered
@@ -951,10 +984,8 @@ func (cv *ConfigurableDetailView) syncSourceLabel() {
 
 // --- Phase 2: edit-mode API ---
 
-// SetLiveStatus rebuilds the view, because the constructor has already built the metadata box.
 func (cv *ConfigurableDetailView) SetLiveStatus(live liveborder.Source) {
 	cv.live = live
-	cv.refresh()
 }
 
 // IsEditMode reports whether the view is currently in in-place edit mode.
