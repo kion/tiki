@@ -88,8 +88,8 @@ github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 h1:BQSFePA1RWJOl
 github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99/go.mod h1:1lJo3i6rXxKeerYnT8Nvf0QmHCRC1n8sfWVwXF2Frvo=
 github.com/kevinburke/ssh_config v1.2.0 h1:x584FjTGwHzMwvHx18PXxbBVzfnxogHaAReU4gf13a4=
 github.com/kevinburke/ssh_config v1.2.0/go.mod h1:CT57kijsi8u/K/BOFA39wgDQJ9CxiF4nAY/ojJ6r6mM=
-github.com/kion/navidown v0.0.0-20261113203942-ff7697b9694c h1:GnuLj5wq5vYorbW/kXKGj6YeXKkZu55Gaa/A8a4VuQ0=
-github.com/kion/navidown v0.0.0-20261113203942-ff7697b9694c/go.mod h1:cChZFjOz/8C0DQl0sR0shJnn1r5xxMM4GhnrVzOdvrg=
+github.com/kion/navidown v0.0.0-20261115071044-1add1371bf7d h1:21B+81eFzx8WSo4ZjFBhRgdv+EdlAmqR+XZUvBinq2I=
+github.com/kion/navidown v0.0.0-20261115071044-1add1371bf7d/go.mod h1:cChZFjOz/8C0DQl0sR0shJnn1r5xxMM4GhnrVzOdvrg=
 github.com/kion/ruki v0.0.0-20261112085027-bf3ada639528 h1:T41kZJxOUv/fa9rtS7oGzKfnRszCqPobvZHlMso5b0g=
 github.com/kion/ruki v0.0.0-20261112085027-bf3ada639528/go.mod h1:YEeqP7xY3T5KIOdMpdyyky/kNZraUcq32PYgS6Y3IMs=
 github.com/kion/tview v0.0.0-20261115065235-4191e4781cb4 h1:PLrAzXXTASOwLOQTX4aO7YitFgD7Vg2AOmCXVzM7CG8=
