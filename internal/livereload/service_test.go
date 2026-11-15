@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -65,6 +66,12 @@ func (f *fakeTarget) ReloadLive() tikistore.ReloadResult {
 	f.record("live")
 	f.liveLoaded <- struct{}{}
 	return tikistore.ReloadResult{Changed: true}
+}
+
+func (f *fakeTarget) BatchNotifications(fn func()) {
+	f.record("batch")
+	fn()
+	f.record("batch end")
 }
 
 func (f *fakeTarget) ExternallyChanged(paths []string) []string {
@@ -609,5 +616,35 @@ func TestService_StaleSidecarDispatchIsDropped(t *testing.T) {
 	fn()
 	if changes.Load() != 0 {
 		t.Error("sidecar change applied after live reload was turned off")
+	}
+}
+
+// Each reload notifies the views, and each notification rebuilds them.
+func TestService_HeldFilesAndLiveTimesNotifyOnce(t *testing.T) {
+	h, changes := newSidecarHarness(t)
+	mustEnable(t, h)
+	h.busy.Store(true)
+
+	h.source.push("/root/a.md")
+	h.source.pushSide("/root/.tiki/live/AAAAAA.yaml")
+	waitCount(t, changes, 1)
+	waitCount(t, &h.dispatch, 4) // the repaint, then held attempts for the file and the live times
+
+	h.busy.Store(false)
+	select {
+	case <-h.target.liveLoaded:
+	case <-time.After(5 * time.Second):
+		t.Fatal("live times never reloaded after busy cleared")
+	}
+
+	var applied []string
+	for _, c := range h.target.calls() {
+		if c == "batch" || c == "batch end" || c == "reload" || c == "live" {
+			applied = append(applied, c)
+		}
+	}
+	want := []string{"batch", "reload", "live", "batch end"}
+	if !slices.Equal(applied, want) {
+		t.Fatalf("applied %v, want %v", applied, want)
 	}
 }

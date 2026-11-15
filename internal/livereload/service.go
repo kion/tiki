@@ -21,6 +21,7 @@ type Target interface {
 	ReloadPaths(paths []string) (tikistore.ReloadResult, error)
 	Reconcile() (tikistore.ReloadResult, error)
 	ReloadLive() tikistore.ReloadResult
+	BatchNotifications(fn func())
 	ExternallyChanged(paths []string) []string
 	AllPaths() []string
 }
@@ -248,12 +249,15 @@ func (s *Service) applyOnUI(r *run) {
 	if reconcile {
 		res, err = s.opts.Target.Reconcile() // covers the held paths and live times too
 	} else {
-		if len(paths) > 0 {
-			res, err = s.opts.Target.ReloadPaths(paths)
-		}
-		if live && s.opts.Target.ReloadLive().Changed {
-			res.Changed = true
-		}
+		// Each reload notifies the views, which rebuild on every notification.
+		s.opts.Target.BatchNotifications(func() {
+			if len(paths) > 0 {
+				res, err = s.opts.Target.ReloadPaths(paths)
+			}
+			if live && s.opts.Target.ReloadLive().Changed {
+				res.Changed = true
+			}
+		})
 	}
 	if err != nil {
 		s.reportError(fmt.Errorf("live reload: %w", err))
