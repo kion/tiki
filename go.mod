@@ -85,4 +85,4 @@ replace github.com/boolean-maybe/ruki => github.com/kion/ruki v0.0.0-20261112085
 
 replace github.com/boolean-maybe/navidown => github.com/kion/navidown v0.0.0-20261115071044-1add1371bf7d
 
-replace github.com/rivo/tview => github.com/kion/tview v0.0.0-20261115065235-4191e4781cb4
+replace github.com/rivo/tview => github.com/kion/tview v0.0.0-20261115081304-9d74ead5f30e

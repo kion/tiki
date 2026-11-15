@@ -92,8 +92,8 @@ github.com/kion/navidown v0.0.0-20261115071044-1add1371bf7d h1:21B+81eFzx8WSo4Zj
 github.com/kion/navidown v0.0.0-20261115071044-1add1371bf7d/go.mod h1:cChZFjOz/8C0DQl0sR0shJnn1r5xxMM4GhnrVzOdvrg=
 github.com/kion/ruki v0.0.0-20261112085027-bf3ada639528 h1:T41kZJxOUv/fa9rtS7oGzKfnRszCqPobvZHlMso5b0g=
 github.com/kion/ruki v0.0.0-20261112085027-bf3ada639528/go.mod h1:YEeqP7xY3T5KIOdMpdyyky/kNZraUcq32PYgS6Y3IMs=
-github.com/kion/tview v0.0.0-20261115065235-4191e4781cb4 h1:PLrAzXXTASOwLOQTX4aO7YitFgD7Vg2AOmCXVzM7CG8=
-github.com/kion/tview v0.0.0-20261115065235-4191e4781cb4/go.mod h1:cSfIYfhpSGCjp3r/ECJb+GKS7cGJnqV8vfjQPwoXyfY=
+github.com/kion/tview v0.0.0-20261115081304-9d74ead5f30e h1:zphJeaxJFgkQGbv7oinqqXRgESGr58tt68GHEl4MgBU=
+github.com/kion/tview v0.0.0-20261115081304-9d74ead5f30e/go.mod h1:cSfIYfhpSGCjp3r/ECJb+GKS7cGJnqV8vfjQPwoXyfY=
 github.com/kr/pretty v0.1.0/go.mod h1:dAy3ld7l9f0ibDNOQOHHMYYIIbhfbHSm3C4ZsoJORNo=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
