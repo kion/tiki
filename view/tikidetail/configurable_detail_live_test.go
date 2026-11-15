@@ -60,24 +60,26 @@ func TestDetailView_UnrelatedStoreChangeKeepsRender(t *testing.T) {
 	}
 }
 
+// The title and the dependency list are in the metadata box;
+// the body viewer is kept when the body itself is unchanged.
 func TestDetailView_ShownTikiChangeRebuilds(t *testing.T) {
 	f := newLiveDetailFixture(t)
-	before := f.view.descView
+	before := f.view.content.GetItem(0)
 
 	f.replace(t, "SHOWNN", func(tk *tikipkg.Tiki) { tk.SetTitle("edited elsewhere") })
 
-	if f.view.descView == before {
+	if f.view.content.GetItem(0) == before {
 		t.Error("a change to the shown tiki did not re-render it")
 	}
 }
 
 func TestDetailView_LinkedTikiChangeRebuilds(t *testing.T) {
 	f := newLiveDetailFixture(t)
-	before := f.view.descView
+	before := f.view.content.GetItem(0)
 
 	f.replace(t, "LINKED", func(tk *tikipkg.Tiki) { tk.SetTitle("renamed dependency") })
 
-	if f.view.descView == before {
+	if f.view.content.GetItem(0) == before {
 		t.Error("a linked tiki's title change did not re-render the dependency list")
 	}
 }

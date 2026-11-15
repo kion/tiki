@@ -93,6 +93,7 @@ type ConfigurableDetailView struct {
 	// OnBlur closes the body viewer, so the next focus has to rebuild
 	blurred               bool
 	descSection           tview.Primitive
+	shownBody             shownBody
 	onExternalChange      func()
 	externalReported      bool
 	externalReportedStore *tikipkg.Tiki
@@ -278,10 +279,7 @@ func (cv *ConfigurableDetailView) OnBlur() {
 		cv.tikiStore.RemoveListener(cv.listenerID)
 		cv.listenerID = 0
 	}
-	if cv.navMarkdown != nil {
-		cv.navMarkdown.Close()
-		cv.navMarkdown = nil
-	}
+	cv.closeBody()
 	cv.blurred = true
 }
 
@@ -312,15 +310,12 @@ func (cv *ConfigurableDetailView) refresh() {
 	cv.content.Clear()
 	cv.descView = nil
 	cv.descSection = nil
-	if cv.navMarkdown != nil {
-		cv.navMarkdown.Close()
-		cv.navMarkdown = nil
-	}
 
 	tk := cv.getTiki()
 	cv.lastRenderKey = computeRenderKey(tk, cv.tikiStore)
 	cv.rendered = true
 	if tk == nil {
+		cv.closeBody()
 		notFound := tview.NewTextView().SetText("(no tiki selected)")
 		cv.content.AddItem(notFound, 0, 1, false)
 		return
@@ -336,6 +331,13 @@ func (cv *ConfigurableDetailView) refresh() {
 	cv.descSection = cv.buildDescriptionSection(tk)
 	cv.content.AddItem(cv.descSection, 0, 1, true)
 	cv.focusContent()
+}
+
+func (cv *ConfigurableDetailView) closeBody() {
+	if cv.navMarkdown != nil {
+		cv.navMarkdown.Close()
+		cv.navMarkdown = nil
+	}
 }
 
 func (cv *ConfigurableDetailView) focusContent() {
@@ -355,6 +357,7 @@ func (cv *ConfigurableDetailView) focusContent() {
 // inter-field refreshes — the same contract metadata editors rely on.
 func (cv *ConfigurableDetailView) buildDescriptionSection(tk *tikipkg.Tiki) tview.Primitive {
 	if cv.editMode && cv.GetFocusedFieldName() == descriptionFieldName {
+		cv.closeBody()
 		return cv.ensureDescriptionEditor(tk)
 	}
 	return cv.buildDescription(tk)
@@ -489,6 +492,12 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *them
 	).SetBorderColor(roles.BorderIdle().TCell())
 	frame.SetBorderPadding(1, 0, 2, 2)
 	return liveborder.New(frame, tk.ID(), currentLive{cv}, roles)
+}
+
+// shownBody is what the body viewer was built from.
+type shownBody struct {
+	markdown string // wikilinks already rewritten, so a linked tiki's new title counts as a change
+	source   string
 }
 
 // currentLive reads the view's live source at draw time,
@@ -831,18 +840,29 @@ func (cv *ConfigurableDetailView) ensureEditor(name string, tk *tikipkg.Tiki, ct
 // image resolution stay identical.
 func (cv *ConfigurableDetailView) buildDescription(tk *tikipkg.Tiki) tview.Primitive {
 	if cv.bodyMode.Source() {
+		cv.closeBody()
 		cv.descView = newSourceView(tk.Body())
 		return cv.descView
 	}
-	desc := defaultString(tk.Body(), noDescription)
+	resolver := &markdown.StoreResolver{Store: cv.tikiStore}
 	tikiSourcePath := tikiSourcePathFor(tk)
+	desc := markdown.RewriteWikilinks(defaultString(tk.Body(), noDescription), resolver)
+
+	// Most rebuilds change only the metadata: a field, or an agent's live status.
+	// Keeping the viewer then saves rendering the whole body again, and keeps the scroll position.
+	shown := shownBody{markdown: desc, source: tikiSourcePath}
+	if cv.navMarkdown != nil && shown == cv.shownBody {
+		cv.descView = cv.navMarkdown.Viewer()
+		return cv.descView
+	}
+	cv.closeBody()
+	cv.shownBody = shown
 
 	searchRoots := []string{config.GetDocDir()}
 	if tikiSourcePath != "" {
 		searchRoots = append([]string{filepath.Dir(tikiSourcePath)}, searchRoots...)
 	}
 
-	resolver := &markdown.StoreResolver{Store: cv.tikiStore}
 	wrapped := markdown.NewWikilinkProvider(
 		newTikiDescriptionProvider(cv.tikiStore, searchRoots),
 		resolver,
@@ -856,7 +876,6 @@ func (cv *ConfigurableDetailView) buildDescription(tk *tikipkg.Tiki) tview.Primi
 			return isTikiSource(cv.tikiStore, tikiSourcePath, source)
 		},
 	})
-	desc = markdown.RewriteWikilinks(desc, resolver)
 	cv.navMarkdown.Viewer().SetBorderPadding(1, 1, 2, 2)
 	cv.descView = cv.navMarkdown.Viewer()
 	cv.renderDescription(desc, tikiSourcePath)
