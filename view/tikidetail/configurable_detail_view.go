@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
@@ -847,16 +848,39 @@ func (cv *ConfigurableDetailView) renderDescription(desc, source string) {
 	// capture the live viewer: refresh()/OnBlur() may nil cv.navMarkdown before
 	// the deferred redraw closure drains (e.g. opening a new tiki then quickly
 	// navigating away), so re-reading the field at redraw time would dereference
-	// nil. Painting the (possibly detached) instance we rendered is harmless —
-	// once it leaves the layout the paint is invisible.
+	// nil.
 	target := cv.navMarkdown
 	reporter := cv.progressHub.StartProgress("rendering")
 	go func() {
 		defer reporter.Done()
 		cv.imageManager.PreResolveMarkdown(desc, source, descriptionRenderCols, cv.mermaidOpts, nil)
-		cv.redraw(func() {
-			target.SetMarkdownWithSource(desc, source, false)
-		})
+
+		var settled atomic.Bool
+		render := func(awaitLayout bool) func() {
+			return func() {
+				if settled.Load() {
+					return
+				}
+				// A refresh or blur replaced this viewer: nobody will see it,
+				// and rendering it would only block the UI goroutine.
+				if cv.navMarkdown != target {
+					settled.Store(true)
+					return
+				}
+				// Before its first draw the viewer has tview's default width,
+				// where a long body wraps into thousands of rows that take seconds to render.
+				if awaitLayout && !target.Viewer().Drawn() {
+					return
+				}
+				target.SetMarkdownWithSource(desc, source, false)
+				settled.Store(true)
+			}
+		}
+		cv.redraw(render(true))
+		// redraw draws after its closure, which gave the viewer its width
+		if !settled.Load() {
+			cv.redraw(render(false))
+		}
 	}()
 }
 
