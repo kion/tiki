@@ -40,7 +40,7 @@ type Tiki struct {
 	// where timestamps are too coarse to tell two writes apart.
 	LoadedSize int64
 
-	// createdAt: the value stored in the file, else git history, else file birth time or mtime. Read via CreatedAt().
+	// Read via CreatedAt().
 	createdAt time.Time
 
 	// createdAtStored separates a value read from the file from a derived one,

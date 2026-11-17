@@ -141,7 +141,6 @@ func TestStampPolicyFor(t *testing.T) {
 	}
 }
 
-// committed c.md and untracked n.md in a fresh repo; n.md's mtime is 2024-04-04
 func repoWithUncommittedTiki(t *testing.T) (repo, committed, uncommitted string) {
 	t.Helper()
 	repo = t.TempDir()
@@ -395,4 +394,94 @@ func TestStamp_NotSeenAsExternalEdit(t *testing.T) {
 		t.Errorf("live reload saw the stamp as a change: %+v", res)
 	}
 	retitle(t, s)
+}
+
+func TestStampedContent_KeepsWrappedTitles(t *testing.T) {
+	created := time.Date(2024, 3, 3, 3, 3, 3, 0, time.UTC)
+	for _, tc := range []struct{ name, in, want string }{
+		{"double-quoted title wrapped at column 0",
+			"---\nid: AAAAAA\ntitle: \"A long title that an editor\nwrapped\"\nstatus: x\n---\nbody\n",
+			"---\nid: AAAAAA\ntitle: \"A long title that an editor\nwrapped\"\nstatus: x\ncreatedAt: 2024-03-03T03:03:03Z\n---\nbody\n"},
+		{"single-quoted title wrapped at column 0",
+			"---\nid: AAAAAA\ntitle: 'A long title that an editor\nwrapped'\n---\nbody\n",
+			"---\nid: AAAAAA\ntitle: 'A long title that an editor\nwrapped'\ncreatedAt: 2024-03-03T03:03:03Z\n---\nbody\n"},
+		{"sequence title at column 0",
+			"---\nid: AAAAAA\ntitle:\n- a\n---\n",
+			"---\nid: AAAAAA\ntitle:\n- a\ncreatedAt: 2024-03-03T03:03:03Z\n---\n"},
+		{"single-line title",
+			"---\nid: AAAAAA\ntitle: a\nstatus: x\n---\n",
+			"---\nid: AAAAAA\ntitle: a\ncreatedAt: 2024-03-03T03:03:03Z\nstatus: x\n---\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := stampedContent([]byte(tc.in), created)
+			if !ok {
+				t.Fatal("stampedContent refused")
+			}
+			if string(got) != tc.want {
+				t.Errorf("got\n%q\nwant\n%q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFullLoad_WrappedTitleSurvivesStamp(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "a.md")
+	writeRaw(t, path, "---\nid: AAAAAA\ntitle: \"A long title that an editor\nwrapped\"\n---\nbody\n")
+
+	s := newStoreIn(t, dir, WithCreatedAtStamping())
+	if err := s.Reload(); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+
+	tk := s.GetTiki("AAAAAA")
+	if tk == nil {
+		t.Fatal("tiki no longer loads")
+	}
+	if tk.Title() != "A long title that an editor wrapped" || !tk.CreatedAtStored() {
+		t.Errorf("title = %q, stored = %v; want the original title and a stored createdAt", tk.Title(), tk.CreatedAtStored())
+	}
+}
+
+// A repository below the project has a history the load never reads,
+// so its committed files would look uncommitted.
+func TestFullLoad_NestedRepoIsNotStamped(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		outerRepo bool
+		gitFile   bool
+	}{
+		{"nested repo in a plain folder", false, false},
+		{"nested repo in a repo", true, false},
+		{"submodule-style .git file", false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if tc.outerRepo {
+				initRepo(t, dir)
+			}
+			inner := filepath.Join(dir, "inner")
+			nested := filepath.Join(inner, "a.md")
+			writeDoc(t, nested, "AAAAAA", "a")
+			if tc.gitFile {
+				writeRaw(t, filepath.Join(inner, ".git"), "gitdir: ../.git/modules/inner\n")
+			} else {
+				initRepo(t, inner)
+				runGit(t, inner, "add", "-A")
+				runGit(t, inner, "commit", "-q", "-m", "add")
+			}
+			top := filepath.Join(dir, "top.md")
+			writeDoc(t, top, "TTTTTT", "top")
+			before := readFile(t, nested)
+
+			newStoreIn(t, dir, WithCreatedAtStamping())
+
+			if got := readFile(t, nested); got != before {
+				t.Errorf("tiki in the nested repo changed:\n%s", got)
+			}
+			if !createdAtLine.MatchString(readFile(t, top)) {
+				t.Error("control: the project's own uncommitted tiki was not stamped")
+			}
+		})
+	}
 }

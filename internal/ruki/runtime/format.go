@@ -24,7 +24,7 @@ const maxColumnPad = 60
 
 // TableFormatter renders results as an ASCII table.
 type TableFormatter struct {
-	// loc is where tiki's own timestamps are shown; nil means time.Local.
+	// For tiki's own timestamps; nil means time.Local.
 	loc *time.Location
 }
 

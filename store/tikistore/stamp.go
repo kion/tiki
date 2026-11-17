@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"time"
 
@@ -31,7 +32,6 @@ var errStampSkipped = errors.New("createdAt stamp skipped")
 
 var createdAtKeyLine = regexp.MustCompile(`^["']?createdAt["']?\s*:`)
 
-// stampPolicyFor decides which tikis a full load stamps.
 // Everything is stamped only when the folder is known not to be a repository:
 // a repository whose history can't be read stamps nothing, so an error never turns into a mass rewrite.
 func (s *TikiStore) stampPolicyFor(lastCommitMap map[string]time.Time) stampPolicy {
@@ -47,7 +47,7 @@ func (s *TikiStore) stampPolicyFor(lastCommitMap map[string]time.Time) stampPoli
 }
 
 func (s *TikiStore) needsStamp(tk *tiki.Tiki, policy stampPolicy, lastCommitMap map[string]time.Time) bool {
-	if tk.CreatedAtStored() {
+	if tk.CreatedAtStored() || s.inNestedRepo(tk.Path()) {
 		return false
 	}
 	switch policy {
@@ -97,8 +97,28 @@ func insideGitWorkTree(dir string) bool {
 	}
 }
 
-// stampCreatedAt writes tk's createdAt into its file as one inserted line,
-// keeping the modification time so the stamp doesn't count as an edit.
+// The load never reads a nested repository's history,
+// so its committed files would look uncommitted.
+func (s *TikiStore) inNestedRepo(path string) bool {
+	root, err := filepath.Abs(s.dir)
+	if err != nil {
+		return true
+	}
+	for dir := filepath.Dir(path); dir != root; {
+		_, err := os.Lstat(filepath.Join(dir, ".git"))
+		if err == nil || !errors.Is(err, fs.ErrNotExist) {
+			return true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return true
+		}
+		dir = parent
+	}
+	return false
+}
+
+// The modification time is kept so the stamp doesn't count as an edit.
 func stampCreatedAt(tk *tiki.Tiki) error {
 	path := tk.Path()
 	info, err := os.Lstat(path)
@@ -123,9 +143,9 @@ func stampCreatedAt(tk *tiki.Tiki) error {
 	if frontmatterHasCreatedAt(content) {
 		return fmt.Errorf("%w: frontmatter already has createdAt", errStampSkipped)
 	}
-	stamped, ok := insertCreatedAtLine(content, tk.CreatedAt())
+	stamped, ok := stampedContent(content, tk.CreatedAt())
 	if !ok {
-		return fmt.Errorf("%w: no frontmatter to insert into", errStampSkipped)
+		return fmt.Errorf("%w: no place to insert the line safely", errStampSkipped)
 	}
 	//nolint:gosec // G703: path is a tiki file the store just loaded
 	if err := os.WriteFile(path, stamped, info.Mode().Perm()); err != nil {
@@ -150,21 +170,63 @@ func stampCreatedAt(tk *tiki.Tiki) error {
 // frontmatterHasCreatedAt catches every spelling of the key yaml accepts,
 // because a second createdAt key would make the file fail to load.
 func frontmatterHasCreatedAt(content []byte) bool {
-	fm, _, err := store.ParseFrontmatter(string(content))
-	if err != nil {
-		return true
-	}
-	var m map[string]interface{}
-	if err := yaml.Unmarshal([]byte(fm), &m); err != nil {
+	m, ok := frontmatterMap(content)
+	if !ok {
 		return true
 	}
 	_, present := m["createdAt"]
 	return present
 }
 
+// stampedContent only accepts an insert that leaves every other frontmatter value as it was:
+// a title wrapped onto a line at column 0 can fool the title rule and swallow the line.
+// The end of the frontmatter is the fallback.
+func stampedContent(content []byte, created time.Time) ([]byte, bool) {
+	for _, afterTitle := range []bool{true, false} {
+		stamped, ok := insertCreatedAtLineAt(content, created, afterTitle)
+		if ok && stampKeepsFrontmatter(content, stamped, created) {
+			return stamped, true
+		}
+	}
+	return nil, false
+}
+
+func stampKeepsFrontmatter(before, after []byte, created time.Time) bool {
+	was, ok := frontmatterMap(before)
+	if !ok {
+		return false
+	}
+	now, ok := frontmatterMap(after)
+	if !ok {
+		return false
+	}
+	got, ok := parseStoredCreatedAt(now["createdAt"])
+	if !ok || !got.Equal(writtenCreatedAt(created)) {
+		return false
+	}
+	delete(now, "createdAt")
+	return reflect.DeepEqual(was, now)
+}
+
+func frontmatterMap(content []byte) (map[string]interface{}, bool) {
+	fm, _, err := store.ParseFrontmatter(string(content))
+	if err != nil {
+		return nil, false
+	}
+	var m map[string]interface{}
+	if err := yaml.Unmarshal([]byte(fm), &m); err != nil {
+		return nil, false
+	}
+	return m, true
+}
+
 // insertCreatedAtLine puts the line after a single-line title, where saves put it,
 // so the first save after a stamp doesn't move it.
 func insertCreatedAtLine(content []byte, created time.Time) ([]byte, bool) {
+	return insertCreatedAtLineAt(content, created, true)
+}
+
+func insertCreatedAtLineAt(content []byte, created time.Time, afterTitle bool) ([]byte, bool) {
 	var eol string
 	switch {
 	case bytes.HasPrefix(content, []byte("---\r\n")):
@@ -188,7 +250,7 @@ func insertCreatedAtLine(content []byte, created time.Time) ([]byte, bool) {
 		if createdAtKeyLine.Match(line) {
 			return nil, false
 		}
-		if bytes.HasPrefix(line, []byte("title:")) {
+		if afterTitle && bytes.HasPrefix(line, []byte("title:")) {
 			next := i+1 < len(lines) && len(lines[i+1]) > 0 && (lines[i+1][0] == ' ' || lines[i+1][0] == '\t')
 			if !next {
 				at = offset + len(line)

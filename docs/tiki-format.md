@@ -240,7 +240,7 @@ tiki stores a tiki's creation time in its frontmatter, in UTC:
 createdAt: 2026-01-01T10:00:00Z
 ```
 
-- A value in the file always wins. By hand you can write any YAML timestamp (`2026-01-01`,
+- A value in the file always wins. By hand you can write any YAML timestamp, quoted or not (`2026-01-01`,
   `2026-01-01 10:00:00`, or one with an offset such as `+02:00`); the next save rewrites it in UTC.
   A value that isn't a timestamp is ignored and replaced on the next save.
 - Without one, tiki uses the time of the commit that added the file, then the file's birth time where
@@ -249,7 +249,8 @@ createdAt: 2026-01-01T10:00:00Z
   adds it to tikis that git can't date: uncommitted tikis in a git repository, and every tiki outside one.
   That adds only the one line, and the file keeps its modification time, so it doesn't count as an edit.
 - Nothing is added on load to symlinked files, to files with an invalid `createdAt`, to files whose
-  modification time you can't set, or anywhere in a repository whose history tiki can't read.
+  modification time you can't set, to tikis inside a git repository nested below the project (such as a
+  submodule), or anywhere in a repository whose history tiki can't read.
   `tiki exec` and live reload never add it.
 
 ## Derived fields

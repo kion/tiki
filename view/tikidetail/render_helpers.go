@@ -1,9 +1,8 @@
 package tikidetail
 
 import (
-	"time"
-
 	"fmt"
+	"time"
 
 	"github.com/boolean-maybe/tiki/component"
 	"github.com/boolean-maybe/tiki/config"
@@ -67,7 +66,7 @@ type FieldRenderContext struct {
 	FieldName    string
 	Display      gridlayout.DisplayMode
 	Store        store.Store
-	// Location is where tiki's own timestamps are shown; nil means time.Local.
+	// For tiki's own timestamps; nil means time.Local.
 	Location *time.Location
 }
 

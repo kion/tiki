@@ -46,6 +46,8 @@ func TestLoad_StoredCreatedAtForms(t *testing.T) {
 		{"offset", "createdAt: 2025-06-01T10:00:00+02:00", time.Date(2025, 6, 1, 8, 0, 0, 0, time.UTC), true},
 		{"space separated", "createdAt: 2025-06-01 08:00:00", time.Date(2025, 6, 1, 8, 0, 0, 0, time.UTC), true},
 		{"date only", "createdAt: 2025-06-01", time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC), true},
+		{"quoted date only", `createdAt: "2025-06-01"`, time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC), true},
+		{"quoted space separated", `createdAt: "2025-06-01 08:00:00"`, time.Date(2025, 6, 1, 8, 0, 0, 0, time.UTC), true},
 		{"invalid", "createdAt: not a time", forcedBirth, false},
 		{"empty", "createdAt:", forcedBirth, false},
 	} {

@@ -2,8 +2,14 @@ package tikistore
 
 import "time"
 
-// parseStoredCreatedAt reads a frontmatter createdAt value.
-// yaml.v3 turns an unquoted timestamp into a time.Time, so a quoted one is the only string case.
+// yaml.v3's own timestamp layouts, so a quoted value is read the same as an unquoted one.
+var storedCreatedAtLayouts = []string{
+	"2006-1-2T15:4:5.999999999Z07:00",
+	"2006-1-2t15:4:5.999999999Z07:00",
+	"2006-1-2 15:4:5.999999999",
+	"2006-1-2",
+}
+
 func parseStoredCreatedAt(v interface{}) (time.Time, bool) {
 	switch val := v.(type) {
 	case time.Time:
@@ -12,17 +18,17 @@ func parseStoredCreatedAt(v interface{}) (time.Time, bool) {
 		}
 		return val.UTC(), true
 	case string:
-		t, err := time.Parse(time.RFC3339Nano, val)
-		if err != nil {
-			return time.Time{}, false
+		for _, layout := range storedCreatedAtLayouts {
+			if t, err := time.Parse(layout, val); err == nil {
+				return t.UTC(), true
+			}
 		}
-		return t.UTC(), true
 	}
 	return time.Time{}, false
 }
 
-// writtenCreatedAt is the value as it lands in a file: UTC, whole seconds.
-// tiki keeps the same value in memory, so it doesn't shift at the next load.
+// Memory holds exactly what lands in the file (UTC, whole seconds),
+// so the value doesn't shift at the next load.
 func writtenCreatedAt(t time.Time) time.Time {
 	return t.UTC().Truncate(time.Second)
 }

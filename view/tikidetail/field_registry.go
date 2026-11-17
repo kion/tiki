@@ -973,8 +973,8 @@ func renderDateValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	return valueOnlyLine(value, ctx.Roles)
 }
 
-// displayTime moves tiki's own timestamps into the display zone;
-// a workflow datetime is a wall-clock value and is shown as typed.
+// A workflow datetime is a wall-clock value, shown as typed;
+// only tiki's own timestamps are moments that belong in the display zone.
 func displayTime(fieldName string, t time.Time, loc *time.Location) time.Time {
 	if !tikipkg.IsAuditTimeField(fieldName) {
 		return t
