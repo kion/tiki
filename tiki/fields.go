@@ -323,3 +323,13 @@ func coerceTime(v interface{}) (time.Time, bool) {
 		return time.Time{}, false
 	}
 }
+
+// IsAuditTimeField reports whether name is one of tiki's own timestamps.
+// Those are moments, shown in local time; a workflow datetime is a wall-clock value shown as typed.
+func IsAuditTimeField(name string) bool {
+	switch name {
+	case "createdAt", "updatedAt", "activeAt":
+		return true
+	}
+	return false
+}

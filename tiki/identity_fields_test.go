@@ -138,3 +138,14 @@ func TestStaleKeysOnNilOrEmpty(t *testing.T) {
 		t.Error("StaleKeys on Tiki with no stale entries must return nil")
 	}
 }
+
+func TestIsAuditTimeField(t *testing.T) {
+	for name, want := range map[string]bool{
+		"createdAt": true, "updatedAt": true, "activeAt": true,
+		"dueBy": false, "due": false, "createdBy": false, "title": false,
+	} {
+		if got := IsAuditTimeField(name); got != want {
+			t.Errorf("IsAuditTimeField(%q) = %v, want %v", name, got, want)
+		}
+	}
+}

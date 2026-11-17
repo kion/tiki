@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/ruki"
+	"github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -22,7 +23,10 @@ type Formatter interface {
 const maxColumnPad = 60
 
 // TableFormatter renders results as an ASCII table.
-type TableFormatter struct{}
+type TableFormatter struct {
+	// loc is where tiki's own timestamps are shown; nil means time.Local.
+	loc *time.Location
+}
 
 // NewTableFormatter returns a Formatter that produces ASCII table output.
 func NewTableFormatter() Formatter {
@@ -40,7 +44,7 @@ func (f *TableFormatter) Format(w io.Writer, proj *ruki.TikiProjection) error {
 	for r, t := range proj.Tikis {
 		row := make([]string, len(fields))
 		for c, fd := range fields {
-			row[c] = formatCell(t, fd)
+			row[c] = f.formatCell(t, fd)
 			widths[c] = max(widths[c], min(len(row[c]), maxColumnPad))
 		}
 		rows[r] = row
@@ -98,8 +102,15 @@ func fieldNames(fields []workflow.FieldDef) []string {
 }
 
 // formatCell extracts and formats a single cell value from a tiki.
-func formatCell(t ruki.Document, fd workflow.FieldDef) string {
+func (f *TableFormatter) formatCell(t ruki.Document, fd workflow.FieldDef) string {
 	val := extractFieldValue(t, fd.Name)
+	if ts, ok := val.(time.Time); ok && fd.Type == workflow.TypeTimestamp && tiki.IsAuditTimeField(fd.Name) && !ts.IsZero() {
+		loc := f.loc
+		if loc == nil {
+			loc = time.Local
+		}
+		return ts.In(loc).Format(time.RFC3339)
+	}
 	return renderValue(val, fd.Type)
 }
 

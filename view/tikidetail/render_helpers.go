@@ -1,6 +1,8 @@
 package tikidetail
 
 import (
+	"time"
+
 	"fmt"
 
 	"github.com/boolean-maybe/tiki/component"
@@ -65,6 +67,8 @@ type FieldRenderContext struct {
 	FieldName    string
 	Display      gridlayout.DisplayMode
 	Store        store.Store
+	// Location is where tiki's own timestamps are shown; nil means time.Local.
+	Location *time.Location
 }
 
 // getDimOrFullColor returns the dim role tag if in edit mode and not focused, otherwise full role tag.

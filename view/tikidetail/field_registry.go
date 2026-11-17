@@ -860,7 +860,7 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx FieldRe
 			if t.IsZero() {
 				return "—"
 			}
-			return t.Format(value.DateTimeFormat)
+			return displayTime(fd.Name, t, ctx.Location).Format(value.DateTimeFormat)
 		}
 	}
 	switch v := raw.(type) {
@@ -973,6 +973,18 @@ func renderDateValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	return valueOnlyLine(value, ctx.Roles)
 }
 
+// displayTime moves tiki's own timestamps into the display zone;
+// a workflow datetime is a wall-clock value and is shown as typed.
+func displayTime(fieldName string, t time.Time, loc *time.Location) time.Time {
+	if !tikipkg.IsAuditTimeField(fieldName) {
+		return t
+	}
+	if loc == nil {
+		loc = time.Local
+	}
+	return t.In(loc)
+}
+
 func renderDateTimeValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	fd, ok := LookupField(ctx.FieldName)
 	if !ok {
@@ -981,7 +993,7 @@ func renderDateTimeValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primiti
 	display := emptyPlaceholder(fd.Name, SemanticDateTime)
 	if fd.Get != nil {
 		if t, ok := fd.Get(tk).(time.Time); ok && !t.IsZero() {
-			display = t.Format(value.DateTimeFormat)
+			display = displayTime(fd.Name, t, ctx.Location).Format(value.DateTimeFormat)
 		}
 	}
 	return valueOnlyLine(display, ctx.Roles)

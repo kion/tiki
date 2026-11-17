@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/ruki"
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -112,13 +113,38 @@ func TestTableFormatterTimestampFormatting(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := NewTableFormatter().Format(&buf, proj); err != nil {
+	if err := (&TableFormatter{loc: time.FixedZone("TST", -5*3600)}).Format(&buf, proj); err != nil {
 		t.Fatal(err)
 	}
 
-	// should be RFC3339 in UTC
-	if !strings.Contains(buf.String(), "2025-06-01T19:30:00Z") {
-		t.Errorf("timestamp should be RFC3339 UTC:\n%s", buf.String())
+	if !strings.Contains(buf.String(), "2025-06-01T14:30:00-05:00") {
+		t.Errorf("createdAt should be RFC3339 in the display zone:\n%s", buf.String())
+	}
+}
+
+// A workflow datetime is a wall-clock value as typed, so it must not shift with the zone.
+func TestTableFormatterCustomDatetimeUnchanged(t *testing.T) {
+	initTestRegistries()
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "dueBy", Type: workflow.TypeTimestamp},
+	}); err != nil {
+		t.Fatalf("register custom fields: %v", err)
+	}
+	t.Cleanup(initTestRegistries)
+	proj := &ruki.TikiProjection{
+		Fields: []string{"dueBy"},
+		Tikis: []ruki.Document{tikiFromLegacy(legacyFields{
+			CustomFields: map[string]interface{}{"dueBy": time.Date(2025, 6, 1, 14, 30, 0, 0, time.UTC)},
+		})},
+	}
+
+	var buf bytes.Buffer
+	if err := (&TableFormatter{loc: time.FixedZone("TST", -5*3600)}).Format(&buf, proj); err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(buf.String(), "2025-06-01T14:30:00Z") {
+		t.Errorf("dueBy should be unchanged:\n%s", buf.String())
 	}
 }
 

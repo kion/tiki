@@ -766,3 +766,45 @@ func TestEmptyDateTimeReservesEditorWidth(t *testing.T) {
 		t.Errorf("empty dueBy view-mode measure = %d, want < 16 (compact placeholder)", got)
 	}
 }
+
+func TestGenericFieldValueString_AuditTimeShowsLocal(t *testing.T) {
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "dueBy", Type: workflow.TypeTimestamp},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
+	ctx := FieldRenderContext{Location: time.FixedZone("TST", -5*3600)}
+	tk := tikipkg.New()
+	tk.SetID("TS001")
+	tk.SetCreatedAt(time.Date(2025, 6, 1, 19, 30, 0, 0, time.UTC))
+	tk.Set("dueBy", time.Date(2025, 6, 1, 14, 30, 0, 0, time.UTC))
+
+	createdFD, _ := workflow.Field("createdAt")
+	if got := genericFieldValueString(createdFD, tk, ctx); got != "2025-06-01 14:30" {
+		t.Errorf("createdAt = %q, want %q in the display zone", got, "2025-06-01 14:30")
+	}
+	dueFD, _ := workflow.Field("dueBy")
+	if got := genericFieldValueString(dueFD, tk, ctx); got != "2025-06-01 14:30" {
+		t.Errorf("dueBy = %q, want it unchanged %q", got, "2025-06-01 14:30")
+	}
+}
+
+func TestRenderDateTimeValue_AuditTimeShowsLocal(t *testing.T) {
+	fd, ok := LookupField("createdAt")
+	if !ok {
+		t.Fatal("LookupField(createdAt) failed")
+	}
+	tk := tikipkg.New()
+	tk.SetCreatedAt(time.Date(2025, 6, 1, 19, 30, 0, 0, time.UTC))
+	ctx := withFieldDescriptor(FieldRenderContext{Roles: theme.Roles(), Location: time.FixedZone("TST", -5*3600)}, fd)
+
+	prim := renderDateTimeValue(tk, ctx)
+	gt, ok := prim.(interface{ GetText(bool) string })
+	if !ok {
+		t.Fatalf("unexpected primitive %T", prim)
+	}
+	if got := gt.GetText(true); got != "2025-06-01 14:30" {
+		t.Errorf("rendered %q, want %q", got, "2025-06-01 14:30")
+	}
+}
