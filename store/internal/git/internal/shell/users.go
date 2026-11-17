@@ -119,7 +119,7 @@ func (u *Util) Author(filePath string) (*types.AuthorInfo, error) {
 
 // AllAuthors returns author information for all files matching dirPattern in a single git command.
 func (u *Util) AllAuthors(dirPattern string) (map[string]*types.AuthorInfo, error) {
-	cmd := exec.Command("git", "log", "--all", "--diff-filter=A", "--format=%H|%an|%ae|%ai|%s", "--name-only", "--reverse", "--", dirPattern) //nolint:gosec // G204: git command with controlled directory pattern
+	cmd := exec.Command("git", "-c", "core.quotePath=false", "log", "--all", "--diff-filter=A", "--format=%H|%an|%ae|%ai|%s", "--name-only", "--reverse", "--", dirPattern) //nolint:gosec // G204: git command with controlled directory pattern
 	cmd.Dir = u.repoPath
 	output, err := cmd.Output()
 	if err != nil {

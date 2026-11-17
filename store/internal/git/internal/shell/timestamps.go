@@ -32,7 +32,7 @@ func (u *Util) LastCommitTime(filePath string) (time.Time, error) {
 
 // AllLastCommitTimes returns last commit timestamp for all files matching dirPattern in a single git command.
 func (u *Util) AllLastCommitTimes(dirPattern string) (map[string]time.Time, error) {
-	cmd := exec.Command("git", "log", "--all", "--format=%aI", "--name-only", "--", dirPattern) //nolint:gosec // G204: git command with controlled directory pattern
+	cmd := exec.Command("git", "-c", "core.quotePath=false", "log", "--all", "--format=%aI", "--name-only", "--", dirPattern) //nolint:gosec // G204: git command with controlled directory pattern
 	cmd.Dir = u.repoPath
 	output, err := cmd.Output()
 	if err != nil {

@@ -548,3 +548,68 @@ func TestParity_RepoRelPath(t *testing.T) {
 		}
 	}
 }
+
+// git escapes non-ASCII bytes in path output unless told not to.
+func TestParity_NonASCIIPath(t *testing.T) {
+	requireShellGit(t)
+	dir := t.TempDir()
+	repo, err := gogitlib.PlainInit(dir, false)
+	if err != nil {
+		t.Fatalf("PlainInit: %v", err)
+	}
+	wt, err := repo.Worktree()
+	if err != nil {
+		t.Fatalf("Worktree: %v", err)
+	}
+	const name = "Über/café.md"
+	abs := filepath.Join(dir, name)
+	if err := os.MkdirAll(filepath.Dir(abs), 0o750); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(abs, []byte("---\ntitle: x\n---\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if _, err := wt.Add(name); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if _, err := wt.Commit("add", &gogitlib.CommitOptions{
+		Author: &object.Signature{Name: "alice", Email: "alice@test.com", When: time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)},
+	}); err != nil {
+		t.Fatalf("Commit: %v", err)
+	}
+
+	sh, err := shell.NewUtil(dir)
+	if err != nil {
+		t.Fatalf("shell.NewUtil: %v", err)
+	}
+	gg, err := gogit.NewUtil(dir)
+	if err != nil {
+		t.Fatalf("gogit.NewUtil: %v", err)
+	}
+	for _, b := range []struct {
+		name    string
+		authors func(string) (map[string]*types.AuthorInfo, error)
+		times   func(string) (map[string]time.Time, error)
+	}{
+		{"shell", sh.AllAuthors, sh.AllLastCommitTimes},
+		{"gogit", gg.AllAuthors, gg.AllLastCommitTimes},
+	} {
+		authors, err := b.authors(dir)
+		if err != nil {
+			t.Fatalf("%s AllAuthors: %v", b.name, err)
+		}
+		if _, ok := authors[name]; !ok {
+			t.Errorf("%s AllAuthors keys = %v, want %q", b.name, sortedKeys(authors), name)
+		}
+		times, err := b.times(dir)
+		if err != nil {
+			t.Fatalf("%s AllLastCommitTimes: %v", b.name, err)
+		}
+		if _, ok := times[name]; !ok {
+			t.Errorf("%s AllLastCommitTimes keys = %v, want %q", b.name, sortedTimeKeys(times), name)
+		}
+	}
+	if got, err := sh.RepoRelPath(abs); err != nil || got != name {
+		t.Errorf("shell RepoRelPath = %q, %v; want %q", got, err, name)
+	}
+}

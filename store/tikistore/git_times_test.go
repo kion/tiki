@@ -15,6 +15,7 @@ func TestLoadTakesTimesFromGitHistory(t *testing.T) {
 	}{
 		{"project at repo root", "", false},
 		{"project in repo subfolder", "sub", false},
+		{"project in non-ASCII subfolder", "Über", false},
 		// git reports the resolved repo root,
 		// so a key built from it would miss paths under a cwd reached through a symlinked parent.
 		{"repo reached through a symlink", "sub", true},

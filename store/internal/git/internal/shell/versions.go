@@ -95,7 +95,7 @@ func (u *Util) AllFileVersionsSince(dirPattern string, since time.Time, includeP
 	result := make(map[string][]types.FileVersion)
 
 	//nolint:gosec // G204: git command with controlled directory pattern and timestamp
-	cmd := exec.Command("git", "log", "--all", "--full-history", "-G^status:",
+	cmd := exec.Command("git", "-c", "core.quotePath=false", "log", "--all", "--full-history", "-G^status:",
 		"--format=%H|%an|%ae|%aI", "--name-only", "--since", sinceStr, "--", dirPattern)
 	cmd.Dir = u.repoPath
 	output, err := cmd.Output()
@@ -165,7 +165,7 @@ func (u *Util) AllFileVersionsSince(dirPattern string, since time.Time, includeP
 
 	if includePrior {
 		//nolint:gosec // G204: git command with controlled directory pattern and timestamp
-		cmd := exec.Command("git", "log", "--all", "--full-history", "-G^status:",
+		cmd := exec.Command("git", "-c", "core.quotePath=false", "log", "--all", "--full-history", "-G^status:",
 			"--format=%H|%an|%ae|%aI", "--name-only", "--before", sinceStr, "--", dirPattern)
 		cmd.Dir = u.repoPath
 		if output, err := cmd.Output(); err == nil {
