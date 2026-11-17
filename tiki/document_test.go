@@ -68,3 +68,11 @@ func TestClone_KeepsLiveAt(t *testing.T) {
 		t.Errorf("Doc clone LiveAt() = %v, want %v", got, at)
 	}
 }
+
+func TestClone_CopiesCreatedAtStored(t *testing.T) {
+	tk := New()
+	tk.SetCreatedAtStored(true)
+	if !tk.Clone().CreatedAtStored() {
+		t.Error("clone CreatedAtStored() = false, want true")
+	}
+}

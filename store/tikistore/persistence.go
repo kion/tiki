@@ -181,28 +181,41 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 		tk.SetUpdatedAt(lastCommit)
 	}
 
-	// Populate CreatedAt/CreatedBy from author map (already fetched in batch).
 	// CreatedBy is stored in Fields so ruki's identity-field reads work.
-	if author, exists := authorMap[gitKey]; exists {
+	author, hasAuthor := authorMap[gitKey]
+	if hasAuthor {
 		switch {
 		case author.Name != "":
 			tk.Set("createdBy", author.Name)
 		case author.Email != "":
 			tk.Set("createdBy", author.Email)
 		}
-		tk.SetCreatedAt(author.Date)
+	} else if name, email, err := s.GetCurrentUser(); err == nil {
+		switch {
+		case name != "":
+			tk.Set("createdBy", name)
+		case email != "":
+			tk.Set("createdBy", email)
+		}
 	}
 
-	// Fallback to file metadata when git history is not available.
-	if tk.CreatedAt().IsZero() {
-		tk.SetCreatedAt(info.ModTime())
-		if name, email, err := s.GetCurrentUser(); err == nil {
-			switch {
-			case name != "":
-				tk.Set("createdBy", name)
-			case email != "":
-				tk.Set("createdBy", email)
-			}
+	stored, storedOK := time.Time{}, false
+	if raw, present := parsed.raw["createdAt"]; present {
+		if stored, storedOK = parseStoredCreatedAt(raw); !storedOK {
+			slog.Warn("ignoring invalid createdAt in frontmatter", "file", absPath, "value", raw)
+		}
+	}
+	switch {
+	case storedOK:
+		tk.SetCreatedAt(stored)
+		tk.SetCreatedAtStored(true)
+	case hasAuthor:
+		tk.SetCreatedAt(author.Date)
+	default:
+		if birth, ok := birthTimeOf(path, info); ok {
+			tk.SetCreatedAt(birth)
+		} else {
+			tk.SetCreatedAt(info.ModTime())
 		}
 	}
 

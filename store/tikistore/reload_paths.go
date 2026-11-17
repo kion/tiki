@@ -323,8 +323,11 @@ func diffTikis(prev, next map[string]*tiki.Tiki) ReloadResult {
 
 // Editing a working-tree file doesn't change its git history,
 // so the old values are what a full load would compute.
+// A createdAt stored in the file is newer information than either, so it stays.
 func carryForwardGitMeta(loaded, old *tiki.Tiki) {
-	loaded.SetCreatedAt(old.CreatedAt())
+	if !loaded.CreatedAtStored() {
+		loaded.SetCreatedAt(old.CreatedAt())
+	}
 	if v, ok := old.Get("createdBy"); ok {
 		loaded.Set("createdBy", v)
 	} else {
