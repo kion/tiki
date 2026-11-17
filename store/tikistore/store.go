@@ -39,11 +39,22 @@ type TikiStore struct {
 	deferred       map[string]bool
 	batchDepth     int
 	batchDirty     bool
+
+	stampOnLoad bool
+}
+
+// Option configures a TikiStore when it is created.
+type Option func(*TikiStore)
+
+// WithCreatedAtStamping makes full loads write createdAt into tikis git can't date.
+// Only the TUI asks for it: a `tiki exec` query must not write files.
+func WithCreatedAtStamping() Option {
+	return func(s *TikiStore) { s.stampOnLoad = true }
 }
 
 // NewTikiStore creates a new TikiStore.
 // dir: directory containing tiki markdown files
-func NewTikiStore(dir string) (*TikiStore, error) {
+func NewTikiStore(dir string, opts ...Option) (*TikiStore, error) {
 	slog.Debug("creating new TikiStore", "dir", dir)
 	s := &TikiStore{
 		dir:            dir,
@@ -51,6 +62,9 @@ func NewTikiStore(dir string) (*TikiStore, error) {
 		listeners:      make(map[int]store.ChangeListener),
 		nextListenerID: 1, // Start at 1 to avoid conflict with zero-value sentinel
 		diagnostics:    newLoadDiagnostics(),
+	}
+	for _, opt := range opts {
+		opt(s)
 	}
 
 	// git integration is automatic and read-only: when cwd is a repo the store

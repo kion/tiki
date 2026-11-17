@@ -20,14 +20,14 @@ func forceBirthTime(t *testing.T, at time.Time, ok bool) {
 	t.Cleanup(func() { birthTimeOf = prev })
 }
 
-func docWithCreatedLine(id, title, createdLine string) string {
-	return "---\nid: " + id + "\ntitle: " + title + "\n" + createdLine + "\ntype: story\nstatus: inbox\n---\nbody\n"
+func docWithCreatedLine(title, createdLine string) string {
+	return "---\nid: AAAAAA\ntitle: " + title + "\n" + createdLine + "\ntype: story\nstatus: inbox\n---\nbody\n"
 }
 
-func newStoreIn(t *testing.T, dir string) *TikiStore {
+func newStoreIn(t *testing.T, dir string, opts ...Option) *TikiStore {
 	t.Helper()
 	t.Chdir(dir)
-	s, err := NewTikiStore(dir)
+	s, err := NewTikiStore(dir, opts...)
 	if err != nil {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestLoad_StoredCreatedAtForms(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			forceBirthTime(t, forcedBirth, true)
 			dir := t.TempDir()
-			writeRaw(t, filepath.Join(dir, "a.md"), docWithCreatedLine("AAAAAA", "a", tc.line))
+			writeRaw(t, filepath.Join(dir, "a.md"), docWithCreatedLine("a", tc.line))
 
 			tk := newStoreIn(t, dir).GetTiki("AAAAAA")
 			if tk == nil {
@@ -76,7 +76,7 @@ func TestLoad_StoredCreatedAtWinsOverGit(t *testing.T) {
 	runGit(t, repo, "init", "-q")
 	runGit(t, repo, "config", "user.email", "test@example.com")
 	runGit(t, repo, "config", "user.name", "testuser")
-	writeRaw(t, filepath.Join(repo, "a.md"), docWithCreatedLine("AAAAAA", "a", "createdAt: 2025-06-01T08:00:00Z"))
+	writeRaw(t, filepath.Join(repo, "a.md"), docWithCreatedLine("a", "createdAt: 2025-06-01T08:00:00Z"))
 	runGit(t, repo, "add", "-A")
 	runGit(t, repo, "commit", "-q", "-m", "add", "--date", "2026-01-01T10:00:00Z")
 
@@ -118,7 +118,7 @@ func TestLoad_FallsBackToBirthTimeThenMtime(t *testing.T) {
 
 func TestLoad_CreatedByFallsBackWhenCreatedAtStored(t *testing.T) {
 	dir := t.TempDir()
-	writeRaw(t, filepath.Join(dir, "a.md"), docWithCreatedLine("AAAAAA", "a", "createdAt: 2025-06-01T08:00:00Z"))
+	writeRaw(t, filepath.Join(dir, "a.md"), docWithCreatedLine("a", "createdAt: 2025-06-01T08:00:00Z"))
 
 	tk := newStoreIn(t, dir).GetTiki("AAAAAA")
 	if v, ok := tk.Get("createdBy"); !ok || v == "" {
@@ -133,7 +133,7 @@ func TestReloadPaths_StoredCreatedAtBeatsCarriedValue(t *testing.T) {
 	s, _, _ := newReloadStore(t, root)
 	s.GetTiki("AAAAAA").SetCreatedAt(time.Date(2020, 1, 2, 0, 0, 0, 0, time.UTC))
 
-	writeExternal(t, path, docWithCreatedLine("AAAAAA", "edited", "createdAt: 2025-06-01T08:00:00Z"))
+	writeExternal(t, path, docWithCreatedLine("edited", "createdAt: 2025-06-01T08:00:00Z"))
 	mustReload(t, s, path)
 
 	if want := time.Date(2025, 6, 1, 8, 0, 0, 0, time.UTC); !s.GetTiki("AAAAAA").CreatedAt().Equal(want) {
@@ -172,10 +172,10 @@ func TestMarshal_OmitsZeroCreatedAt(t *testing.T) {
 	}
 }
 
-func retitle(t *testing.T, s *TikiStore, id, title string) {
+func retitle(t *testing.T, s *TikiStore) {
 	t.Helper()
-	tk := s.GetTiki(id).Clone()
-	tk.SetTitle(title)
+	tk := s.GetTiki("AAAAAA").Clone()
+	tk.SetTitle("retitled")
 	if err := s.UpdateTiki(tk); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}
@@ -193,10 +193,10 @@ func readFile(t *testing.T, path string) string {
 func TestSave_NormalizesStoredCreatedAtToUTC(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "a.md")
-	writeRaw(t, path, docWithCreatedLine("AAAAAA", "a", "createdAt: 2025-06-01T10:00:00+02:00"))
+	writeRaw(t, path, docWithCreatedLine("a", "createdAt: 2025-06-01T10:00:00+02:00"))
 	s := newStoreIn(t, dir)
 
-	retitle(t, s, "AAAAAA", "b")
+	retitle(t, s)
 
 	if got := strings.Count(readFile(t, path), "createdAt: 2025-06-01T08:00:00Z"); got != 1 {
 		t.Errorf("file has %d UTC createdAt lines, want 1:\n%s", got, readFile(t, path))
@@ -213,10 +213,10 @@ func TestSave_NormalizesStoredCreatedAtToUTC(t *testing.T) {
 func TestSave_ReplacesInvalidStoredCreatedAt(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "a.md")
-	writeRaw(t, path, docWithCreatedLine("AAAAAA", "a", "createdAt: garbage"))
+	writeRaw(t, path, docWithCreatedLine("a", "createdAt: garbage"))
 	s := newStoreIn(t, dir)
 
-	retitle(t, s, "AAAAAA", "b")
+	retitle(t, s)
 
 	got := readFile(t, path)
 	if strings.Contains(got, "garbage") || len(createdAtLine.FindAllString(got, -1)) != 1 {
@@ -230,7 +230,7 @@ func TestSave_InMemoryCreatedAtMatchesFile(t *testing.T) {
 	writeDoc(t, filepath.Join(dir, "a.md"), "AAAAAA", "a")
 	s := newStoreIn(t, dir)
 
-	retitle(t, s, "AAAAAA", "b")
+	retitle(t, s)
 
 	got := s.GetTiki("AAAAAA").CreatedAt()
 	if want := time.Date(2024, 3, 3, 2, 3, 3, 0, time.UTC); !got.Equal(want) || got.Location() != time.UTC {

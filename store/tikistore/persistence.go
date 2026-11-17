@@ -66,9 +66,13 @@ func (s *TikiStore) loadLocked() error {
 	prev := s.diagnostics
 	s.diagnostics = newLoadDiagnostics()
 	idIndex := document.NewIndex()
+	policy := s.stampPolicyFor(lastCommitMap)
 	for _, filePath := range docPaths {
 		tk, err := s.loadTikiFile(filePath, authorMap, lastCommitMap)
 		admitDocument(filePath, tk, err, idIndex, s.diagnostics, prev, s.tikis)
+		if err == nil && s.tikis[tk.ID()] == tk && s.needsStamp(tk, policy, lastCommitMap) {
+			s.stampLogged(tk)
+		}
 	}
 	s.live = scanLiveTimes(s.dir)
 	applyLiveTimes(s.tikis, s.live)

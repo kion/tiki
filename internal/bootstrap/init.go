@@ -18,6 +18,7 @@ import (
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
+	"github.com/boolean-maybe/tiki/store/tikistore"
 	"github.com/boolean-maybe/tiki/theme"
 	"github.com/boolean-maybe/tiki/util/sysinfo"
 	"github.com/boolean-maybe/tiki/view"
@@ -100,7 +101,7 @@ func Bootstrap() (*Result, error) {
 	gate := service.BuildGate()
 
 	// Phase 4: Store initialization
-	tikiStoreConcrete, tikiStore, err := InitStores()
+	tikiStoreConcrete, tikiStore, err := InitStores(tikistore.WithCreatedAtStamping())
 	if err != nil {
 		return nil, err
 	}
