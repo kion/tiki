@@ -37,6 +37,9 @@ func matchesPattern(filePath, pattern string) bool {
 	// it. Strip a trailing slash from the pattern so `.doc/` and `.doc`
 	// behave identically, matching git's own pathspec rules.
 	pattern = strings.TrimSuffix(pattern, "/")
+	if pattern == "." {
+		return true
+	}
 	if filePath == pattern {
 		return true
 	}

@@ -209,7 +209,7 @@ Copy your in-flight work to the clipboard, ready to paste into Slack or standup 
 tiki exec 'select id, title where status = "inProgress" and assignee = user() | clipboard()'
 ```
 
-Add `order by updated desc limit 5` for a "what I touched recently" shortlist.
+Add `order by updatedAt desc limit 5` for a "what I touched recently" shortlist.
 
 The same statement runs in-app: press `!` on any view
 

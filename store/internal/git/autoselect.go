@@ -137,3 +137,10 @@ func (s *selector) AllUsers() ([]string, error) {
 	}
 	return s.backend.AllUsers()
 }
+
+func (s *selector) RepoRelPath(path string) (string, error) {
+	if err := s.ensureBackend(); err != nil {
+		return "", err
+	}
+	return s.backend.RepoRelPath(path)
+}

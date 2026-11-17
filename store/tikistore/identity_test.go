@@ -45,7 +45,8 @@ func (f *fakeGitOps) FileVersionsSince(_ string, _ time.Time, _ bool) ([]git.Fil
 func (f *fakeGitOps) AllFileVersionsSince(_ string, _ time.Time, _ bool) (map[string][]git.FileVersion, error) {
 	return nil, nil
 }
-func (f *fakeGitOps) AllUsers() ([]string, error) { return f.users, f.usersErr }
+func (f *fakeGitOps) AllUsers() ([]string, error)          { return f.users, f.usersErr }
+func (f *fakeGitOps) RepoRelPath(_ string) (string, error) { return "", nil }
 
 // isolateConfig puts the test in a clean config sandbox:
 //   - cwd is moved to a fresh temp dir (so `./config.yaml` cannot be found)

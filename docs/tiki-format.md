@@ -240,8 +240,10 @@ These fields are not stored in the file:
 - `created at`
 - `updated at`
 
-`created at` / `updated at` are derived from git history (commit times) with file mtime as a fallback when
-the scan root is not a git repository or the file is uncommitted. `created by` is populated from git
+`created at` is the time of the commit that added the file, with file mtime as a fallback when the scan
+root is not a git repository or the file is uncommitted. `updated at` is the later of the file's last
+commit and its mtime, so an uncommitted edit counts, and so does any rewrite of the file, such as a fresh
+clone or a checkout that changes it. `created by` is populated from git
 authorship when available; for uncommitted files or a non-repo scan root it falls back to the current
 `tiki` identity (configured `identity.name` or `identity.email` → git user → OS account name).
 

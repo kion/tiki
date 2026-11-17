@@ -62,7 +62,8 @@ func (g *countingGit) AllFileVersionsSince(string, time.Time, bool) (map[string]
 	g.bump()
 	return nil, nil
 }
-func (g *countingGit) AllUsers() ([]string, error) { return nil, nil }
+func (g *countingGit) AllUsers() ([]string, error)             { return nil, nil }
+func (g *countingGit) RepoRelPath(path string) (string, error) { return path, nil }
 
 func newReloadStore(t *testing.T, root string) (*TikiStore, *countingGit, *int) {
 	t.Helper()

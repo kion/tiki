@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	pathpkg "path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -20,6 +21,38 @@ type Util struct {
 	currentUserName   string
 	currentUserEmail  string
 	currentUserErr    error
+
+	prefixOnce sync.Once
+	prefix     string
+	prefixErr  error
+}
+
+// RepoRelPath returns path relative to the repo root, slash-separated.
+func (u *Util) RepoRelPath(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve %s: %w", path, err)
+	}
+	base, err := filepath.Abs(u.repoPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve %s: %w", u.repoPath, err)
+	}
+	rel, err := filepath.Rel(base, abs)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert path %s to relative: %w", path, err)
+	}
+	// Prefix from git rather than Rel against the toplevel:
+	// git reports the toplevel with symlinks resolved, but repoPath may run through one.
+	u.prefixOnce.Do(func() {
+		cmd := exec.Command("git", "rev-parse", "--show-prefix")
+		cmd.Dir = u.repoPath
+		out, err := cmd.Output()
+		u.prefix, u.prefixErr = strings.TrimSpace(string(out)), err
+	})
+	if u.prefixErr != nil {
+		return "", fmt.Errorf("failed to get repo prefix: %w", u.prefixErr)
+	}
+	return pathpkg.Join(u.prefix, filepath.ToSlash(rel)), nil
 }
 
 // NewUtil creates a new Util instance; repoPath defaults to cwd

@@ -166,30 +166,31 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 		tk.MarkStaleForPersistence(k)
 	}
 
+	var gitKey string
+	if s.gitUtil != nil && (authorMap != nil || lastCommitMap != nil) {
+		if key, err := s.gitUtil.RepoRelPath(absPath); err == nil {
+			gitKey = key
+		} else {
+			slog.Debug("failed to resolve repo-relative tiki path, using file times", "file", absPath, "error", err)
+		}
+	}
+
 	// compute UpdatedAt as max(file_mtime, last_git_commit_time)
 	tk.SetUpdatedAt(info.ModTime())
-	if lastCommitMap != nil {
-		relPath := relPathForLookup(s.dir, path)
-		if lastCommit, exists := lastCommitMap[relPath]; exists {
-			if lastCommit.After(tk.UpdatedAt()) {
-				tk.SetUpdatedAt(lastCommit)
-			}
-		}
+	if lastCommit, exists := lastCommitMap[gitKey]; exists && lastCommit.After(tk.UpdatedAt()) {
+		tk.SetUpdatedAt(lastCommit)
 	}
 
 	// Populate CreatedAt/CreatedBy from author map (already fetched in batch).
 	// CreatedBy is stored in Fields so ruki's identity-field reads work.
-	if authorMap != nil {
-		relPath := relPathForLookup(s.dir, path)
-		if author, exists := authorMap[relPath]; exists {
-			switch {
-			case author.Name != "":
-				tk.Set("createdBy", author.Name)
-			case author.Email != "":
-				tk.Set("createdBy", author.Email)
-			}
-			tk.SetCreatedAt(author.Date)
+	if author, exists := authorMap[gitKey]; exists {
+		switch {
+		case author.Name != "":
+			tk.Set("createdBy", author.Name)
+		case author.Email != "":
+			tk.Set("createdBy", author.Email)
 		}
+		tk.SetCreatedAt(author.Date)
 	}
 
 	// Fallback to file metadata when git history is not available.
@@ -206,21 +207,6 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 	}
 
 	return tk, nil
-}
-
-// relPathForLookup returns the lookup key for the authorMap / lastCommitMap.
-// Both maps are keyed by the path as constructed from s.dir (i.e. the
-// already-joined relative path). When path is absolute, rebuild the key the
-// same way AllAuthors/AllLastCommitTimes built it.
-func relPathForLookup(dir, path string) string {
-	if !filepath.IsAbs(path) {
-		return path
-	}
-	rel, err := filepath.Rel(dir, path)
-	if err != nil {
-		return path
-	}
-	return filepath.Join(dir, rel)
 }
 
 // Reload reloads all tikis from disk

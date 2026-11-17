@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"testing"
 	"time"
@@ -477,4 +478,73 @@ func sortVersions(v []types.FileVersion) {
 		}
 		return v[i].When.Before(v[j].When)
 	})
+}
+
+// The store passes its own directory, which is the repo root in the common layout.
+func TestParity_RepoRootPattern(t *testing.T) {
+	requireShellGit(t)
+	dir := setupParityRepo(t)
+
+	sh, err := shell.NewUtil(dir)
+	if err != nil {
+		t.Fatalf("shell.NewUtil: %v", err)
+	}
+	gg, err := gogit.NewUtil(dir)
+	if err != nil {
+		t.Fatalf("gogit.NewUtil: %v", err)
+	}
+
+	want := []string{"tikis/tiki-001.md", "tikis/tiki-002.md", "tikis/tiki-003.md"}
+	for _, b := range []struct {
+		name    string
+		authors func(string) (map[string]*types.AuthorInfo, error)
+		times   func(string) (map[string]time.Time, error)
+	}{
+		{"shell", sh.AllAuthors, sh.AllLastCommitTimes},
+		{"gogit", gg.AllAuthors, gg.AllLastCommitTimes},
+	} {
+		authors, err := b.authors(dir)
+		if err != nil {
+			t.Fatalf("%s AllAuthors: %v", b.name, err)
+		}
+		if got := sortedKeys(authors); !slices.Equal(got, want) {
+			t.Errorf("%s AllAuthors keys = %v, want %v", b.name, got, want)
+		}
+		times, err := b.times(dir)
+		if err != nil {
+			t.Fatalf("%s AllLastCommitTimes: %v", b.name, err)
+		}
+		if got := sortedTimeKeys(times); !slices.Equal(got, want) {
+			t.Errorf("%s AllLastCommitTimes keys = %v, want %v", b.name, got, want)
+		}
+	}
+}
+
+func TestParity_RepoRelPath(t *testing.T) {
+	requireShellGit(t)
+	dir := setupParityRepo(t)
+	file := filepath.Join(dir, "tikis", "tiki-001.md")
+
+	for _, opened := range []string{dir, filepath.Join(dir, "tikis")} {
+		sh, err := shell.NewUtil(opened)
+		if err != nil {
+			t.Fatalf("shell.NewUtil(%s): %v", opened, err)
+		}
+		gg, err := gogit.NewUtil(opened)
+		if err != nil {
+			t.Fatalf("gogit.NewUtil(%s): %v", opened, err)
+		}
+		for name, rel := range map[string]func(string) (string, error){
+			"shell": sh.RepoRelPath,
+			"gogit": gg.RepoRelPath,
+		} {
+			got, err := rel(file)
+			if err != nil {
+				t.Fatalf("%s RepoRelPath (opened at %s): %v", name, opened, err)
+			}
+			if got != "tikis/tiki-001.md" {
+				t.Errorf("%s RepoRelPath (opened at %s) = %q, want %q", name, opened, got, "tikis/tiki-001.md")
+			}
+		}
+	}
 }

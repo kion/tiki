@@ -15,6 +15,8 @@ type GitOps interface {
 	FileVersionsSince(filePath string, since time.Time, includePrior bool) ([]FileVersion, error)
 	AllFileVersionsSince(dirPattern string, since time.Time, includePrior bool) (map[string][]FileVersion, error)
 	AllUsers() ([]string, error)
+	// RepoRelPath returns the key AllAuthors and AllLastCommitTimes use for path.
+	RepoRelPath(path string) (string, error)
 }
 
 // NewGitOps creates a new GitOps instance. Backend selection (shell vs go-git)

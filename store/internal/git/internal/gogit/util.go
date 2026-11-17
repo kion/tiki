@@ -77,6 +77,19 @@ func (g *Util) toRelative(path string) (string, error) {
 	return path, nil
 }
 
+// RepoRelPath returns path relative to the repo root, slash-separated.
+func (g *Util) RepoRelPath(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve %s: %w", path, err)
+	}
+	rel, err := g.toRelative(abs)
+	if err != nil {
+		return "", err
+	}
+	return filepath.ToSlash(rel), nil
+}
+
 // toRelativePattern converts an absolute pathspec pattern to one relative to
 // the repo root, so it can match against go-git's repo-relative file paths.
 func (g *Util) toRelativePattern(pattern string) string {
