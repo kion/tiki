@@ -220,14 +220,16 @@ How it behaves:
 - **Live status.** An AI agent's [live status](live-status.md) shows on cards only while live
   reload is on.
 - **Full reload.** `r` still does a full reload. Unlike live reload, it also refreshes the creation
-  time and author that tiki reads from git history.
+  time and author that tiki reads from git history, and adds `createdAt` to tikis that lack it
+  (see [Creation time](tiki-format.md#creation-time-createdat)).
 
 Limitations:
 
 - **Search results.** Active search results are a snapshot. Newly matching tikis appear after you
   search again.
 - **Git metadata.** A tiki that is new to tiki (for example one that arrived with `git pull`) shows
-  creation time and author from the file until the next `r`.
+  its stored `createdAt` if it has one. Without one, it shows the file's birth time, and the author from
+  the file, until the next `r`; saving it before then writes that birth time into the file.
 - **Not reloaded.** Changes to `workflow.yaml` and `config.yaml` still need a restart. Wiki views
   and the branch shown in the statusline are not refreshed.
 - **Network drives.** Network filesystems and some WSL `/mnt/*` mounts don't report file changes,

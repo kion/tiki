@@ -12,7 +12,7 @@ const intrinsicSchemaBlock = `intrinsic fields (every tiki):
   title        string     required on create
   description  string     the Markdown body
   createdBy    string     set by tiki
-  createdAt    timestamp  set by tiki
+  createdAt    timestamp  stored in the file by tiki; never set or edit it
   updatedAt    timestamp  set by tiki
   activeAt     timestamp  computed: the later of updatedAt and the live status time
   filepath     string     computed: absolute path on disk

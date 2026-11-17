@@ -232,20 +232,37 @@ Any field declared under `workflow.yaml fields:` is round-tripped through save/l
 coercion. Unknown frontmatter keys that the workflow does not declare are preserved as-is, so
 workflow schema changes do not lose data. See [Custom fields](customization/custom-fields.md).
 
+## Creation time (`createdAt`)
+
+tiki stores a tiki's creation time in its frontmatter, in UTC:
+
+```yaml
+createdAt: 2026-01-01T10:00:00Z
+```
+
+- A value in the file always wins. By hand you can write any YAML timestamp (`2026-01-01`,
+  `2026-01-01 10:00:00`, or one with an offset such as `+02:00`); the next save rewrites it in UTC.
+  A value that isn't a timestamp is ignored and replaced on the next save.
+- Without one, tiki uses the time of the commit that added the file, then the file's birth time where
+  the filesystem records it, then its modification time.
+- tiki writes it when it creates a tiki and on every save. At startup and on a full reload (`r`) it also
+  adds it to tikis that git can't date: uncommitted tikis in a git repository, and every tiki outside one.
+  That adds only the one line, and the file keeps its modification time, so it doesn't count as an edit.
+- Nothing is added on load to symlinked files, to files with an invalid `createdAt`, to files whose
+  modification time you can't set, or anywhere in a repository whose history tiki can't read.
+  `tiki exec` and live reload never add it.
+
 ## Derived fields
 
 These fields are not stored in the file:
 
 - `created by`
-- `created at`
 - `updated at`
 
-`created at` is the time of the commit that added the file, with file mtime as a fallback when the scan
-root is not a git repository or the file is uncommitted. `updated at` is the later of the file's last
-commit and its mtime, so an uncommitted edit counts, and so does any rewrite of the file, such as a fresh
-clone or a checkout that changes it. `created by` is populated from git
-authorship when available; for uncommitted files or a non-repo scan root it falls back to the current
-`tiki` identity (configured `identity.name` or `identity.email` → git user → OS account name).
+`updated at` is the later of the file's last commit and its mtime, so an uncommitted edit counts, and so
+does any rewrite of the file, such as a fresh clone or a checkout that changes it. `created by` is
+populated from git authorship when available; for uncommitted files or a non-repo scan root it falls back
+to the current `tiki` identity (configured `identity.name` or `identity.email` → git user → OS account name).
 
 ## Sparse tikis (notes, docs, prompts)
 

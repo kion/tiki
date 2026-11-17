@@ -6,6 +6,11 @@ The creation time and author are fields:
 tiki exec 'select createdAt, createdBy, updatedAt where id = "X7F4K2"'
 ```
 
+tiki stores `createdAt` in the tiki's frontmatter, and fills it in itself: at creation, on every save,
+and when the TUI loads an uncommitted file without one. Until then it comes from the commit that added the
+file, else from the file's own timestamps. Never set or edit it. Table output shows times in local time;
+JSON shows UTC.
+
 `ruki` does not read git history. For anything else, resolve the tiki's path from its id first, since
 the file can be anywhere under the current directory, then use git:
 

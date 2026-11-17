@@ -30,6 +30,10 @@ A `select` without a field list returns every field except `description`, the Ma
 `description` or use `select *` to get the body. In table output a column is padded to its widest cell,
 up to 60 characters: a longer cell is printed in full and only its own row loses alignment.
 
+Table output shows tiki's own timestamps (`createdAt`, `updatedAt`, `activeAt`) in your local time zone,
+with the offset, e.g. `2026-01-01T05:00:00-05:00`. JSON output, and the result of a top-level expression,
+show them in UTC.
+
 Examples:
 ```bash
 tiki exec 'select where status = "ready" order by priority'

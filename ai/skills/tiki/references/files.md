@@ -17,7 +17,8 @@
 A tiki with only `id` and `title` in its frontmatter is a plain note or document. It is reachable by
 id and path, but it falls outside any view that filters on a workflow field.
 
-- You may edit a notes-only tiki's file directly with Read and Edit. Keep its `id:` line unchanged.
+- You may edit a notes-only tiki's file directly with Read and Edit. Keep its `id:` and `createdAt:`
+  lines unchanged.
 - A tiki that has workflow fields is changed only through `tiki exec`, so validation and triggers
   run.
 - Setting a workflow field on a notes-only tiki turns it into a tracked one:

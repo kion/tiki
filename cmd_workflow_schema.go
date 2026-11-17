@@ -21,7 +21,7 @@ var intrinsicFieldNotes = map[string]string{
 	"title":       "required on create",
 	"description": "the Markdown body",
 	"createdBy":   "set by tiki",
-	"createdAt":   "set by tiki",
+	"createdAt":   "stored in the file by tiki; never set or edit it",
 	"updatedAt":   "set by tiki",
 	"activeAt":    "computed: the later of updatedAt and the live status time",
 	"filepath":    "computed: absolute path on disk",
