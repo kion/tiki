@@ -229,7 +229,7 @@ Limitations:
   search again.
 - **Git metadata.** A tiki that is new to tiki (for example one that arrived with `git pull`) shows
   its stored `createdAt` if it has one. Without one, it shows the file's birth time, and the author from
-  the file, until the next `r`; saving it before then writes that birth time into the file.
+  the file, until the next `r`; a save before then leaves `createdAt` out of the file.
 - **Not reloaded.** Changes to `workflow.yaml` and `config.yaml` still need a restart. Wiki views
   and the branch shown in the statusline are not refreshed.
 - **Network drives.** Network filesystems and some WSL `/mnt/*` mounts don't report file changes,

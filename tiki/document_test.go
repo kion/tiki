@@ -69,10 +69,10 @@ func TestClone_KeepsLiveAt(t *testing.T) {
 	}
 }
 
-func TestClone_CopiesCreatedAtStored(t *testing.T) {
+func TestClone_CopiesCreatedAtSource(t *testing.T) {
 	tk := New()
-	tk.SetCreatedAtStored(true)
-	if !tk.Clone().CreatedAtStored() {
-		t.Error("clone CreatedAtStored() = false, want true")
+	tk.SetCreatedAtSource(CreatedAtGuess)
+	if got := tk.Clone().CreatedAtSource(); got != CreatedAtGuess {
+		t.Errorf("clone CreatedAtSource() = %v, want %v", got, CreatedAtGuess)
 	}
 }

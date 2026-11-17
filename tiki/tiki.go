@@ -43,9 +43,7 @@ type Tiki struct {
 	// Read via CreatedAt().
 	createdAt time.Time
 
-	// createdAtStored separates a value read from the file from a derived one,
-	// so live reload keeps a stored value instead of carrying the old one forward.
-	createdAtStored bool
+	createdAtSource CreatedAtSource
 
 	// updatedAt is max(file mtime, latest git commit time). Read via UpdatedAt().
 	updatedAt time.Time
@@ -67,6 +65,24 @@ type Tiki struct {
 	stale map[string]struct{}
 }
 
+// CreatedAtSource records where a tiki's creation time came from,
+// because only a value git can't contradict may be written into the file.
+type CreatedAtSource uint8
+
+const (
+	// CreatedAtAssigned is the zero value: tiki set the time itself, e.g. when it created the tiki.
+	CreatedAtAssigned CreatedAtSource = iota
+	// CreatedAtStored was read from the file's frontmatter.
+	CreatedAtStored
+	// CreatedAtGit is the date of the commit that added the file.
+	CreatedAtGit
+	// CreatedAtFileTimes is the file's birth or modification time, for a file git has no record of.
+	CreatedAtFileTimes
+	// CreatedAtGuess is the file's birth or modification time where git may know better:
+	// its history wasn't read for this file.
+	CreatedAtGuess
+)
+
 // SearchResult pairs a tiki with a relevance score (higher is better).
 type SearchResult struct {
 	Tiki  *Tiki
@@ -80,14 +96,15 @@ func New() *Tiki {
 }
 
 // special read-only attribute accessors.
-func (t *Tiki) ID() string            { return t.id }
-func (t *Tiki) Title() string         { return t.title }
-func (t *Tiki) Body() string          { return t.body }
-func (t *Tiki) Path() string          { return t.path }
-func (t *Tiki) CreatedAt() time.Time  { return t.createdAt }
-func (t *Tiki) UpdatedAt() time.Time  { return t.updatedAt }
-func (t *Tiki) LiveAt() time.Time     { return t.liveAt }
-func (t *Tiki) CreatedAtStored() bool { return t.createdAtStored }
+func (t *Tiki) ID() string                       { return t.id }
+func (t *Tiki) Title() string                    { return t.title }
+func (t *Tiki) Body() string                     { return t.body }
+func (t *Tiki) Path() string                     { return t.path }
+func (t *Tiki) CreatedAt() time.Time             { return t.createdAt }
+func (t *Tiki) UpdatedAt() time.Time             { return t.updatedAt }
+func (t *Tiki) LiveAt() time.Time                { return t.liveAt }
+func (t *Tiki) CreatedAtStored() bool            { return t.createdAtSource == CreatedAtStored }
+func (t *Tiki) CreatedAtSource() CreatedAtSource { return t.createdAtSource }
 
 // ActiveAt counts an agent's live status as activity
 // without making it an update to the tiki.
@@ -99,14 +116,14 @@ func (t *Tiki) ActiveAt() time.Time {
 }
 
 // setters for the store/service/template construction paths.
-func (t *Tiki) SetID(v string)            { t.id = v }
-func (t *Tiki) SetTitle(v string)         { t.title = v }
-func (t *Tiki) SetBody(v string)          { t.body = v }
-func (t *Tiki) SetPath(v string)          { t.path = v }
-func (t *Tiki) SetCreatedAt(v time.Time)  { t.createdAt = v }
-func (t *Tiki) SetCreatedAtStored(v bool) { t.createdAtStored = v }
-func (t *Tiki) SetUpdatedAt(v time.Time)  { t.updatedAt = v }
-func (t *Tiki) SetLiveAt(v time.Time)     { t.liveAt = v }
+func (t *Tiki) SetID(v string)                       { t.id = v }
+func (t *Tiki) SetTitle(v string)                    { t.title = v }
+func (t *Tiki) SetBody(v string)                     { t.body = v }
+func (t *Tiki) SetPath(v string)                     { t.path = v }
+func (t *Tiki) SetCreatedAt(v time.Time)             { t.createdAt = v }
+func (t *Tiki) SetCreatedAtSource(v CreatedAtSource) { t.createdAtSource = v }
+func (t *Tiki) SetUpdatedAt(v time.Time)             { t.updatedAt = v }
+func (t *Tiki) SetLiveAt(v time.Time)                { t.liveAt = v }
 
 // Clone returns a deep copy. Slice values inside Fields are copied; maps
 // nested inside Fields are copied one level (sufficient for all current
@@ -123,7 +140,7 @@ func (t *Tiki) Clone() *Tiki {
 		LoadedMtime:     t.LoadedMtime,
 		LoadedSize:      t.LoadedSize,
 		createdAt:       t.createdAt,
-		createdAtStored: t.createdAtStored,
+		createdAtSource: t.createdAtSource,
 		updatedAt:       t.updatedAt,
 		liveAt:          t.liveAt,
 	}

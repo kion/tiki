@@ -125,10 +125,12 @@ match is used. The next tiki save overwrites it with the resolved value. *(my ca
 
 ### Writing it
 
-- **tiki saves:** every save writes `createdAt` with the tiki's current value, whatever its source.
-  For a committed tiki without the line, this freezes the first-commit time into the file
-  on the first edit made in tiki. Two branches doing this write the same value, so git merges them cleanly.
-  *(my call)*
+- **tiki saves:** a save writes `createdAt` when its value is one git can't contradict:
+  stored, the commit date, set by tiki at creation, or file times for a file git provably has no record of.
+  A file-time value that is only a guess (live reload, a single-tiki reload, a nested repository,
+  history unread) stays out of the file. *(revised after the final review, decided by the user)*
+  For a committed tiki without the line, a save freezes the first-commit time into the file.
+  Two branches doing this write the same value, so git merges them cleanly.
 - **Creation in tiki:** the creation time is the moment of creation (as today), and the first save writes it.
 - **On sight (option C), at full loads only:** when the TUI does a full load
   (startup, or full reload with `r`) and finds a tiki file that
@@ -234,3 +236,14 @@ match is used. The next tiki save overwrites it with the resolved value. *(my ca
 - Unit and store tests for each rule above, written test-first.
 - Behavioural checks may drive tiki in a detached private tmux session against a scratch project.
 - The user checks the TUI's look and feel on their own display.
+
+## Revisions after the final review
+
+- Saves write only values git can't contradict (see "tiki saves" above), decided by the user.
+  Otherwise a tiki that appeared during live reload, was renamed, or sits in a nested repository
+  got a file-time guess written on its first save, and the guess then won over git.
+- A guard drops git's history for a load when its paths don't line up with the files tiki walked
+  (e.g. `GIT_DIR` set without `GIT_WORK_TREE`, run from a subfolder), decided by the user.
+- Tikis inside a git repository nested below the project are never stamped.
+- A stamp is kept only if every other frontmatter value parses as before.
+- A quoted `createdAt` is read with yaml's timestamp layouts, like an unquoted one.

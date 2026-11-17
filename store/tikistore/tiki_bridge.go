@@ -170,8 +170,8 @@ func marshalTikiFrontmatter(t *tiki.Tiki) ([]byte, error) {
 		}
 		buf.Write(out)
 	}
-	if created := t.CreatedAt(); !created.IsZero() {
-		buf.WriteString("createdAt: " + createdAtLineValue(created) + "\n")
+	if writesCreatedAt(t) {
+		buf.WriteString("createdAt: " + createdAtLineValue(t.CreatedAt()) + "\n")
 	}
 
 	// Workflow-declared fields first, in workflow.yaml declaration order,

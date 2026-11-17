@@ -105,26 +105,23 @@ func TestInsideGitWorkTree(t *testing.T) {
 	}
 }
 
-func TestStampPolicyFor(t *testing.T) {
+func TestHistoryStateFor(t *testing.T) {
 	plain := t.TempDir()
 	repo := t.TempDir()
 	if err := os.Mkdir(filepath.Join(repo, ".git"), 0o750); err != nil {
 		t.Fatal(err)
 	}
-	history := map[string]time.Time{}
 	for _, tc := range []struct {
 		name    string
-		on      bool
 		dir     string
 		history map[string]time.Time
 		gitDir  string
-		want    stampPolicy
+		want    historyState
 	}{
-		{"option off", false, plain, history, "", stampNone},
-		{"history fetched", true, repo, history, "", stampUncommitted},
-		{"repo, history unreadable", true, repo, nil, "", stampNone},
-		{"GIT_DIR set, history unreadable", true, plain, nil, "/somewhere/.git", stampNone},
-		{"not a repo", true, plain, nil, "", stampAll},
+		{"history read", repo, map[string]time.Time{}, "", historyRead},
+		{"repo, history unreadable", repo, nil, "", historyUnknown},
+		{"GIT_DIR set, history unreadable", plain, nil, "/somewhere/.git", historyUnknown},
+		{"not a repo", plain, nil, "", historyNone},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("GIT_DIR", tc.gitDir)
@@ -133,9 +130,9 @@ func TestStampPolicyFor(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			s := &TikiStore{dir: tc.dir, stampOnLoad: tc.on}
-			if got := s.stampPolicyFor(tc.history); got != tc.want {
-				t.Errorf("policy = %v, want %v", got, tc.want)
+			s := &TikiStore{dir: tc.dir}
+			if got := s.historyStateFor(tc.history); got != tc.want {
+				t.Errorf("state = %v, want %v", got, tc.want)
 			}
 		})
 	}

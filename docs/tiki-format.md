@@ -245,12 +245,17 @@ createdAt: 2026-01-01T10:00:00Z
   A value that isn't a timestamp is ignored and replaced on the next save.
 - Without one, tiki uses the time of the commit that added the file, then the file's birth time where
   the filesystem records it, then its modification time.
-- tiki writes it when it creates a tiki and on every save. At startup and on a full reload (`r`) it also
-  adds it to tikis that git can't date: uncommitted tikis in a git repository, and every tiki outside one.
-  That adds only the one line, and the file keeps its modification time, so it doesn't count as an edit.
+- tiki writes it when it creates a tiki, and when it saves one whose time git can't contradict: a stored
+  value, the commit date, or the file's own times for a file git has no record of. A time that is only a
+  guess stays out of the file until tiki has read the history at the next startup or `r`: a tiki that
+  appeared while tiki was running, a renamed tiki, or one inside a git repository nested below the project.
+- At startup and on a full reload (`r`) tiki also adds it to tikis that git can't date: uncommitted tikis in
+  a git repository, and every tiki outside one. That adds only the one line, and the file keeps its
+  modification time, so it doesn't count as an edit.
 - Nothing is added on load to symlinked files, to files with an invalid `createdAt`, to files whose
   modification time you can't set, to tikis inside a git repository nested below the project (such as a
-  submodule), or anywhere in a repository whose history tiki can't read.
+  submodule), or anywhere in a repository whose history tiki can't read or whose paths don't line up with
+  the files on disk.
   `tiki exec` and live reload never add it.
 
 ## Derived fields

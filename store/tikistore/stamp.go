@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/boolean-maybe/tiki/store"
@@ -17,51 +18,107 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type stampPolicy int
+type historyState int
 
 const (
-	stampNone stampPolicy = iota
-	stampUncommitted
-	stampAll
+	historyUnknown historyState = iota
+	// the load read the history, and its paths line up with the files
+	historyRead
+	// the folder is known not to be in a repository
+	historyNone
 )
 
 // A variable so tests can stand in for a file whose times the user may not set.
 var chtimes = os.Chtimes
 
+// A variable so tests can make an outside write land between the stat and the read.
+var readTikiFile = os.ReadFile
+
 var errStampSkipped = errors.New("createdAt stamp skipped")
 
 var createdAtKeyLine = regexp.MustCompile(`^["']?createdAt["']?\s*:`)
 
-// Everything is stamped only when the folder is known not to be a repository:
-// a repository whose history can't be read stamps nothing, so an error never turns into a mass rewrite.
-func (s *TikiStore) stampPolicyFor(lastCommitMap map[string]time.Time) stampPolicy {
+// Outside git counts only when the folder is known not to be a repository:
+// a repository whose history can't be read trusts nothing, so an error never turns into a mass rewrite.
+func (s *TikiStore) historyStateFor(lastCommitMap map[string]time.Time) historyState {
 	switch {
-	case !s.stampOnLoad:
-		return stampNone
 	case lastCommitMap != nil:
-		return stampUncommitted
+		return historyRead
 	case insideGitWorkTree(s.dir) || os.Getenv("GIT_DIR") != "":
-		return stampNone
+		return historyUnknown
 	}
-	return stampAll
+	return historyNone
 }
 
-func (s *TikiStore) needsStamp(tk *tiki.Tiki, policy stampPolicy, lastCommitMap map[string]time.Time) bool {
-	if tk.CreatedAtStored() || s.inNestedRepo(tk.Path()) {
-		return false
+// Only a file git provably can't date may have its own times written into it.
+func (s *TikiStore) trustFileTimes(tk *tiki.Tiki, state historyState, lastCommitMap map[string]time.Time) {
+	if tk.CreatedAtSource() != tiki.CreatedAtGuess || s.inNestedRepo(tk.Path()) {
+		return
 	}
-	switch policy {
-	case stampAll:
-		return true
-	case stampUncommitted:
+	switch state {
+	case historyNone:
+	case historyRead:
 		key, err := s.gitUtil.RepoRelPath(tk.Path())
 		if err != nil {
+			return
+		}
+		if _, committed := lastCommitMap[key]; committed {
+			return
+		}
+	default:
+		return
+	}
+	tk.SetCreatedAtSource(tiki.CreatedAtFileTimes)
+}
+
+// historyKeysMatch guards against git's paths and tiki's not lining up, which has happened twice:
+// every committed tiki would then look uncommitted.
+func (s *TikiStore) historyKeysMatch(lastCommitMap map[string]time.Time, docPaths []string) bool {
+	if len(lastCommitMap) == 0 {
+		return true
+	}
+	walked := make(map[string]bool, len(docPaths))
+	for _, p := range docPaths {
+		abs, err := filepath.Abs(p)
+		if err != nil {
+			continue
+		}
+		walked[abs] = true
+		if key, err := s.gitUtil.RepoRelPath(abs); err == nil {
+			if _, ok := lastCommitMap[key]; ok {
+				return true
+			}
+		}
+	}
+	// No tiki has history, which is normal when none is committed.
+	// It's a mismatch when a history path is a file tiki walked under another key,
+	// or when no history path exists on disk at all.
+	root, err := filepath.Abs(s.dir)
+	if err != nil {
+		return false
+	}
+	prefix, err := s.gitUtil.RepoRelPath(root)
+	if err != nil {
+		return false
+	}
+	onDisk := false
+	for key := range lastCommitMap {
+		rel := key
+		if prefix != "." {
+			var ok bool
+			if rel, ok = strings.CutPrefix(key, prefix+"/"); !ok {
+				continue
+			}
+		}
+		path := filepath.Join(root, filepath.FromSlash(rel))
+		if walked[path] {
 			return false
 		}
-		_, committed := lastCommitMap[key]
-		return !committed
+		if _, err := os.Lstat(path); err == nil {
+			onDisk = true
+		}
 	}
-	return false
+	return onDisk
 }
 
 func (s *TikiStore) stampLogged(tk *tiki.Tiki) {
@@ -131,14 +188,19 @@ func stampCreatedAt(tk *tiki.Tiki) error {
 	if !info.ModTime().Equal(tk.LoadedMtime) || info.Size() != tk.LoadedSize {
 		return fmt.Errorf("%w: changed since load", errStampSkipped)
 	}
+	// Read before the probe below, which resets the mtime:
+	// an outside write landing in between shows up here as a size change and keeps its mtime.
+	content, err := readTikiFile(path)
+	if err != nil {
+		return fmt.Errorf("read: %w", err)
+	}
+	if int64(len(content)) != info.Size() {
+		return fmt.Errorf("%w: changed while being read", errStampSkipped)
+	}
 	// Setting the unchanged time succeeds only where restoring it later will,
 	// e.g. not on a file the user can write but doesn't own.
 	if err := chtimes(path, time.Time{}, info.ModTime()); err != nil {
 		return fmt.Errorf("%w: modification time can't be kept: %v", errStampSkipped, err)
-	}
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("read: %w", err)
 	}
 	if frontmatterHasCreatedAt(content) {
 		return fmt.Errorf("%w: frontmatter already has createdAt", errStampSkipped)
@@ -160,7 +222,7 @@ func stampCreatedAt(tk *tiki.Tiki) error {
 		tk.LoadedSize = after.Size()
 	}
 	tk.SetCreatedAt(writtenCreatedAt(tk.CreatedAt()))
-	tk.SetCreatedAtStored(true)
+	tk.SetCreatedAtSource(tiki.CreatedAtStored)
 	if restoreErr != nil {
 		return fmt.Errorf("restore modification time: %w", restoreErr)
 	}

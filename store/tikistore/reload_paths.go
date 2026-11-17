@@ -201,10 +201,13 @@ func (s *TikiStore) reloadPathsLocked(scope *document.Scope, paths []string) (Re
 			removed[old.ID()] = true
 		}
 	}
+	state := s.historyStateFor(nil)
 	for _, u := range upserts {
 		id := u.loaded.ID()
 		if u.old != nil {
 			carryForwardGitMeta(u.loaded, u.old)
+		} else {
+			s.trustFileTimes(u.loaded, state, nil)
 		}
 		u.loaded.SetLiveAt(s.live[id])
 		s.tikis[id] = u.loaded
@@ -265,6 +268,7 @@ func (s *TikiStore) reconcileLocked(keep map[string]bool) (ReloadResult, error) 
 	}
 
 	byPath := s.tikisByPathLocked()
+	state := s.historyStateFor(nil)
 	next := make(map[string]*tiki.Tiki, len(s.tikis))
 	diags := newLoadDiagnostics()
 	idIndex := document.NewIndex()
@@ -275,8 +279,12 @@ func (s *TikiStore) reconcileLocked(keep map[string]bool) (ReloadResult, error) 
 			continue
 		}
 		tk, loadErr := s.loadTikiFile(filePath, nil, nil)
-		if loadErr == nil && old != nil {
+		switch {
+		case loadErr != nil:
+		case old != nil:
 			carryForwardGitMeta(tk, old)
+		default:
+			s.trustFileTimes(tk, state, nil)
 		}
 		admitDocument(filePath, tk, loadErr, idIndex, diags, s.diagnostics, next)
 	}
@@ -327,6 +335,7 @@ func diffTikis(prev, next map[string]*tiki.Tiki) ReloadResult {
 func carryForwardGitMeta(loaded, old *tiki.Tiki) {
 	if !loaded.CreatedAtStored() {
 		loaded.SetCreatedAt(old.CreatedAt())
+		loaded.SetCreatedAtSource(old.CreatedAtSource())
 	}
 	if v, ok := old.Get("createdBy"); ok {
 		loaded.Set("createdBy", v)

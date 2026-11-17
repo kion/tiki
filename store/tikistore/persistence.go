@@ -66,11 +66,19 @@ func (s *TikiStore) loadLocked() error {
 	prev := s.diagnostics
 	s.diagnostics = newLoadDiagnostics()
 	idIndex := document.NewIndex()
-	policy := s.stampPolicyFor(lastCommitMap)
+	if lastCommitMap != nil && !s.historyKeysMatch(lastCommitMap, docPaths) {
+		slog.Warn("git's paths don't match the files on disk, so its history is ignored", "dir", s.dir)
+		authorMap, lastCommitMap = nil, nil
+	}
+	state := s.historyStateFor(lastCommitMap)
 	for _, filePath := range docPaths {
 		tk, err := s.loadTikiFile(filePath, authorMap, lastCommitMap)
 		admitDocument(filePath, tk, err, idIndex, s.diagnostics, prev, s.tikis)
-		if err == nil && s.tikis[tk.ID()] == tk && s.needsStamp(tk, policy, lastCommitMap) {
+		if err != nil || s.tikis[tk.ID()] != tk {
+			continue
+		}
+		s.trustFileTimes(tk, state, lastCommitMap)
+		if s.stampOnLoad && tk.CreatedAtSource() == tiki.CreatedAtFileTimes {
 			s.stampLogged(tk)
 		}
 	}
@@ -212,15 +220,18 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 	switch {
 	case storedOK:
 		tk.SetCreatedAt(stored)
-		tk.SetCreatedAtStored(true)
+		tk.SetCreatedAtSource(tiki.CreatedAtStored)
 	case hasAuthor:
 		tk.SetCreatedAt(author.Date)
+		tk.SetCreatedAtSource(tiki.CreatedAtGit)
 	default:
 		if birth, ok := birthTimeOf(path, info); ok {
 			tk.SetCreatedAt(birth)
 		} else {
 			tk.SetCreatedAt(info.ModTime())
 		}
+		// a caller that knows git can't date the file upgrades this
+		tk.SetCreatedAtSource(tiki.CreatedAtGuess)
 	}
 
 	return tk, nil
@@ -288,6 +299,9 @@ func (s *TikiStore) ReloadTiki(tikiID string) error {
 		s.notifyListeners()
 		return fmt.Errorf("loading tiki file %s: %w", filePath, err)
 	}
+	// An empty single-file lookup can't tell an uncommitted file from paths that don't line up,
+	// so only a folder outside git trusts file times here.
+	s.trustFileTimes(tk, s.historyStateFor(nil), nil)
 
 	// Enforce the same id invariants the full load path enforces: a
 	// ReloadTiki must not leave stale entries behind when the file's
@@ -446,9 +460,9 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 		slog.Error("failed to write tiki file", "tiki_id", tk.ID(), "path", path, "error", err)
 		return fmt.Errorf("writing file: %w", err)
 	}
-	if created := tk.CreatedAt(); !created.IsZero() {
-		tk.SetCreatedAt(writtenCreatedAt(created))
-		tk.SetCreatedAtStored(true)
+	if writesCreatedAt(tk) {
+		tk.SetCreatedAt(writtenCreatedAt(tk.CreatedAt()))
+		tk.SetCreatedAtSource(tiki.CreatedAtStored)
 	}
 
 	// Update LoadedMtime and Path after successful save

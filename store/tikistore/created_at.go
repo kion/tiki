@@ -1,6 +1,10 @@
 package tikistore
 
-import "time"
+import (
+	"time"
+
+	"github.com/boolean-maybe/tiki/tiki"
+)
 
 // yaml.v3's own timestamp layouts, so a quoted value is read the same as an unquoted one.
 var storedCreatedAtLayouts = []string{
@@ -35,4 +39,9 @@ func writtenCreatedAt(t time.Time) time.Time {
 
 func createdAtLineValue(t time.Time) string {
 	return writtenCreatedAt(t).Format(time.RFC3339)
+}
+
+// A guess stays out of the file: written once, it would win over git from then on.
+func writesCreatedAt(t *tiki.Tiki) bool {
+	return !t.CreatedAt().IsZero() && t.CreatedAtSource() != tiki.CreatedAtGuess
 }
