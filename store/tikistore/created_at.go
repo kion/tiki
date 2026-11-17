@@ -20,3 +20,13 @@ func parseStoredCreatedAt(v interface{}) (time.Time, bool) {
 	}
 	return time.Time{}, false
 }
+
+// writtenCreatedAt is the value as it lands in a file: UTC, whole seconds.
+// tiki keeps the same value in memory, so it doesn't shift at the next load.
+func writtenCreatedAt(t time.Time) time.Time {
+	return t.UTC().Truncate(time.Second)
+}
+
+func createdAtLineValue(t time.Time) string {
+	return writtenCreatedAt(t).Format(time.RFC3339)
+}

@@ -3,8 +3,12 @@ package tikistore
 import (
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
+
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 var forcedBirth = time.Date(2024, 3, 3, 3, 3, 3, 0, time.UTC)
@@ -134,5 +138,102 @@ func TestReloadPaths_StoredCreatedAtBeatsCarriedValue(t *testing.T) {
 
 	if want := time.Date(2025, 6, 1, 8, 0, 0, 0, time.UTC); !s.GetTiki("AAAAAA").CreatedAt().Equal(want) {
 		t.Errorf("CreatedAt = %v, want the stored %v", s.GetTiki("AAAAAA").CreatedAt(), want)
+	}
+}
+
+var createdAtLine = regexp.MustCompile(`(?m)^createdAt: \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$`)
+
+func TestMarshal_WritesCreatedAtAfterTitleInUTC(t *testing.T) {
+	tk := tikipkg.New()
+	tk.SetID("ABC123")
+	tk.SetTitle("x")
+	tk.SetCreatedAt(time.Date(2025, 6, 1, 10, 0, 0, 500_000_000, time.FixedZone("", 2*3600)))
+
+	out, err := marshalTikiFrontmatter(tk)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if want := "id: ABC123\ntitle: x\ncreatedAt: 2025-06-01T08:00:00Z\n"; !strings.HasPrefix(string(out), want) {
+		t.Errorf("frontmatter =\n%s\nwant prefix\n%s", out, want)
+	}
+}
+
+func TestMarshal_OmitsZeroCreatedAt(t *testing.T) {
+	tk := tikipkg.New()
+	tk.SetID("ABC123")
+	tk.SetTitle("x")
+
+	out, err := marshalTikiFrontmatter(tk)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(out), "createdAt") {
+		t.Errorf("frontmatter has createdAt for a zero time:\n%s", out)
+	}
+}
+
+func retitle(t *testing.T, s *TikiStore, id, title string) {
+	t.Helper()
+	tk := s.GetTiki(id).Clone()
+	tk.SetTitle(title)
+	if err := s.UpdateTiki(tk); err != nil {
+		t.Fatalf("UpdateTiki: %v", err)
+	}
+}
+
+func readFile(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return string(data)
+}
+
+func TestSave_NormalizesStoredCreatedAtToUTC(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "a.md")
+	writeRaw(t, path, docWithCreatedLine("AAAAAA", "a", "createdAt: 2025-06-01T10:00:00+02:00"))
+	s := newStoreIn(t, dir)
+
+	retitle(t, s, "AAAAAA", "b")
+
+	if got := strings.Count(readFile(t, path), "createdAt: 2025-06-01T08:00:00Z"); got != 1 {
+		t.Errorf("file has %d UTC createdAt lines, want 1:\n%s", got, readFile(t, path))
+	}
+	if err := s.Reload(); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	tk := s.GetTiki("AAAAAA")
+	if want := time.Date(2025, 6, 1, 8, 0, 0, 0, time.UTC); !tk.CreatedAt().Equal(want) || !tk.CreatedAtStored() {
+		t.Errorf("after reload CreatedAt = %v (stored %v), want %v stored", tk.CreatedAt(), tk.CreatedAtStored(), want)
+	}
+}
+
+func TestSave_ReplacesInvalidStoredCreatedAt(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "a.md")
+	writeRaw(t, path, docWithCreatedLine("AAAAAA", "a", "createdAt: garbage"))
+	s := newStoreIn(t, dir)
+
+	retitle(t, s, "AAAAAA", "b")
+
+	got := readFile(t, path)
+	if strings.Contains(got, "garbage") || len(createdAtLine.FindAllString(got, -1)) != 1 {
+		t.Errorf("file should hold one valid createdAt line and no garbage:\n%s", got)
+	}
+}
+
+func TestSave_InMemoryCreatedAtMatchesFile(t *testing.T) {
+	forceBirthTime(t, time.Date(2024, 3, 3, 3, 3, 3, 700_000_000, time.FixedZone("", 3600)), true)
+	dir := t.TempDir()
+	writeDoc(t, filepath.Join(dir, "a.md"), "AAAAAA", "a")
+	s := newStoreIn(t, dir)
+
+	retitle(t, s, "AAAAAA", "b")
+
+	got := s.GetTiki("AAAAAA").CreatedAt()
+	if want := time.Date(2024, 3, 3, 2, 3, 3, 0, time.UTC); !got.Equal(want) || got.Location() != time.UTC {
+		t.Errorf("in-memory CreatedAt = %v, want exactly the written %v", got, want)
 	}
 }

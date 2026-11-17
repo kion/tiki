@@ -144,12 +144,11 @@ func buildFieldsFromFrontmatter(fmMap map[string]interface{}, path string) (map[
 	return out, stale, nil
 }
 
-// marshalTikiFrontmatter serializes t's id, title, and Fields into YAML
+// marshalTikiFrontmatter serializes t's id, title, createdAt and Fields into YAML
 // frontmatter (without the surrounding --- delimiters). Emission order:
-// id first, title second, then workflow-declared fields in workflow.yaml
+// id, title, createdAt, then workflow-declared fields in workflow.yaml
 // declaration order, then remaining (unknown) keys alphabetically. Per-key
-// encoding is driven by the workflow field type — no key is special-cased
-// by name.
+// encoding of Fields is driven by the workflow field type.
 func marshalTikiFrontmatter(t *tiki.Tiki) ([]byte, error) {
 	if t == nil {
 		return yaml.Marshal(map[string]interface{}{})
@@ -170,6 +169,9 @@ func marshalTikiFrontmatter(t *tiki.Tiki) ([]byte, error) {
 			return nil, err
 		}
 		buf.Write(out)
+	}
+	if created := t.CreatedAt(); !created.IsZero() {
+		buf.WriteString("createdAt: " + createdAtLineValue(created) + "\n")
 	}
 
 	// Workflow-declared fields first, in workflow.yaml declaration order,

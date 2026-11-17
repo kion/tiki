@@ -442,6 +442,10 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 		slog.Error("failed to write tiki file", "tiki_id", tk.ID(), "path", path, "error", err)
 		return fmt.Errorf("writing file: %w", err)
 	}
+	if created := tk.CreatedAt(); !created.IsZero() {
+		tk.SetCreatedAt(writtenCreatedAt(created))
+		tk.SetCreatedAtStored(true)
+	}
 
 	// Update LoadedMtime and Path after successful save
 	if info, err := os.Stat(path); err == nil {
