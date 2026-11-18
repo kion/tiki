@@ -726,9 +726,14 @@ func TestParity_ChangedFilesUnbornHead(t *testing.T) {
 	dir := newShellRepo(t)
 	writeIn(t, filepath.Join(dir, "a.md"), "a\n")
 	gitIn(t, dir, "add", "-A")
+	want := map[string]types.FileChange{"a.md": types.FileChanged}
 	for name, b := range bothBackends(t, dir) {
-		if _, err := b.ChangedFiles(dir); err != nil {
+		changes, err := b.ChangedFiles(dir)
+		if err != nil {
 			t.Errorf("%s ChangedFiles on a repo with no commit: %v", name, err)
+		}
+		if !maps.Equal(changes, want) {
+			t.Errorf("%s ChangedFiles on a repo with no commit = %v, want %v", name, changes, want)
 		}
 		got, err := b.HeadContents([]string{"a.md"})
 		if err != nil || len(got) != 0 {

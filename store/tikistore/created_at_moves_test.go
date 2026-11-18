@@ -342,3 +342,51 @@ func TestFullLoad_ChangedTikiStampedOnlyWhenHeadConfirmsIt(t *testing.T) {
 		})
 	}
 }
+
+// countingWorkingTree counts the git calls only a creation-time decision needs.
+type countingWorkingTree struct {
+	movesGit
+	calls int
+}
+
+func (g *countingWorkingTree) ChangedFiles(dir string) (map[string]gitops.FileChange, error) {
+	g.calls++
+	return g.movesGit.ChangedFiles(dir)
+}
+
+func (g *countingWorkingTree) HeadContents(paths []string) (map[string][]byte, error) {
+	g.calls++
+	return g.movesGit.HeadContents(paths)
+}
+
+func TestFullLoad_AsksGitStatusOnlyWhenACreationTimeDependsOnIt(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		newTiki   bool
+		wantCalls bool
+	}{
+		{"every tiki has a stored createdAt", false, false},
+		{"a tiki without one", true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.Mkdir(filepath.Join(dir, ".git"), 0o750); err != nil {
+				t.Fatal(err)
+			}
+			writeRaw(t, filepath.Join(dir, "keep.md"),
+				"---\nid: KKKKKK\ntitle: keep\ncreatedAt: 2020-01-01T00:00:00Z\n---\nbody\n")
+			if tc.newTiki {
+				writeDoc(t, filepath.Join(dir, "new.md"), "NNNNNN", "n")
+			}
+			s := newStoreIn(t, dir, WithCreatedAtStamping())
+			g := &countingWorkingTree{movesGit: movesGit{relGit: relGit{root: dir}}}
+			s.gitUtil = g
+			if err := s.Reload(); err != nil {
+				t.Fatalf("Reload: %v", err)
+			}
+			if got := g.calls > 0; got != tc.wantCalls {
+				t.Errorf("working-tree git calls = %d, want any: %v", g.calls, tc.wantCalls)
+			}
+		})
+	}
+}
