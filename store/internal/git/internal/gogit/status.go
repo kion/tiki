@@ -13,7 +13,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
-// ChangedFiles reads the worktree status.
 // go-git compares file modes even where the filesystem has none (core.fileMode=false),
 // so a worktree change whose content matches the index is not counted.
 func (g *Util) ChangedFiles(dirPattern string) (map[string]types.FileChange, error) {

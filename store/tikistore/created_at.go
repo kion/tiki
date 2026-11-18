@@ -45,3 +45,13 @@ func createdAtLineValue(t time.Time) string {
 func writesCreatedAt(t *tiki.Tiki) bool {
 	return !t.CreatedAt().IsZero() && t.CreatedAtSource() != tiki.CreatedAtGuess
 }
+
+// createdBy lives in Fields so ruki's identity-field reads work.
+func setCreatedBy(t *tiki.Tiki, name, email string) {
+	switch {
+	case name != "":
+		t.Set("createdBy", name)
+	case email != "":
+		t.Set("createdBy", email)
+	}
+}

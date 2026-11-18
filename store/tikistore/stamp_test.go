@@ -156,6 +156,8 @@ func TestFullLoad_StampsUncommittedTikiKeepingMtime(t *testing.T) {
 	forceBirthTime(t, forcedBirth, true)
 	repo, committed, uncommitted := repoWithUncommittedTiki(t)
 	committedBefore := readFile(t, committed)
+	// stat-dirty but unchanged is not a change
+	setMtime(t, committed, time.Date(2023, 3, 3, 0, 0, 0, 0, time.UTC))
 
 	s := newStoreIn(t, repo, WithCreatedAtStamping())
 

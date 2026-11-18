@@ -12,7 +12,6 @@ import (
 	"github.com/boolean-maybe/tiki/store/internal/git/internal/types"
 )
 
-// ChangedFiles reads `git status`.
 // --no-optional-locks keeps a read from rewriting the index under a concurrent commit,
 // and --no-renames gives one path per entry whatever the user's status.renames.
 func (u *Util) ChangedFiles(dirPattern string) (map[string]types.FileChange, error) {

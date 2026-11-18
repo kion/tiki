@@ -250,8 +250,14 @@ createdAt: 2026-01-01T10:00:00Z
   guess stays out of the file. For a tiki that appeared while tiki was running, that lasts until the next
   startup or `r` reads the history. For a tiki whose rename was committed, or one inside a git repository
   nested below the project, it lasts until the line is added some other way, e.g. by hand.
-- At startup and on a full reload (`r`) tiki also adds it to tikis that git can't date: uncommitted tikis in
-  a git repository, and every tiki outside one. That adds only the one line, and the file keeps its
+- At startup and on a full reload (`r`) tiki also adds it where it knows the right time and the file is
+  already a change you will commit, or sits outside a git repository:
+  - a new, uncommitted tiki gets its file's birth time;
+  - a committed tiki you have modified or staged gets the date of the commit that added it;
+  - a tiki you moved (with `mv` or `git mv`) and haven't committed yet is recognised by its id,
+    and keeps the date of the commit that added it at its old path.
+
+  A committed tiki with no changes is left alone. Stamping adds only the one line, and the file keeps its
   modification time, so it doesn't count as an edit.
 - Nothing is added on load to symlinked files, to files with an invalid `createdAt`, to files whose
   modification time you can't set, to tikis inside a git repository nested below the project (such as a

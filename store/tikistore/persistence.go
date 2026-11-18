@@ -71,16 +71,17 @@ func (s *TikiStore) loadLocked() error {
 		authorMap, lastCommitMap = nil, nil
 	}
 	state := s.historyStateFor(lastCommitMap)
+	var admitted []*tiki.Tiki
 	for _, filePath := range docPaths {
 		tk, err := s.loadTikiFile(filePath, authorMap, lastCommitMap)
 		admitDocument(filePath, tk, err, idIndex, s.diagnostics, prev, s.tikis)
-		if err != nil || s.tikis[tk.ID()] != tk {
-			continue
+		if err == nil && s.tikis[tk.ID()] == tk {
+			admitted = append(admitted, tk)
 		}
-		s.trustFileTimes(tk, state, lastCommitMap)
-		if s.stampOnLoad && tk.CreatedAtSource() == tiki.CreatedAtFileTimes {
-			s.stampLogged(tk)
-		}
+	}
+	wt := s.readWorkingTree(state, admitted)
+	for _, tk := range admitted {
+		s.settleCreatedAt(tk, state, wt, authorMap, lastCommitMap)
 	}
 	s.live = scanLiveTimes(s.dir)
 	applyLiveTimes(s.tikis, s.live)
@@ -193,22 +194,11 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 		tk.SetUpdatedAt(lastCommit)
 	}
 
-	// CreatedBy is stored in Fields so ruki's identity-field reads work.
 	author, hasAuthor := authorMap[gitKey]
 	if hasAuthor {
-		switch {
-		case author.Name != "":
-			tk.Set("createdBy", author.Name)
-		case author.Email != "":
-			tk.Set("createdBy", author.Email)
-		}
+		setCreatedBy(tk, author.Name, author.Email)
 	} else if name, email, err := s.GetCurrentUser(); err == nil {
-		switch {
-		case name != "":
-			tk.Set("createdBy", name)
-		case email != "":
-			tk.Set("createdBy", email)
-		}
+		setCreatedBy(tk, name, email)
 	}
 
 	stored, storedOK := time.Time{}, false
