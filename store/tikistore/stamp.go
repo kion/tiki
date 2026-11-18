@@ -39,7 +39,8 @@ var errStampSkipped = errors.New("createdAt stamp skipped")
 var createdAtKeyLine = regexp.MustCompile(`^["']?createdAt["']?\s*:`)
 
 // Outside git counts only when the folder is known not to be a repository:
-// a repository whose history can't be read trusts nothing, so an error never turns into a mass rewrite.
+// a repository whose history can't be read trusts nothing,
+// so an error never turns into a mass rewrite.
 func (s *TikiStore) historyStateFor(lastCommitMap map[string]time.Time) historyState {
 	switch {
 	case lastCommitMap != nil:
@@ -71,9 +72,17 @@ func (s *TikiStore) trustFileTimes(tk *tiki.Tiki, state historyState, lastCommit
 	tk.SetCreatedAtSource(tiki.CreatedAtFileTimes)
 }
 
-// historyKeysMatch guards against git's paths and tiki's not lining up, which has happened twice:
+// historyKeysMatch guards against git's paths and tiki's not lining up:
 // every committed tiki would then look uncommitted.
 func (s *TikiStore) historyKeysMatch(lastCommitMap map[string]time.Time, docPaths []string) bool {
+	root, err := filepath.Abs(s.dir)
+	if err != nil {
+		return false
+	}
+	prefix, err := s.gitUtil.RepoRelPath(root)
+	if err != nil || !prefixMatchesDisk(root, prefix) {
+		return false
+	}
 	if len(lastCommitMap) == 0 {
 		return true
 	}
@@ -90,17 +99,8 @@ func (s *TikiStore) historyKeysMatch(lastCommitMap map[string]time.Time, docPath
 			}
 		}
 	}
-	// No tiki has history, which is normal when none is committed.
-	// It's a mismatch when a history path is a file tiki walked under another key,
-	// or when no history path exists on disk at all.
-	root, err := filepath.Abs(s.dir)
-	if err != nil {
-		return false
-	}
-	prefix, err := s.gitUtil.RepoRelPath(root)
-	if err != nil {
-		return false
-	}
+	// No tiki has history, which is normal when none is committed,
+	// but not when tiki walked a history path under another key, or none exists on disk.
 	onDisk := false
 	for key := range lastCommitMap {
 		rel := key
@@ -119,6 +119,40 @@ func (s *TikiStore) historyKeysMatch(lastCommitMap map[string]time.Time, docPath
 		}
 	}
 	return onDisk
+}
+
+// GIT_DIR without GIT_WORK_TREE makes git take the working directory as the top level,
+// so git's idea of where root sits must agree with the .git entry on disk.
+func prefixMatchesDisk(root, prefix string) bool {
+	top := os.Getenv("GIT_WORK_TREE")
+	if top == "" {
+		var ok bool
+		if top, ok = dirWithGitEntry(root); !ok {
+			return false
+		}
+	}
+	top, err := filepath.Abs(top)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(top, root)
+	if err != nil {
+		return false
+	}
+	return filepath.ToSlash(rel) == prefix
+}
+
+func dirWithGitEntry(dir string) (string, bool) {
+	for p := dir; ; {
+		if _, err := os.Lstat(filepath.Join(p, ".git")); err == nil {
+			return p, true
+		}
+		parent := filepath.Dir(p)
+		if parent == p {
+			return "", false
+		}
+		p = parent
+	}
 }
 
 func (s *TikiStore) stampLogged(tk *tiki.Tiki) {
@@ -188,13 +222,12 @@ func stampCreatedAt(tk *tiki.Tiki) error {
 	if !info.ModTime().Equal(tk.LoadedMtime) || info.Size() != tk.LoadedSize {
 		return fmt.Errorf("%w: changed since load", errStampSkipped)
 	}
-	// Read before the probe below, which resets the mtime:
-	// an outside write landing in between shows up here as a size change and keeps its mtime.
+	// An outside write must be caught before the probe below resets the mtime and hides it.
 	content, err := readTikiFile(path)
 	if err != nil {
 		return fmt.Errorf("read: %w", err)
 	}
-	if int64(len(content)) != info.Size() {
+	if int64(len(content)) != info.Size() || changedSince(path, info) {
 		return fmt.Errorf("%w: changed while being read", errStampSkipped)
 	}
 	// Setting the unchanged time succeeds only where restoring it later will,
@@ -208,6 +241,10 @@ func stampCreatedAt(tk *tiki.Tiki) error {
 	stamped, ok := stampedContent(content, tk.CreatedAt())
 	if !ok {
 		return fmt.Errorf("%w: no place to insert the line safely", errStampSkipped)
+	}
+	// The probe put the old mtime back, so a write landing since then shows a newer one.
+	if changedSince(path, info) {
+		return fmt.Errorf("%w: changed before the write", errStampSkipped)
 	}
 	//nolint:gosec // G703: path is a tiki file the store just loaded
 	if err := os.WriteFile(path, stamped, info.Mode().Perm()); err != nil {
@@ -227,6 +264,11 @@ func stampCreatedAt(tk *tiki.Tiki) error {
 		return fmt.Errorf("restore modification time: %w", restoreErr)
 	}
 	return nil
+}
+
+func changedSince(path string, info os.FileInfo) bool {
+	now, err := os.Lstat(path)
+	return err != nil || !now.ModTime().Equal(info.ModTime()) || now.Size() != info.Size()
 }
 
 // frontmatterHasCreatedAt catches every spelling of the key yaml accepts,

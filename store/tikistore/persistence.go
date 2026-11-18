@@ -299,9 +299,13 @@ func (s *TikiStore) ReloadTiki(tikiID string) error {
 		s.notifyListeners()
 		return fmt.Errorf("loading tiki file %s: %w", filePath, err)
 	}
-	// An empty single-file lookup can't tell an uncommitted file from paths that don't line up,
-	// so only a folder outside git trusts file times here.
-	s.trustFileTimes(tk, s.historyStateFor(nil), nil)
+	if existing != nil && existing.ID() == tk.ID() {
+		carryForwardGitMeta(tk, existing)
+	} else {
+		// An empty single-file lookup can't tell an uncommitted file from paths that don't line up,
+		// so only a folder outside git trusts file times here.
+		s.trustFileTimes(tk, s.historyStateFor(nil), nil)
+	}
 
 	// Enforce the same id invariants the full load path enforces: a
 	// ReloadTiki must not leave stale entries behind when the file's

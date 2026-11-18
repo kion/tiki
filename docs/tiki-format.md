@@ -247,8 +247,9 @@ createdAt: 2026-01-01T10:00:00Z
   the filesystem records it, then its modification time.
 - tiki writes it when it creates a tiki, and when it saves one whose time git can't contradict: a stored
   value, the commit date, or the file's own times for a file git has no record of. A time that is only a
-  guess stays out of the file until tiki has read the history at the next startup or `r`: a tiki that
-  appeared while tiki was running, a renamed tiki, or one inside a git repository nested below the project.
+  guess stays out of the file. For a tiki that appeared while tiki was running, that lasts until the next
+  startup or `r` reads the history. For a tiki whose rename was committed, or one inside a git repository
+  nested below the project, it lasts until the line is added some other way, e.g. by hand.
 - At startup and on a full reload (`r`) tiki also adds it to tikis that git can't date: uncommitted tikis in
   a git repository, and every tiki outside one. That adds only the one line, and the file keeps its
   modification time, so it doesn't count as an edit.

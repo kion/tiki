@@ -247,3 +247,7 @@ match is used. The next tiki save overwrites it with the resolved value. *(my ca
 - Tikis inside a git repository nested below the project are never stamped.
 - A stamp is kept only if every other frontmatter value parses as before.
 - A quoted `createdAt` is read with yaml's timestamp layouts, like an unquoted one.
+- The guard also compares git's idea of where the folder sits in the repository with the `.git` entry on disk.
+- A single-tiki reload carries the previous creation time forward, as live reload does.
+- Stamping re-checks the file after reading it and just before writing,
+  so an outside write landing in between is neither overwritten nor has its mtime reset.

@@ -107,49 +107,104 @@ func TestSave_NestedRepoTikiOmitsGuess(t *testing.T) {
 }
 
 // GIT_DIR without GIT_WORK_TREE makes git treat the working directory as the top level,
-// so its paths no longer line up with tiki's.
+// so its paths no longer line up with tiki's, even where some paths happen to exist at both levels.
 func TestFullLoad_GitDirFromSubfolderStampsNothing(t *testing.T) {
-	repo := t.TempDir()
-	initRepo(t, repo)
-	sub := filepath.Join(repo, "sub")
-	path := filepath.Join(sub, "a.md")
+	for _, tc := range []struct {
+		name   string
+		shared string
+	}{
+		{"nothing shared", ""},
+		{"README.md at both levels", "README.md"},
+		{".gitignore at both levels", ".gitignore"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := t.TempDir()
+			initRepo(t, repo)
+			sub := filepath.Join(repo, "sub")
+			path := filepath.Join(sub, "a.md")
+			writeDoc(t, path, "AAAAAA", "a")
+			if tc.shared != "" {
+				writeRaw(t, filepath.Join(repo, tc.shared), "shared\n")
+				writeRaw(t, filepath.Join(sub, tc.shared), "shared\n")
+			}
+			runGit(t, repo, "add", "-A")
+			runGit(t, repo, "commit", "-q", "-m", "a")
+			before := readFile(t, path)
+			t.Setenv("GIT_DIR", filepath.Join(repo, ".git"))
+
+			newStoreIn(t, sub, WithCreatedAtStamping())
+
+			if got := readFile(t, path); got != before {
+				t.Errorf("committed tiki stamped:\n%s", got)
+			}
+		})
+	}
+}
+
+var longAgo = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+
+// Last modified long ago, so a reset mtime is unmistakable.
+func loadedLongAgo(t *testing.T) (path string, s *TikiStore) {
+	t.Helper()
+	dir := t.TempDir()
+	path = filepath.Join(dir, "a.md")
 	writeDoc(t, path, "AAAAAA", "a")
-	runGit(t, repo, "add", "-A")
-	runGit(t, repo, "commit", "-q", "-m", "a")
-	before := readFile(t, path)
-	t.Setenv("GIT_DIR", filepath.Join(repo, ".git"))
+	setMtime(t, path, longAgo)
+	return path, newStoreIn(t, dir)
+}
 
-	newStoreIn(t, sub, WithCreatedAtStamping())
-
-	if got := readFile(t, path); got != before {
-		t.Errorf("committed tiki stamped:\n%s", got)
+func writeOutside(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
 
 func TestStampCreatedAt_SkipsWriteLandingBeforeRead(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "a.md")
-	writeDoc(t, path, "AAAAAA", "a")
-	tk := newStoreIn(t, dir).GetTiki("AAAAAA")
-	external := docContent("AAAAAA", "a longer title written by someone else")
-	prev := readTikiFile
-	readTikiFile = func(p string) ([]byte, error) {
-		if err := os.WriteFile(p, []byte(external), 0o644); err != nil {
-			return nil, err
-		}
-		return os.ReadFile(p)
+	for _, tc := range []struct{ name, external string }{
+		{"size changes", docContent("AAAAAA", "a longer title written by someone else")},
+		{"same size", docContent("AAAAAA", "b")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path, s := loadedLongAgo(t)
+			tk := s.GetTiki("AAAAAA")
+			prev := readTikiFile
+			readTikiFile = func(p string) ([]byte, error) {
+				writeOutside(t, p, tc.external)
+				return os.ReadFile(p)
+			}
+			t.Cleanup(func() { readTikiFile = prev })
+
+			if err := stampCreatedAt(tk); err == nil {
+				t.Error("stampCreatedAt succeeded although the file changed before it was read")
+			}
+			if got := mustRead(t, path); got != tc.external {
+				t.Errorf("file =\n%s\nwant the outside write", got)
+			}
+			if got := mtimeOf(t, path); got.Equal(longAgo) {
+				t.Error("the outside write's mtime was reset")
+			}
+		})
 	}
-	t.Cleanup(func() { readTikiFile = prev })
-	written := time.Now()
+}
+
+func TestStampCreatedAt_SkipsWriteLandingBeforeTheWrite(t *testing.T) {
+	path, s := loadedLongAgo(t)
+	tk := s.GetTiki("AAAAAA")
+	external := docContent("AAAAAA", "b")
+	prev := chtimes
+	chtimes = func(name string, atime, mtime time.Time) error {
+		err := prev(name, atime, mtime)
+		writeOutside(t, name, external)
+		return err
+	}
+	t.Cleanup(func() { chtimes = prev })
 
 	if err := stampCreatedAt(tk); err == nil {
-		t.Error("stampCreatedAt succeeded although the file changed before it was read")
+		t.Error("stampCreatedAt succeeded although the file changed before it was written")
 	}
 	if got := mustRead(t, path); got != external {
 		t.Errorf("file =\n%s\nwant the outside write", got)
-	}
-	if got := mtimeOf(t, path); got.Before(written.Add(-time.Second)) {
-		t.Errorf("the outside write's mtime was reset to %v", got)
 	}
 }
 
@@ -226,6 +281,9 @@ func (g *relGit) RepoRelPath(path string) (string, error) {
 
 func TestHistoryKeysMatch(t *testing.T) {
 	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o750); err != nil {
+		t.Fatal(err)
+	}
 	tiki := filepath.Join(root, "a.md")
 	writeDoc(t, tiki, "AAAAAA", "a")
 	writeRaw(t, filepath.Join(root, "main.go"), "package main\n")
@@ -249,5 +307,105 @@ func TestHistoryKeysMatch(t *testing.T) {
 				t.Errorf("historyKeysMatch = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestReloadTiki_KeepsCreatedAtWhenTheLineIsDropped(t *testing.T) {
+	repo := t.TempDir()
+	initRepo(t, repo)
+	path := filepath.Join(repo, "a.md")
+	writeRaw(t, path, docWithCreatedLine("a", "createdAt: 2025-06-01T08:00:00Z"))
+	s := newStoreIn(t, repo)
+
+	writeExternal(t, path, docContent("AAAAAA", "edited elsewhere"))
+	if err := s.ReloadTiki("AAAAAA"); err != nil {
+		t.Fatalf("ReloadTiki: %v", err)
+	}
+	retitleID(t, s, "AAAAAA")
+
+	if !strings.Contains(mustRead(t, path), "createdAt: 2025-06-01T08:00:00Z") {
+		t.Errorf("the stored createdAt was lost:\n%s", mustRead(t, path))
+	}
+}
+
+func TestReloadTiki_UnknownTikiTrustsFileTimesOnlyOutsideGit(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		repo      bool
+		wantWrite bool
+	}{
+		{"outside git", false, true},
+		{"in a repo", true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			forceBirthTime(t, forcedBirth, true)
+			dir := t.TempDir()
+			if tc.repo {
+				initRepo(t, dir)
+			}
+			s := newStoreIn(t, dir)
+			path := filepath.Join(dir, "AAAAAA.md")
+			writeDoc(t, path, "AAAAAA", "a")
+
+			if err := s.ReloadTiki("AAAAAA"); err != nil {
+				t.Fatalf("ReloadTiki: %v", err)
+			}
+			retitleID(t, s, "AAAAAA")
+
+			if got := strings.Contains(mustRead(t, path), "createdAt: 2024-03-03T03:03:03Z"); got != tc.wantWrite {
+				t.Errorf("file times written = %v, want %v:\n%s", got, tc.wantWrite, mustRead(t, path))
+			}
+		})
+	}
+}
+
+func TestReloadPaths_EditOfCommittedTikiWritesCommitDate(t *testing.T) {
+	repo := t.TempDir()
+	initRepo(t, repo)
+	path := filepath.Join(repo, "a.md")
+	writeDoc(t, path, "AAAAAA", "a")
+	runGit(t, repo, "add", "-A")
+	runGit(t, repo, "commit", "-q", "-m", "a", "--date", "2020-01-01T00:00:00Z")
+	s := newStoreIn(t, repo)
+
+	writeExternal(t, path, docContent("AAAAAA", "edited elsewhere"))
+	mustReload(t, s, path)
+	retitleID(t, s, "AAAAAA")
+
+	if !strings.Contains(mustRead(t, path), "createdAt: 2020-01-01T00:00:00Z") {
+		t.Errorf("the commit date was not written:\n%s", mustRead(t, path))
+	}
+}
+
+func TestReconcile_AddedOutsideGitWritesFileTimes(t *testing.T) {
+	forceBirthTime(t, forcedBirth, true)
+	dir := t.TempDir()
+	s := newStoreIn(t, dir)
+	path := filepath.Join(dir, "b.md")
+	writeDoc(t, path, "BBBBBB", "b")
+
+	if _, err := s.Reconcile(); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+	retitleID(t, s, "BBBBBB")
+
+	if !strings.Contains(mustRead(t, path), "createdAt: 2024-03-03T03:03:03Z") {
+		t.Errorf("file times not written:\n%s", mustRead(t, path))
+	}
+}
+
+// git reporting the folder as the top level while .git sits above it means git and tiki disagree on paths.
+func TestHistoryKeysMatch_GitPrefixMustMatchDisk(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repo, ".git"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	sub := filepath.Join(repo, "sub")
+	tiki := filepath.Join(sub, "a.md")
+	writeDoc(t, tiki, "AAAAAA", "a")
+	s := &TikiStore{dir: sub, gitUtil: &relGit{root: sub}}
+
+	if s.historyKeysMatch(map[string]time.Time{"a.md": time.Now()}, []string{tiki}) {
+		t.Error("history accepted although git's top level isn't where .git is")
 	}
 }

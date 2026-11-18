@@ -306,7 +306,7 @@ func TestReload_NoStampWhenHistoryUnreadable(t *testing.T) {
 		t.Fatalf("stamped although the history was unreadable:\n%s", got)
 	}
 
-	s.gitUtil = &countingGit{}
+	s.gitUtil = &relGit{root: dir}
 	if err := s.Reload(); err != nil {
 		t.Fatalf("Reload: %v", err)
 	}
