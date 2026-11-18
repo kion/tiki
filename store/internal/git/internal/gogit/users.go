@@ -51,7 +51,7 @@ func (g *Util) Author(filePath string) (*types.AuthorInfo, error) {
 			return err
 		}
 
-		changes, err := diffTrees(pTree, tree)
+		changes, err := diffTreesFollowingRenames(pTree, tree)
 		if err != nil {
 			return err
 		}
@@ -119,7 +119,7 @@ func (g *Util) AllAuthors(dirPattern string) (map[string]*types.AuthorInfo, erro
 			return err
 		}
 
-		changes, err := diffTrees(pTree, tree)
+		changes, err := diffTreesFollowingRenames(pTree, tree)
 		if err != nil {
 			return err
 		}
@@ -183,6 +183,12 @@ func (g *Util) AllUsers() ([]string, error) {
 
 	g.cachedUsers = users
 	return users, nil
+}
+
+// diffTreesFollowingRenames is for finding the commit that added a file:
+// without rename detection a rename would count as adding the new name.
+func diffTreesFollowingRenames(from, to *object.Tree) (object.Changes, error) {
+	return object.DiffTreeWithOptions(context.Background(), from, to, &object.DiffTreeOptions{DetectRenames: true})
 }
 
 // diffTrees diffs two trees (nil-safe for root commits where parent tree is nil).

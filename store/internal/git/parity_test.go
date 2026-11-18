@@ -1,6 +1,7 @@
 package git_test
 
 import (
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -611,5 +612,186 @@ func TestParity_NonASCIIPath(t *testing.T) {
 	}
 	if got, err := sh.RepoRelPath(abs); err != nil || got != name {
 		t.Errorf("shell RepoRelPath = %q, %v; want %q", got, err, name)
+	}
+}
+
+func gitIn(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	//nolint:gosec // G204: test-controlled git args
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+func writeIn(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func appendIn(t *testing.T, path string) {
+	t.Helper()
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString("more\n"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func newShellRepo(t *testing.T) string {
+	t.Helper()
+	requireShellGit(t)
+	dir := t.TempDir()
+	gitIn(t, dir, "init", "-q")
+	gitIn(t, dir, "config", "user.email", "t@example.com")
+	gitIn(t, dir, "config", "user.name", "tester")
+	return dir
+}
+
+type changeSource interface {
+	ChangedFiles(dirPattern string) (map[string]types.FileChange, error)
+	HeadContents(paths []string) (map[string][]byte, error)
+}
+
+func bothBackends(t *testing.T, at string) map[string]changeSource {
+	t.Helper()
+	sh, err := shell.NewUtil(at)
+	if err != nil {
+		t.Fatalf("shell.NewUtil: %v", err)
+	}
+	gg, err := gogit.NewUtil(at)
+	if err != nil {
+		t.Fatalf("gogit.NewUtil: %v", err)
+	}
+	return map[string]changeSource{"shell": sh, "gogit": gg}
+}
+
+func TestParity_ChangedFiles(t *testing.T) {
+	dir := newShellRepo(t)
+	sub := filepath.Join(dir, "sub")
+	for _, name := range []string{"a.md", "b.md", "c.md", "d.md", "e.md", "Über.md"} {
+		writeIn(t, filepath.Join(sub, name), name+"\n")
+	}
+	writeIn(t, filepath.Join(dir, "other", "o.txt"), "o\n")
+	gitIn(t, dir, "add", "-A")
+	gitIn(t, dir, "commit", "-q", "-m", "init")
+
+	appendIn(t, filepath.Join(sub, "a.md"))
+	gitIn(t, dir, "mv", "sub/b.md", "sub/b2.md")
+	if err := os.MkdirAll(filepath.Join(sub, "done"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Join(sub, "c.md"), filepath.Join(sub, "done", "c.md")); err != nil {
+		t.Fatal(err)
+	}
+	appendIn(t, filepath.Join(sub, "d.md"))
+	gitIn(t, dir, "add", "sub/d.md")
+	if err := os.Rename(filepath.Join(sub, "Über.md"), filepath.Join(sub, "Ünder.md")); err != nil {
+		t.Fatal(err)
+	}
+	appendIn(t, filepath.Join(dir, "other", "o.txt"))
+	gitIn(t, dir, "config", "core.fileMode", "false")
+	//nolint:gosec // G302: the test needs a permission-only change
+	if err := os.Chmod(filepath.Join(sub, "e.md"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	want := map[string]types.FileChange{
+		"sub/a.md": types.FileChanged, "sub/b2.md": types.FileChanged, "sub/d.md": types.FileChanged,
+		"sub/b.md": types.FileGone, "sub/c.md": types.FileGone, "sub/Über.md": types.FileGone,
+	}
+	for name, b := range bothBackends(t, sub) {
+		got, err := b.ChangedFiles(sub)
+		if err != nil {
+			t.Fatalf("%s ChangedFiles: %v", name, err)
+		}
+		if !maps.Equal(got, want) {
+			t.Errorf("%s ChangedFiles = %v, want %v", name, got, want)
+		}
+	}
+}
+
+func TestParity_ChangedFilesUnbornHead(t *testing.T) {
+	dir := newShellRepo(t)
+	writeIn(t, filepath.Join(dir, "a.md"), "a\n")
+	gitIn(t, dir, "add", "-A")
+	for name, b := range bothBackends(t, dir) {
+		if _, err := b.ChangedFiles(dir); err != nil {
+			t.Errorf("%s ChangedFiles on a repo with no commit: %v", name, err)
+		}
+		got, err := b.HeadContents([]string{"a.md"})
+		if err != nil || len(got) != 0 {
+			t.Errorf("%s HeadContents on a repo with no commit = %v, %v; want empty, nil", name, got, err)
+		}
+	}
+}
+
+func TestParity_HeadContents(t *testing.T) {
+	dir := newShellRepo(t)
+	writeIn(t, filepath.Join(dir, "sub", "c.md"), "---\nid: CCCCCC\n---\n")
+	writeIn(t, filepath.Join(dir, "sub", "Über.md"), "über\n")
+	gitIn(t, dir, "add", "-A")
+	gitIn(t, dir, "commit", "-q", "-m", "init")
+	want := map[string]string{"sub/c.md": "---\nid: CCCCCC\n---\n", "sub/Über.md": "über\n"}
+
+	for name, b := range bothBackends(t, dir) {
+		got, err := b.HeadContents([]string{"sub/c.md", "sub/Über.md", "sub/missing.md"})
+		if err != nil {
+			t.Fatalf("%s HeadContents: %v", name, err)
+		}
+		if len(got) != len(want) {
+			t.Errorf("%s HeadContents returned %d files, want %d", name, len(got), len(want))
+		}
+		for path, content := range want {
+			if string(got[path]) != content {
+				t.Errorf("%s HeadContents[%s] = %q, want %q", name, path, got[path], content)
+			}
+		}
+		if empty, err := b.HeadContents(nil); err != nil || len(empty) != 0 {
+			t.Errorf("%s HeadContents(nil) = %v, %v; want empty, nil", name, empty, err)
+		}
+	}
+}
+
+// A committed rename must never count as the file being added, whatever the user's diff.renames.
+func TestParity_CommittedRenameIsNotAnAdd(t *testing.T) {
+	dir := newShellRepo(t)
+	writeIn(t, filepath.Join(dir, "a.md"), "---\nid: AAAAAA\ntitle: a\n---\nbody\n")
+	gitIn(t, dir, "add", "-A")
+	gitIn(t, dir, "commit", "-q", "-m", "add")
+	gitIn(t, dir, "mv", "a.md", "b.md")
+	gitIn(t, dir, "commit", "-q", "-m", "rename")
+	gitIn(t, dir, "config", "diff.renames", "false")
+
+	sh, err := shell.NewUtil(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gg, err := gogit.NewUtil(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, all := range map[string]func(string) (map[string]*types.AuthorInfo, error){"shell": sh.AllAuthors, "gogit": gg.AllAuthors} {
+		authors, err := all(dir)
+		if err != nil {
+			t.Fatalf("%s AllAuthors: %v", name, err)
+		}
+		if _, ok := authors["a.md"]; !ok {
+			t.Errorf("%s AllAuthors lacks the original a.md", name)
+		}
+		if _, ok := authors["b.md"]; ok {
+			t.Errorf("%s AllAuthors counts the rename to b.md as an add", name)
+		}
 	}
 }

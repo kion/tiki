@@ -19,3 +19,13 @@ type FileVersion struct {
 	When    time.Time
 	Content string
 }
+
+// FileChange is how a tracked file differs from HEAD.
+type FileChange uint8
+
+const (
+	// FileChanged is tracked and differs from HEAD in the index or the working tree.
+	FileChanged FileChange = iota + 1
+	// FileGone is tracked at HEAD but missing from the working tree or the index.
+	FileGone
+)

@@ -144,3 +144,17 @@ func (s *selector) RepoRelPath(path string) (string, error) {
 	}
 	return s.backend.RepoRelPath(path)
 }
+
+func (s *selector) ChangedFiles(dirPattern string) (map[string]FileChange, error) {
+	if err := s.ensureBackend(); err != nil {
+		return nil, err
+	}
+	return s.backend.ChangedFiles(dirPattern)
+}
+
+func (s *selector) HeadContents(paths []string) (map[string][]byte, error) {
+	if err := s.ensureBackend(); err != nil {
+		return nil, err
+	}
+	return s.backend.HeadContents(paths)
+}

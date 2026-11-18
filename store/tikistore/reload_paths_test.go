@@ -64,6 +64,14 @@ func (g *countingGit) AllFileVersionsSince(string, time.Time, bool) (map[string]
 }
 func (g *countingGit) AllUsers() ([]string, error)             { return nil, nil }
 func (g *countingGit) RepoRelPath(path string) (string, error) { return path, nil }
+func (g *countingGit) ChangedFiles(string) (map[string]gitops.FileChange, error) {
+	g.bump()
+	return map[string]gitops.FileChange{}, nil
+}
+func (g *countingGit) HeadContents([]string) (map[string][]byte, error) {
+	g.bump()
+	return map[string][]byte{}, nil
+}
 
 func newReloadStore(t *testing.T, root string) (*TikiStore, *countingGit, *int) {
 	t.Helper()
