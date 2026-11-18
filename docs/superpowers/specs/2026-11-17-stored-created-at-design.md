@@ -251,3 +251,29 @@ match is used. The next tiki save overwrites it with the resolved value. *(my ca
 - A single-tiki reload carries the previous creation time forward, as live reload does.
 - Stamping re-checks the file after reading it and just before writing,
   so an outside write landing in between is neither overwritten nor has its mtime reset.
+
+## Revision 2: already-changed files and moved tikis (decided by the user)
+
+Why: stamping was limited to uncommitted tikis to keep commits free of changes that are only a stamp.
+A file that is already a diff (modified, staged, moved) will be committed anyway, so stamping it costs nothing,
+provided tiki knows the correct value.
+A moved tiki looked brand new at its new path, so it got its file's birth time (often the clone time),
+a wrong value that then won over git.
+
+Rule at full loads (startup, `r`), for a tiki file without `createdAt`, when the TUI stamps:
+- stamp it when it is already a diff, or the folder isn't a git repository, **and** tiki knows the correct value:
+  - the commit that added the file, for a committed file that is modified or staged;
+  - the commit that added its old path, for a recognised move;
+  - the file's birth time (or mtime), for a file that is genuinely new (as before).
+- A committed file with no changes is still never stamped.
+
+Recognising a move (decided: by tiki id):
+- `git status` lists tracked files that are gone from the working tree (`mv`, `git mv`, delete).
+- For gone `.md` paths, read their content at HEAD and take the frontmatter id.
+- A walked tiki without history at its own path whose id is one of those is that tiki, moved:
+  its creation time and author come from the commit that added the old path.
+- A moved tiki whose old path has no add commit stays a guess: not stamped, not written on save.
+- This runs in every full load, `tiki exec` included, so a save there writes the right value too.
+- If `git status` fails, moves can't be recognised, so no untracked file's own times are trusted in that load.
+
+Not included (not decided): a rename that was already committed still never gets the line.
