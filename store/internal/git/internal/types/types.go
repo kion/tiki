@@ -1,6 +1,9 @@
 package types
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 // AuthorInfo contains information about who created a file
 type AuthorInfo struct {
@@ -29,3 +32,6 @@ const (
 	// FileGone is tracked at HEAD but missing from the working tree or the index.
 	FileGone
 )
+
+// ErrShallow means a shallow clone can't name its repository's first commit.
+var ErrShallow = errors.New("this is a shallow clone, so its first commit is unknown; run `git fetch --unshallow` first")

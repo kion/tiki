@@ -3,6 +3,9 @@ description: |
   Kanban-style workflow for small-team software work. Four statuses
   (Inbox → Ready → In Progress → Done) and four task types
   (Story, Bug, Spike, Project). Includes an "assign to me" action.
+# For readable ids like BUG-12 instead of X7F4K2, uncomment the lines marked #id-example.
+# Two machines can hand out the same number until their work is merged.
+# prefix: TIK  #id-example
 fields:
   - name: status
     type: enum
@@ -24,20 +27,26 @@ fields:
   - name: type
     type: enum
     caption: "Type"
+    # required: true  #id-example
+    # immutable: true  #id-example
     values:
       - value: story
         label: Story
         visual: "🌀"
         default: true
+        # prefix: STORY  #id-example
       - value: bug
         label: Bug
         visual: "💥"
+        # prefix: BUG  #id-example
       - value: spike
         label: Spike
         visual: "🔍"
+        # prefix: SPIKE  #id-example
       - value: project
         label: Project
         visual: "🗂️"
+        # prefix: PROJ  #id-example
   - name: priority
     type: enum
     caption: "Priority"

@@ -33,7 +33,7 @@ func NewUtil(repoPath string) (*Util, error) {
 		}
 	}
 
-	repo, err := git.PlainOpenWithOptions(repoPath, &git.PlainOpenOptions{DetectDotGit: true})
+	repo, err := git.PlainOpenWithOptions(repoPath, &git.PlainOpenOptions{DetectDotGit: true, EnableDotGitCommonDir: true})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open git repository at %s: %w", repoPath, err)
 	}

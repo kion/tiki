@@ -63,6 +63,8 @@ func (s *TikiStore) newTikiTemplateLocked() (*tikipkg.Tiki, error) {
 
 	tk := tikipkg.New()
 	tk.SetID(tikiID)
+	// a draft needs an id before its fields decide the prefixed one, so it gets a placeholder
+	tk.SetProvisionalID(workflow.PrefixedIDsEnabled())
 	tk.SetCreatedAt(time.Now())
 
 	for k, v := range buildCustomFieldDefaults() {

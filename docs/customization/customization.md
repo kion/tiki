@@ -131,6 +131,97 @@ fields:
     default: 3
 ```
 
+## Readable sequential ids
+
+By default every new tiki gets 6 random characters (`X7F4K2`). Random ids never clash, even across
+branches and machines, but they are hard to read and remember. Set a top-level `prefix` to number new
+tikis instead:
+
+```yaml
+prefix: TIK
+```
+
+New tikis are then `TIK-1`, `TIK-2`, and so on. Ids never change once given, and existing tikis keep
+theirs; `tiki ids migrate` renames them (see [Command line](../command-line.md#ids)).
+
+To carry more meaning in the id, give the values of an enum field their own prefixes:
+
+```yaml
+prefix: TIK
+fields:
+  - name: area
+    type: enum
+    required: true
+    immutable: true
+    values:
+      - {value: feature, prefix: FEAT, label: "Feature wish"}
+      - {value: memory, prefix: MEM, label: "Memory & archive"}
+      - {value: misc, label: "Misc"}
+  - name: layer
+    type: enum
+    required: true
+    immutable: true
+    values:
+      - {value: frontend, prefix: FE}
+      - {value: database, prefix: DB}
+      - {value: cross}
+```
+
+This gives ids such as `FEAT-FE-15`, `FEAT-16` (layer `cross`), `DB-33` (area `misc`) and `TIK-7`
+(no value adds a segment).
+
+- Segments join with `-` in the order the fields are declared. A value without `prefix:` adds no
+  segment; when no value adds one, the top-level `prefix` is used.
+- Each combination has its own numbers: `FEAT-FE` and `FEAT` count separately.
+- A prefix is uppercase letters and digits, starting with a letter. A value prefix may be used only
+  once across all fields, and never equal to the top-level `prefix`.
+- A field with value prefixes must be an enum marked `required: true` and `immutable: true`
+  (see below), so an id always matches its fields.
+- The id is assigned when the tiki is saved, from its values at that moment. Until then the new-tiki
+  form's header shows `NEW` and the prefix the chosen values give (`NEW · FEAT-FE`). Editing
+  prefixes later only affects tikis created afterwards.
+
+**Where the numbers come from.** tiki keeps one counter file per repository in your state directory:
+`$XDG_STATE_HOME/tiki/sequences/` or `~/.local/state/tiki/sequences/` on Linux,
+`~/Library/Application Support/tiki/state/sequences/` on macOS, `%LOCALAPPDATA%\tiki\state\sequences\`
+on Windows. Every clone, branch and worktree of the repository on your machine shares it, and a file
+lock makes tiki processes take turns, so they never hand out the same number. Each number is one above
+the larger of the counter and the highest number among the loaded tikis (former ids included), so a
+lost counter file, or tikis merged in from elsewhere, are picked up on the next create. A project that
+isn't a git repository has one counter per folder tiki runs in. A shallow clone (`git clone --depth`)
+can't create prefixed ids until `git fetch --unshallow`: its first commit, which names the counter,
+is unknown.
+
+A before-create trigger sees the new tiki's placeholder id in `new.id`, not the prefixed one: the id
+is assigned when the tiki is saved, after the trigger has run.
+
+**Working in a team.** The counter is per machine. Two machines creating tikis before their work is
+merged can hand out the same id; tiki then reports the duplicate when it loads and skips the second
+file until one of them gets a new id (`tiki ids rename`, then check the references to it). Random ids
+have no such risk, which is why the shipped workflows keep them. Each shipped workflow carries a
+commented example: uncomment the lines ending in `#id-example`.
+
+## Required and immutable fields
+
+Any workflow field can be marked `required` and `immutable`:
+
+```yaml
+fields:
+  - name: origin
+    type: text
+    required: true
+    immutable: true
+```
+
+- `required: true` — creating a tiki without a value is refused (a declared default counts as a value),
+  and an update can't clear the value. Tikis created before the field became required stay editable.
+- `immutable: true` — once the field has a value it can't be changed or cleared, and the detail view
+  shows it read-only. A tiki created before the field became immutable may fill an empty value once,
+  except a prefix field on a tiki whose id is already prefixed.
+
+Both apply on every path a change can take: the detail view, board moves, `tiki exec`, triggers and
+piped input. A refused change reports which field refused it, for example `area is immutable`.
+
 ## Views
 
 Every screen in the tiki TUI is a **view**. Views are defined at the top level of `workflow.yaml` under a
@@ -648,7 +739,7 @@ update where id = id() set assignee=user()
 
 #### Supported fields
 
-- `id` — document identifier (bare 6-character uppercase value, e.g. `"M7N2XK"`)
+- `id` — document identifier: 6 uppercase letters or digits (`"M7N2XK"`), or a prefixed id (`"FEAT-12"`)
 - `title` — document title
 - every field declared in `workflow.yaml fields:` — behavior and validation follow its declared type
 - audit fields such as `createdAt` and `updatedAt` are available for reads but not assignments

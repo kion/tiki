@@ -532,3 +532,49 @@ func TestFindWorkflowFile_DelegatesToWithScope(t *testing.T) {
 		t.Errorf("FindWorkflowFiles() = %v, want [%q]", files, path)
 	}
 }
+
+func TestGetUserStateDir(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", "/custom/state")
+	got, err := getUserStateDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join("/custom/state", "tiki"); got != want {
+		t.Errorf("with XDG_STATE_HOME: %q, want %q", got, want)
+	}
+
+	t.Setenv("XDG_STATE_HOME", "")
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	got, err = getUserStateDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS == "linux" {
+		if want := filepath.Join(home, ".local", "state", "tiki"); got != want {
+			t.Errorf("default on linux: %q, want %q", got, want)
+		}
+	}
+}
+
+func TestGetStateDirFollowsPathManager(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	ResetPathManager()
+	t.Cleanup(ResetPathManager)
+	if got, want := GetStateDir(), filepath.Join(os.Getenv("XDG_STATE_HOME"), "tiki"); got != want {
+		t.Errorf("GetStateDir = %q, want %q", got, want)
+	}
+}
+
+func TestPathManagerWorksWithoutAStateDir(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("XDG_STATE_HOME", "")
+	t.Setenv("HOME", "")
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", "")
+	}
+	if _, err := newPathManager(); err != nil {
+		t.Fatalf("newPathManager without HOME or XDG_STATE_HOME: %v (only prefixed ids need the state dir)", err)
+	}
+}

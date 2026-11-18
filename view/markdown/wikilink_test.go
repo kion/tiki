@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	nav "github.com/boolean-maybe/navidown/navidown"
+
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 // fakeResolver is a Resolver backed by an in-memory id→entry table. Lets
@@ -130,7 +132,7 @@ func TestRewriteWikilinks_NonCanonicalShapesIgnored(t *testing.T) {
 		"[[ABCDEFG]]",   // 7 chars — too long
 		"[[ABC]]",       // 3 chars — too short
 		"[[abc123]]",    // lowercase — violates canonical shape
-		"[[ABC-12]]",    // contains '-'
+		"[[ABC-0]]",     // prefixed shape, but numbers start at 1
 		"[[image.png]]", // contains '.'
 		"[[My Page]]",   // contains space — obsidian-style title link
 	}
@@ -247,5 +249,32 @@ func TestWikilinkProvider_PropagatesInnerError(t *testing.T) {
 	_, err := p.FetchContent(nav.NavElement{})
 	if !errors.Is(err, wantErr) {
 		t.Errorf("expected inner error to propagate, got %v", err)
+	}
+}
+
+func TestRewriteWikilinks_PrefixedIDResolves(t *testing.T) {
+	resolver := &fakeResolver{entries: map[string]fakeEntry{
+		"MEM-DB-35": {title: "Archive index", path: "archive-index.md"},
+	}}
+	got := RewriteWikilinks("see [[MEM-DB-35]] and [[mem-db-35]]", resolver)
+	want := "see [Archive index](MEM-DB-35) and [[mem-db-35]]"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestRewriteWikilinks_UnknownPrefixedShapeMarkedOnlyForTheWorkflowsPrefixes(t *testing.T) {
+	resolver := &fakeResolver{entries: map[string]fakeEntry{}}
+	t.Cleanup(func() { workflow.SetProjectPrefix("") })
+
+	workflow.SetProjectPrefix("")
+	if got := RewriteWikilinks("[[UTF-8]] and [[TIK-9]]", resolver); got != "[[UTF-8]] and [[TIK-9]]" {
+		t.Errorf("without prefixed ids: got %q, want both left literal", got)
+	}
+
+	workflow.SetProjectPrefix("TIK")
+	want := "[[UTF-8]] and [[TIK-9]] *(not found)*"
+	if got := RewriteWikilinks("[[UTF-8]] and [[TIK-9]]", resolver); got != want {
+		t.Errorf("with prefix TIK: got %q, want %q", got, want)
 	}
 }

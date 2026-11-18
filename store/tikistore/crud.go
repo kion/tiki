@@ -17,7 +17,18 @@ import (
 func (s *TikiStore) GetTiki(id string) *tikipkg.Tiki {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.tikis[normalizeTikiID(id)]
+	return s.tikis[s.resolveIDLocked(id)]
+}
+
+func (s *TikiStore) resolveIDLocked(id string) string {
+	n := normalizeTikiID(id)
+	if _, ok := s.tikis[n]; ok {
+		return n
+	}
+	if saved, ok := s.provisional[n]; ok {
+		return saved
+	}
+	return n
 }
 
 // CreateTiki adds a new tiki and saves it to a file.
@@ -52,7 +63,22 @@ func (s *TikiStore) storeNewDocumentLocked(tk *tikipkg.Tiki) error {
 	// in-memory index (s.tikis), not the filesystem — a tiki loaded from a
 	// renamed file occupies an id without occupying <dir>/<id>.md, so an
 	// os.Stat probe would falsely report the id free.
-	if tk.ID() == "" {
+	// checked before an id is allocated, so a doomed create uses up no number
+	if err := s.validateTikiIDListFieldsLocked(tk); err != nil {
+		return err
+	}
+
+	origID, origProvisional := tk.ID(), tk.ProvisionalID()
+	placeholder := ""
+	switch {
+	case workflow.PrefixedIDsEnabled() && (tk.ID() == "" || tk.ProvisionalID()):
+		id, err := s.allocatePrefixedIDLocked(tk)
+		if err != nil {
+			return err
+		}
+		placeholder = normalizeTikiID(tk.ID())
+		tk.SetID(id)
+	case tk.ID() == "":
 		for i := 0; ; i++ {
 			candidate := normalizeTikiID(config.GenerateRandomID())
 			if _, taken := s.tikis[candidate]; !taken {
@@ -64,20 +90,26 @@ func (s *TikiStore) storeNewDocumentLocked(tk *tikipkg.Tiki) error {
 			}
 			slog.Debug("ID collision detected in index, regenerating", "id", candidate)
 		}
-	} else {
+	default:
 		tk.SetID(normalizeTikiID(tk.ID()))
 	}
-
-	if err := s.validateTikiIDListFieldsLocked(tk); err != nil {
-		return err
-	}
+	tk.SetProvisionalID(false)
 
 	tk.SetLiveAt(s.live[tk.ID()])
 	s.tikis[tk.ID()] = tk
 	if err := s.saveTiki(tk); err != nil {
 		delete(s.tikis, tk.ID())
 		slog.Error("failed to save new document after creation", "tiki_id", tk.ID(), "error", err)
+		// a retry may change the fields, so it must allocate afresh
+		tk.SetID(origID)
+		tk.SetProvisionalID(origProvisional)
 		return fmt.Errorf("failed to save tiki: %w", err)
+	}
+	if placeholder != "" {
+		if s.provisional == nil {
+			s.provisional = make(map[string]string)
+		}
+		s.provisional[placeholder] = tk.ID()
 	}
 	return nil
 }
@@ -99,7 +131,7 @@ func (s *TikiStore) GetAllTikis() []*tikipkg.Tiki {
 	for _, tk := range s.tikis {
 		out = append(out, tk)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].ID() < out[j].ID() })
+	sort.Slice(out, func(i, j int) bool { return idfmt.Compare(out[i].ID(), out[j].ID()) < 0 })
 	return out
 }
 
@@ -172,6 +204,7 @@ func (s *TikiStore) deleteTikiLocked(id string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	id = s.resolveIDLocked(id)
 	existing, exists := s.tikis[id]
 	if !exists {
 		return false
@@ -209,7 +242,7 @@ func (s *TikiStore) validateTikiIDListFieldsLocked(tk *tikipkg.Tiki) error {
 		for _, referenceID := range references {
 			normalized := normalizeTikiID(referenceID)
 			if !idfmt.IsValidID(normalized) {
-				return fmt.Errorf("%s reference %q is not a bare document id (expected %d uppercase alphanumeric chars)",
+				return fmt.Errorf("%s reference %q is not a valid document id (expected %d uppercase letters or digits, or a prefixed id such as ABC-12)",
 					field.Name, normalized, idfmt.IDLength)
 			}
 			if _, exists := s.tikis[normalized]; !exists {

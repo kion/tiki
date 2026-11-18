@@ -1,6 +1,7 @@
 package git_test
 
 import (
+	"errors"
 	"maps"
 	"os"
 	"os/exec"
@@ -855,6 +856,93 @@ func TestParity_ChangedFilesCRLFCheckout(t *testing.T) {
 		}
 		if len(got) != 0 {
 			t.Errorf("%s ChangedFiles = %v, want nothing changed", name, got)
+		}
+	}
+}
+
+type repoKeyBackend interface {
+	RootCommits() ([]string, error)
+	CommonDir() (string, error)
+}
+
+func repoKeyBackends(t *testing.T, dir string) map[string]repoKeyBackend {
+	t.Helper()
+	sh, err := shell.NewUtil(dir)
+	if err != nil {
+		t.Fatalf("shell.NewUtil(%s): %v", dir, err)
+	}
+	gg, err := gogit.NewUtil(dir)
+	if err != nil {
+		t.Fatalf("gogit.NewUtil(%s): %v", dir, err)
+	}
+	return map[string]repoKeyBackend{"shell": sh, "gogit": gg}
+}
+
+func realPath(t *testing.T, p string) string {
+	t.Helper()
+	r, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(%s): %v", p, err)
+	}
+	return r
+}
+
+func TestParity_RepoKeyAcrossWorktrees(t *testing.T) {
+	dir := setupParityRepo(t)
+	wt := filepath.Join(t.TempDir(), "wt")
+	//nolint:gosec // G204: test-controlled git args
+	if out, err := exec.Command("git", "-C", dir, "worktree", "add", "-q", "-b", "side", wt).CombinedOutput(); err != nil {
+		t.Fatalf("git worktree add: %v\n%s", err, out)
+	}
+	wantCommon := realPath(t, filepath.Join(dir, ".git"))
+
+	var wantRoots []string
+	for _, checkout := range []string{dir, wt} {
+		for name, b := range repoKeyBackends(t, checkout) {
+			roots, err := b.RootCommits()
+			if err != nil || len(roots) != 1 {
+				t.Fatalf("%s %s: RootCommits = %v, %v; want one hash", name, checkout, roots, err)
+			}
+			if wantRoots == nil {
+				wantRoots = roots
+			} else if !slices.Equal(roots, wantRoots) {
+				t.Errorf("%s %s: RootCommits = %v, want %v", name, checkout, roots, wantRoots)
+			}
+			common, err := b.CommonDir()
+			if err != nil || realPath(t, common) != wantCommon {
+				t.Errorf("%s %s: CommonDir = %q, %v; want %q", name, checkout, common, err, wantCommon)
+			}
+		}
+	}
+}
+
+func TestParity_RepoKeyWithoutCommits(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := gogitlib.PlainInit(dir, false); err != nil {
+		t.Fatalf("PlainInit: %v", err)
+	}
+	for name, b := range repoKeyBackends(t, dir) {
+		roots, err := b.RootCommits()
+		if err != nil || len(roots) != 0 {
+			t.Errorf("%s: RootCommits = %v, %v; want none and no error", name, roots, err)
+		}
+		common, err := b.CommonDir()
+		if err != nil || realPath(t, common) != realPath(t, filepath.Join(dir, ".git")) {
+			t.Errorf("%s: CommonDir = %q, %v", name, common, err)
+		}
+	}
+}
+
+func TestParity_ShallowCloneRefusesRootCommits(t *testing.T) {
+	dir := setupParityRepo(t)
+	shallow := filepath.Join(t.TempDir(), "shallow")
+	//nolint:gosec // G204: test-controlled git args
+	if out, err := exec.Command("git", "clone", "-q", "--depth", "1", "file://"+dir, shallow).CombinedOutput(); err != nil {
+		t.Fatalf("shallow clone: %v\n%s", err, out)
+	}
+	for name, b := range repoKeyBackends(t, shallow) {
+		if roots, err := b.RootCommits(); !errors.Is(err, types.ErrShallow) {
+			t.Errorf("%s: RootCommits on a shallow clone = %v, %v; want ErrShallow", name, roots, err)
 		}
 	}
 }

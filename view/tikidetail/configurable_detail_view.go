@@ -23,6 +23,7 @@ import (
 
 	nav "github.com/boolean-maybe/navidown/navidown"
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
+	"github.com/boolean-maybe/ruki/idfmt"
 	"github.com/rivo/tview"
 )
 
@@ -50,6 +51,9 @@ type ConfigurableDetailView struct {
 	editRegistry *controller.ActionRegistry // edit-mode registry (built lazily)
 
 	pluginDef *plugin.DetailPlugin // workflow-yaml-derived definition; source of name/description/layout
+
+	// metaFrame is kept so a draft's header can follow its prefix fields without a full refresh
+	metaFrame *tview.Frame
 
 	spec   gridlayout.GridSpec // parsed layout grid (alias of pluginDef.Layout, kept for hot-path reads)
 	layout []string            // flat anchor names in column-major order (edit traversal)
@@ -487,11 +491,32 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *them
 	container.AddItem(tview.NewBox(), 1, 0, false)
 
 	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
-	frame.SetBorder(true).SetTitle(
-		fmt.Sprintf(" %s ", renderTikiIDGradient(tk.ID(), roles)),
-	).SetBorderColor(roles.BorderIdle().TCell())
+	frame.SetBorder(true).SetTitle(frameTitle(tk, roles)).SetBorderColor(roles.BorderIdle().TCell())
 	frame.SetBorderPadding(1, 0, 2, 2)
+	cv.metaFrame = frame
 	return liveborder.New(frame, tk.ID(), currentLive{cv}, roles)
+}
+
+// frameTitle shows a draft as "NEW · <prefix>" rather than its placeholder id,
+// which the store replaces with the prefixed id at save.
+func frameTitle(tk *tikipkg.Tiki, roles *theme.Theme) string {
+	label := tk.ID()
+	if tk.ProvisionalID() && workflow.PrefixedIDsEnabled() {
+		label = "NEW · " + workflow.IDPrefixFor(func(field string) string {
+			v, _, _ := tk.StringField(field)
+			return v
+		})
+	}
+	return fmt.Sprintf(" %s ", renderTikiIDGradient(label, roles))
+}
+
+func (cv *ConfigurableDetailView) updateDraftHeader() {
+	if cv.metaFrame == nil {
+		return
+	}
+	if tk := cv.getTiki(); tk != nil && tk.ProvisionalID() {
+		cv.metaFrame.SetTitle(frameTitle(tk, theme.Roles()))
+	}
 }
 
 // shownBody is what the body viewer was built from.
@@ -827,7 +852,15 @@ func (cv *ConfigurableDetailView) ensureEditor(name string, tk *tikipkg.Tiki, ct
 	} else {
 		rowCtx.FocusedField = model.EditField(name)
 	}
-	w := buildFieldEditor(name, tk, rowCtx, cv.onEditFieldChange[name])
+	onChange := cv.onEditFieldChange[name]
+	if fd, ok := workflow.Field(name); ok && fd.HasPrefixes() && onChange != nil {
+		saved := onChange
+		onChange = func(v string) {
+			saved(v)
+			cv.updateDraftHeader()
+		}
+	}
+	w := buildFieldEditor(name, tk, rowCtx, onChange)
 	if w == nil {
 		return renderConfiguredField(name, tk, ctx)
 	}
@@ -1378,7 +1411,7 @@ func (cv *ConfigurableDetailView) focusedRecurrenceEditor() (*recurrenceEditAdap
 // fields qualify, since they're the only workflow-only fields that
 // route through a generic editor.
 func (cv *ConfigurableDetailView) isEditableLayoutField(name string) bool {
-	if cv.isHiddenForCurrentTiki(name) {
+	if cv.isHiddenForCurrentTiki(name) || cv.isLockedForCurrentTiki(name) {
 		return false
 	}
 	if fd, ok := LookupField(name); ok {
@@ -1390,6 +1423,25 @@ func (cv *ConfigurableDetailView) isEditableLayoutField(name string) bool {
 	// Workflow-only fields: defer entirely to FieldHasEditor, which
 	// already excludes non-editable types.
 	return FieldHasEditor(name)
+}
+
+// isLockedForCurrentTiki reports whether an immutable field can no longer be edited.
+// It reads the saved tiki, not the in-flight copy,
+// so a value typed during this edit stays editable until it is saved;
+// a draft is never in the store, so it stays editable.
+func (cv *ConfigurableDetailView) isLockedForCurrentTiki(name string) bool {
+	fd, ok := workflow.Field(name)
+	if !ok || !fd.Immutable {
+		return false
+	}
+	saved := cv.tikiStore.GetTiki(cv.tikiID)
+	if saved == nil {
+		return false
+	}
+	if fieldHasValue(saved, name) {
+		return true
+	}
+	return fd.HasPrefixes() && idfmt.IsPrefixedID(saved.ID())
 }
 
 // isHiddenForCurrentTiki reports whether name is hidden from the metadata grid

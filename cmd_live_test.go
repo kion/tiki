@@ -159,7 +159,7 @@ func TestLiveClear_WorksForADeletedTiki(t *testing.T) {
 }
 
 func TestLiveClear_RejectsAMalformedID(t *testing.T) {
-	if code, _ := runLiveTest(t, newLiveRoot(t), liveNow, "clear", "TASK-1"); code != exitUsage {
+	if code, _ := runLiveTest(t, newLiveRoot(t), liveNow, "clear", "TASK-01"); code != exitUsage {
 		t.Fatalf("exit %d, want %d", code, exitUsage)
 	}
 }

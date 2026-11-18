@@ -115,3 +115,18 @@ func TestLoadTikiFile_DuplicateIDSkipped(t *testing.T) {
 		t.Errorf("second file removed: %v", err)
 	}
 }
+
+func TestLoadTikiFile_PrefixedIDLoads(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "archive.md")
+	if err := os.WriteFile(path, []byte("---\nid: MEM-DB-35\ntitle: archive\n---\nbody\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	s, err := NewTikiStore(dir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+	if tk := s.GetTiki("MEM-DB-35"); tk == nil {
+		t.Fatal("a prefixed id must load")
+	}
+}

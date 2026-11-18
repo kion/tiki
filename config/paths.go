@@ -21,6 +21,7 @@ var (
 type PathManager struct {
 	configDir   string // User config directory
 	cacheDir    string // User cache directory
+	stateDir    string // User state directory: data tiki keeps between runs and could rebuild
 	projectRoot string // Current working directory
 }
 
@@ -36,6 +37,9 @@ func newPathManager() (*PathManager, error) {
 		return nil, fmt.Errorf("get cache directory: %w", err)
 	}
 
+	// only prefixed ids need the state dir, so its absence fails there, not at startup
+	stateDir, _ := getUserStateDir()
+
 	projectRoot, err := getProjectRoot()
 	if err != nil {
 		return nil, fmt.Errorf("get project root: %w", err)
@@ -44,6 +48,7 @@ func newPathManager() (*PathManager, error) {
 	return &PathManager{
 		configDir:   configDir,
 		cacheDir:    cacheDir,
+		stateDir:    stateDir,
 		projectRoot: projectRoot,
 	}, nil
 }
@@ -123,6 +128,33 @@ func getUserCacheDir() (string, error) {
 	}
 }
 
+// getUserStateDir returns the platform-appropriate user state directory.
+// Not the cache dir: cleaners may wipe caches, and losing id counters
+// risks reissuing numbers that unmerged branches already hold.
+func getUserStateDir() (string, error) {
+	if xdgState := os.Getenv("XDG_STATE_HOME"); xdgState != "" {
+		return filepath.Join(xdgState, "tiki"), nil
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", ErrNoHome
+	}
+
+	switch runtime.GOOS {
+	case "darwin":
+		return filepath.Join(homeDir, "Library", "Application Support", "tiki", "state"), nil
+	case "windows":
+		// never Roaming: a roaming counter would be shared across machines without a lock
+		if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+			return filepath.Join(localAppData, "tiki", "state"), nil
+		}
+		return filepath.Join(homeDir, "AppData", "Local", "tiki", "state"), nil
+	default:
+		return filepath.Join(homeDir, ".local", "state", "tiki"), nil
+	}
+}
+
 // getProjectRoot returns the current working directory
 func getProjectRoot() (string, error) {
 	cwd, err := os.Getwd()
@@ -140,6 +172,11 @@ func (pm *PathManager) ConfigDir() string {
 // CacheDir returns the user cache directory
 func (pm *PathManager) CacheDir() string {
 	return pm.cacheDir
+}
+
+// StateDir returns the user state directory
+func (pm *PathManager) StateDir() string {
+	return pm.stateDir
 }
 
 // ConfigFile returns the path to the user config file
@@ -254,6 +291,11 @@ func GetConfigDir() string {
 // GetCacheDir returns the user cache directory
 func GetCacheDir() string {
 	return mustGetPathManager().CacheDir()
+}
+
+// GetStateDir returns the user state directory, or "" when neither XDG_STATE_HOME nor a home dir is known
+func GetStateDir() string {
+	return mustGetPathManager().StateDir()
 }
 
 // GetDocDir returns the document scan/write root — the current working

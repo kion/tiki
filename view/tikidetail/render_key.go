@@ -1,6 +1,7 @@
 package tikidetail
 
 import (
+	"regexp"
 	"strings"
 	"unicode"
 
@@ -66,7 +67,16 @@ func referencedIDs(tk *tikipkg.Tiki) map[string]struct{} {
 	return ids
 }
 
+// prefixedIDPattern catches ids like MEM-DB-35,
+// which the tokenizer below would split at every hyphen.
+var prefixedIDPattern = regexp.MustCompile(`(?i)[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*-[0-9]+`)
+
 func addIDTokens(ids map[string]struct{}, text string) {
+	for _, m := range prefixedIDPattern.FindAllString(text, -1) {
+		if upper := strings.ToUpper(m); idfmt.IsValidID(upper) {
+			ids[upper] = struct{}{}
+		}
+	}
 	for _, tok := range strings.FieldsFunc(text, func(r rune) bool {
 		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
 	}) {

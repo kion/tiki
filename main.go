@@ -74,6 +74,10 @@ func main() {
 		os.Exit(runLive(os.Args[2:]))
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "ids" {
+		os.Exit(runIDs(os.Args[2:]))
+	}
+
 	// Handle piped stdin: create a tiki and exit without launching TUI
 	if pipe.IsPipedInput() && !pipe.HasPositionalArgs(os.Args[1:]) {
 		tikiID, err := pipe.CreateTikiFromReader(os.Stdin)
@@ -86,7 +90,7 @@ func main() {
 	}
 
 	// Handle viewer mode (standalone markdown viewer)
-	viewerInput, runViewer, err := viewer.ParseViewerInput(os.Args[1:], map[string]struct{}{"demo": {}, "exec": {}, "live": {}, "workflow": {}})
+	viewerInput, runViewer, err := viewer.ParseViewerInput(os.Args[1:], map[string]struct{}{"demo": {}, "exec": {}, "ids": {}, "live": {}, "workflow": {}})
 	if err != nil {
 		if errors.Is(err, viewer.ErrMultipleInputs) {
 			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
@@ -366,6 +370,8 @@ Usage:
   tiki exec [--format table|json] '<statement>'    Execute a ruki query and exit
   tiki live set <ID> --message <text>  Publish an agent's live status on a tiki
   tiki live clear <ID>       Remove a tiki's live status
+  tiki ids rename <OLD> <NEW>  Give a tiki a new id and rewrite references to it
+  tiki ids migrate           Give every 6-character id a prefixed id (--dry-run to preview)
   tiki workflow reset [target]  Reset config files (--global, --current)
   tiki workflow install <source> Install a workflow (--global, --current)
   tiki workflow schema       Print the current workflow's fields and triggers, for AI agents

@@ -54,3 +54,33 @@ func idsOf(tikis []*tikipkg.Tiki) []string {
 	}
 	return out
 }
+
+func TestGetAllTikis_PrefixedIDsInNaturalOrder(t *testing.T) {
+	mk := func(id string) *tikipkg.Tiki {
+		tk := tikipkg.New()
+		tk.SetID(id)
+		return tk
+	}
+	store := &TikiStore{tikis: makeTikiMap(mk("MEM-10"), mk("MEM-9"), mk("ABC123"), mk("DB-2"))}
+	want := []string{"ABC123", "DB-2", "MEM-9", "MEM-10"}
+	got := idsOf(store.GetAllTikis())
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("order = %v, want %v", got, want)
+		}
+	}
+}
+
+func TestSearchTikis_TiesBreakInNaturalIDOrder(t *testing.T) {
+	mk := func(id string) *tikipkg.Tiki {
+		tk := tikipkg.New()
+		tk.SetID(id)
+		tk.SetTitle("same")
+		return tk
+	}
+	store := &TikiStore{tikis: makeTikiMap(mk("MEM-10"), mk("MEM-9"))}
+	got := idsOf(store.SearchTikis("", nil))
+	if len(got) != 2 || got[0] != "MEM-9" {
+		t.Fatalf("order = %v, want MEM-9 before MEM-10", got)
+	}
+}

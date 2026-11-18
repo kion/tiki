@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 const intrinsicSchemaBlock = `intrinsic fields (every tiki):
@@ -187,5 +189,35 @@ func TestWorkflowSchema_Args(t *testing.T) {
 				t.Errorf("should print usage, not a schema:\n%s", out)
 			}
 		})
+	}
+}
+
+func TestWorkflowSchema_PrefixedWorkflow(t *testing.T) {
+	setupWorkflowTest(t)
+	t.Cleanup(func() { workflow.SetProjectPrefix("") })
+	writeCwdWorkflow(t, `version: "0.6.1"
+prefix: TIK
+fields:
+  - name: area
+    type: enum
+    required: true
+    immutable: true
+    values:
+      - {value: feature, prefix: FEAT}
+      - {value: misc, default: true}
+  - name: origin
+    type: text
+    immutable: true
+`)
+	out := workflowSchemaOutput(t)
+	for _, want := range []string{
+		"\nprefix: TIK (tiki assigns new ids as <prefix>-<number>)\n",
+		"workflow fields (* = default on create, =X = id prefix):\n",
+		"  area    enum    feature=FEAT misc*; required; immutable\n",
+		"  origin  string  immutable\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("schema lacks %q\n--- got ---\n%s", want, out)
+		}
 	}
 }

@@ -19,6 +19,9 @@ func RegisterFieldValidators(g *TikiMutationGate) {
 		g.OnCreate(wrapped)
 		g.OnUpdate(wrapped)
 	}
+	g.OnCreate(validateRequiredOnCreate)
+	g.OnUpdate(validateRequiredOnUpdate)
+	g.OnUpdate(validateImmutableOnUpdate)
 }
 
 func wrapTikiFieldValidator(fn func(*tikipkg.Tiki) string) MutationValidator {
@@ -131,7 +134,7 @@ func validateWorkflowFieldValue(fd workflow.FieldDef, raw interface{}) string {
 		}
 		for _, dep := range ss {
 			if !idfmt.IsValidID(dep) {
-				return fmt.Sprintf("invalid document ID format: %s (expected %d uppercase alphanumeric chars)",
+				return fmt.Sprintf("invalid document ID format: %s (expected %d uppercase letters or digits, or a prefixed id such as ABC-12)",
 					dep, idfmt.IDLength)
 			}
 		}

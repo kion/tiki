@@ -28,8 +28,8 @@ the values, expressions, built-in functions, and tiki fields you use.
 | `timestamp` | timestamp values such as `createdAt` and `updatedAt` |
 | `duration` | duration literals and date or timestamp differences |
 | `bool` | boolean result type (reserved, not currently produced by any expression) |
-| `id` | bare document identifier (`^[A-Z0-9]{6}$`) |
-| `ref` | bare document reference (same format as `id`) |
+| `id` | document identifier: 6 uppercase letters or digits (`X7F4K2`), or a prefixed id (`FEAT-12`) |
+| `ref` | document reference (same format as `id`) |
 | `recurrence` | recurrence value |
 | `list<string>` | list of strings |
 | `list<ref>` | list of references |
@@ -156,7 +156,7 @@ Important edge cases:
 - `dependsOn=["ABC123"]` is valid because a string-literal list can be assigned to `list<ref>`
 - `dependsOn=["ABC123", title]` is invalid because `list<ref>` assignment only permits literal string elements in
   that special case
-- `dependsOn=["TIKI-ABC"]` is invalid: references must be bare document IDs (`^[A-Z0-9]{6}$`), not the
+- `dependsOn=["TIKI-ABC"]` is invalid: references must be document ids (`X7F4K2` or `FEAT-12`), not the
   legacy TIKI-prefixed format
 - `tags=[1, 2]` is invalid because `tags` is `list<string>`
 

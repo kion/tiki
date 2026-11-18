@@ -4,6 +4,9 @@ description: |
   (status, priority). One lane shows all tikis: open items first by
   priority, completed items below by completion time. Use when you want
   a plain prioritized checklist and nothing else.
+# For readable ids like BUG-12 instead of X7F4K2, uncomment the lines marked #id-example.
+# Two machines can hand out the same number until their work is merged.
+# prefix: TODO  #id-example
 fields:
   - name: status
     type: enum

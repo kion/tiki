@@ -41,6 +41,10 @@ type TikiStore struct {
 	batchDirty     bool
 
 	stampOnLoad bool
+	idAlloc     IDAllocator // nil until the first prefixed id is needed
+	// provisional maps a draft's placeholder id to the id it was saved under:
+	// views opened on the draft keep looking it up by the placeholder.
+	provisional map[string]string
 }
 
 // Option configures a TikiStore when it is created.

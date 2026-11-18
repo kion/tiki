@@ -81,6 +81,9 @@ func writeWorkflowSchema(w io.Writer, path string, triggers []config.TriggerDef)
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "workflow: %s\n", path)
+	if p := workflow.ProjectPrefix(); p != "" {
+		fmt.Fprintf(&b, "prefix: %s (tiki assigns new ids as <prefix>-<number>)\n", p)
+	}
 
 	b.WriteString("\nintrinsic fields (every tiki):\n")
 	var intrinsic [][]string
@@ -93,7 +96,11 @@ func writeWorkflowSchema(w io.Writer, path string, triggers []config.TriggerDef)
 	if len(fields) == 0 {
 		b.WriteString("\nworkflow fields: none\n")
 	} else {
-		b.WriteString("\nworkflow fields (* = default on create):\n")
+		legend := "* = default on create"
+		if len(workflow.PrefixFields()) > 0 {
+			legend += ", =X = id prefix"
+		}
+		fmt.Fprintf(&b, "\nworkflow fields (%s):\n", legend)
 		rows := make([][]string, len(fields))
 		for i, fd := range fields {
 			rows[i] = []string{fd.Name, schemaTypeName(fd.Type), fieldSchemaNote(fd)}
@@ -163,21 +170,25 @@ func schemaTypeName(vt workflow.ValueType) string {
 // the allowed values of an enum, the literal syntax where the type name doesn't give it away,
 // and the creation default.
 func fieldSchemaNote(fd workflow.FieldDef) string {
+	var parts []string
 	if fd.Type == workflow.TypeEnum {
 		values := make([]string, len(fd.EnumValues))
 		for i, v := range fd.EnumValues {
 			values[i] = v.Value
-			if strings.ContainsAny(v.Value, " \t*") {
+			if strings.ContainsAny(v.Value, " \t*=") {
 				values[i] = fmt.Sprintf("%q", v.Value)
+			}
+			if v.Prefix != "" {
+				values[i] += "=" + v.Prefix
 			}
 			if v.Default {
 				values[i] += "*"
 			}
 		}
-		return strings.Join(values, " ")
+		parts = append(parts, strings.Join(values, " "))
+		return strings.Join(append(parts, fieldRuleNotes(fd)...), "; ")
 	}
 
-	var parts []string
 	switch fd.Type {
 	case workflow.TypeDate:
 		parts = append(parts, "YYYY-MM-DD")
@@ -191,7 +202,18 @@ func fieldSchemaNote(fd workflow.FieldDef) string {
 	if fd.DefaultValue != nil {
 		parts = append(parts, "default "+schemaDefault(fd))
 	}
-	return strings.Join(parts, "; ")
+	return strings.Join(append(parts, fieldRuleNotes(fd)...), "; ")
+}
+
+func fieldRuleNotes(fd workflow.FieldDef) []string {
+	var notes []string
+	if fd.Required {
+		notes = append(notes, "required")
+	}
+	if fd.Immutable {
+		notes = append(notes, "immutable")
+	}
+	return notes
 }
 
 func schemaDefault(fd workflow.FieldDef) string {

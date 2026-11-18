@@ -97,8 +97,8 @@ func TestTikiIDListFieldRejectsNonBareID(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for non-bare reference id")
 	}
-	if !strings.Contains(err.Error(), "bare document id") {
-		t.Fatalf("expected bare-id error, got: %v", err)
+	if !strings.Contains(err.Error(), "not a valid document id") {
+		t.Fatalf("expected invalid-id error, got: %v", err)
 	}
 }
 

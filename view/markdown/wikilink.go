@@ -8,23 +8,19 @@ import (
 
 	"github.com/boolean-maybe/ruki/idfmt"
 	"github.com/boolean-maybe/tiki/store"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// wikilinkPattern matches `[[ID]]` where ID is a bare document id in the
-// canonical shape — exactly IDLength uppercase alphanumerics, matching
-// `idfmt.IsValidID`. Anything else (obsidian-style `[[Some Page Title]]`,
-// `[[README]]`, `[[image.png]]`, `[[abc123]]`) is left untouched by the
-// matcher and never rewritten.
+// wikilinkPattern finds `[[...]]` spans that could hold a document id;
+// RewriteWikilinks keeps only those that pass `idfmt.IsValidID`,
+// so obsidian-style `[[Some Page Title]]`, `[[README]]`, `[[image.png]]`
+// and `[[abc123]]` are never rewritten.
 //
 // The leading bracket is guarded against a preceding `!` by the replacement
 // function (Go regexp has no lookbehind), so `![[ABC123]]` — obsidian-style
 // image embed — is recognized and skipped rather than rewritten into a
 // broken markdown image link.
-//
-// NOTE: the `{6}` width mirrors idfmt.IDLength. If that constant changes,
-// this pattern must move in lockstep; there is a test that asserts an
-// IDLength-shaped bare id matches and an off-by-one shape does not.
-var wikilinkPattern = regexp.MustCompile(`\[\[([A-Z0-9]{6})\]\]`)
+var wikilinkPattern = regexp.MustCompile(`\[\[([A-Z0-9][A-Z0-9-]*)\]\]`)
 
 // Resolver looks up a document id and returns its title and current on-disk
 // path. Callers pass a concrete implementation backed by store.Store so the
@@ -130,13 +126,21 @@ func RewriteWikilinks(body string, resolver Resolver) string {
 			continue
 		}
 
-		b.WriteString(body[cursor:start])
 		id := body[idStart:idEnd]
+		if !idfmt.IsValidID(id) {
+			b.WriteString(body[cursor:end])
+			cursor = end
+			continue
+		}
+		b.WriteString(body[cursor:start])
 		title, _, ok := resolver.Resolve(id)
-		if !ok {
+		switch {
+		case !ok && !isTikiIDShape(id):
+			b.WriteString(body[start:end])
+		case !ok:
 			b.WriteString(body[start:end])
 			b.WriteString(" *(not found)*")
-		} else {
+		default:
 			b.WriteString("[")
 			b.WriteString(title)
 			b.WriteString("](")
@@ -184,4 +188,11 @@ func (p *WikilinkProvider) FetchContent(elem nav.NavElement) (string, error) {
 		return content, nil
 	}
 	return RewriteWikilinks(content, p.resolver), nil
+}
+
+// isTikiIDShape keeps prose like [[UTF-8]] from being marked as a broken tiki link:
+// an unresolved prefixed shape counts only when the workflow can compose its prefix.
+func isTikiIDShape(id string) bool {
+	prefix, _, ok := idfmt.SplitPrefixed(id)
+	return !ok || workflow.IsKnownIDPrefix(prefix)
 }

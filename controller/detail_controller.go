@@ -267,6 +267,7 @@ func (dc *DetailController) commitEditNoClose() {
 		}
 		return
 	}
+	dc.adoptCreatedID()
 	dc.editSession.StartEditSession(dc.selectedTikiID)
 }
 
@@ -512,8 +513,23 @@ func (dc *DetailController) commitEdit() bool {
 		}
 		return false
 	}
+	dc.adoptCreatedID()
 	dc.editView.ExitEditMode()
 	return true
+}
+
+// adoptCreatedID moves the view onto the id a draft was saved under:
+// with prefixed ids that replaces the draft's placeholder,
+// and actions built on id() only match the real id.
+func (dc *DetailController) adoptCreatedID() {
+	id := dc.editSession.TakeCreatedID()
+	if id == "" || id == dc.selectedTikiID {
+		return
+	}
+	dc.selectedTikiID = id
+	if sv, ok := dc.editView.(interface{ SetSelectedID(string) }); ok {
+		sv.SetSelectedID(id)
+	}
 }
 
 // commitEditAndClose commits the in-flight edit session like commitEdit, then

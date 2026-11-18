@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/boolean-maybe/ruki/idfmt"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
@@ -72,7 +73,7 @@ func (s *TikiStore) SearchTikis(query string, filter func(*tikipkg.Tiki) bool) [
 		if ti != tj {
 			return ti < tj
 		}
-		return results[i].ID() < results[j].ID()
+		return idfmt.Compare(results[i].ID(), results[j].ID()) < 0
 	})
 	return results
 }

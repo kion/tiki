@@ -204,6 +204,7 @@ func GetConfig() *Config {
 type workflowFileData struct {
 	Version     string                   `yaml:"version,omitempty"`
 	Description string                   `yaml:"description,omitempty"`
+	Prefix      string                   `yaml:"prefix,omitempty"`
 	Statuses    []map[string]interface{} `yaml:"statuses,omitempty"`
 	Types       []map[string]interface{} `yaml:"types,omitempty"`
 	Views       []map[string]interface{} `yaml:"views,omitempty"`

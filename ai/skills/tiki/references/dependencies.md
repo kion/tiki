@@ -28,7 +28,8 @@ tiki exec 'update where id = "X7F4K2" set dependsOn=dependsOn - ["ABC123"]'
 
 - In the two-list recipe, a blocker is still open when its id appears in the second list. Ids in
   `dependsOn` that are missing from it are finished.
-- Each entry must be the id of a tiki that exists, or the update is rejected.
+- Each entry must be the id of a tiki that exists, or the update is rejected. Ids come in two forms,
+  `X7F4K2` and prefixed ones like `FEAT-12`; both work the same here.
 - `any` and `all` test the condition after them against each referenced tiki.
 - Triggers often act on dependencies, for example refusing to close a tiki whose dependencies are
   open, or removing a deleted tiki's id from other tikis. The schema's trigger list says which apply

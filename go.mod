@@ -81,7 +81,7 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
 
-replace github.com/boolean-maybe/ruki => github.com/kion/ruki v0.0.0-20261112085027-bf3ada639528
+replace github.com/boolean-maybe/ruki => github.com/kion/ruki v0.0.0-20261118234315-d4384cdf0ff8
 
 replace github.com/boolean-maybe/navidown => github.com/kion/navidown v0.0.0-20261115071044-1add1371bf7d
 

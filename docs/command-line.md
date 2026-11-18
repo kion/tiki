@@ -67,6 +67,38 @@ tiki live set ABC123 --message "Implementing parser"
 tiki live clear ABC123
 ```
 
+### ids
+
+Rename tiki ids, one at a time or all at once. Used to move an existing project to
+[readable sequential ids](customization/customization.md#readable-sequential-ids).
+
+```bash
+tiki ids rename <OLD> <NEW> [--dry-run]
+tiki ids migrate [--dry-run]
+```
+
+- `rename` gives one tiki a new id. If the new id is prefixed, its prefix must match the one the
+  tiki's fields give.
+- `migrate` gives every tiki that still has a 6-character id the next prefixed id for its fields,
+  oldest first. It needs a top-level `prefix` in the workflow.
+- Prefix fields can't be filled once a tiki's id is prefixed, so both refuse while a tiki with
+  workflow fields has an empty prefix field. They list those tikis with a command that fills one.
+  Notes-only tikis, which have no workflow fields at all, take the top-level prefix.
+
+Both rewrite every reference: id-list fields such as `dependsOn`, and `[[ID]]` and `[text](ID)` links
+in every scanned Markdown file, wiki pages included. Plain-text mentions are left alone. The old id
+is kept in the tiki's `formerIds` frontmatter list, and a new id is never one that some tiki used to
+have. `--dry-run` prints the renames and the files that would change, and writes nothing.
+Close any running tiki on the project first.
+
+Examples:
+
+```bash
+tiki ids migrate --dry-run
+tiki ids migrate
+tiki ids rename X7F4K2 FEAT-12
+```
+
 ### workflow
 
 Manage workflow configuration files.

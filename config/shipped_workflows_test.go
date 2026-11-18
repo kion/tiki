@@ -135,3 +135,71 @@ func TestEmbeddedWorkflows_HaveExpectedVersionAndUserFields(t *testing.T) {
 		})
 	}
 }
+
+func uncommentIDExample(content string) string {
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		if !strings.HasSuffix(strings.TrimSpace(line), "#id-example") {
+			continue
+		}
+		indent := len(line) - len(strings.TrimLeft(line, " "))
+		body := strings.TrimPrefix(strings.TrimLeft(line, " "), "# ")
+		body = strings.TrimSpace(strings.Replace(body, "#id-example", "", 1))
+		lines[i] = strings.Repeat(" ", indent) + body
+	}
+	return strings.Join(lines, "\n")
+}
+
+func TestEmbeddedWorkflows_IDExampleIsOffAndWorksWhenUncommented(t *testing.T) {
+	tests := []struct {
+		name         string
+		prefix       string
+		typePrefixes map[string]string
+	}{
+		{"kanban", "TIK", map[string]string{"story": "STORY", "bug": "BUG", "spike": "SPIKE", "project": "PROJ"}},
+		{"bug-tracker", "TIK", map[string]string{"bug": "BUG", "regression": "REG", "incident": "INC"}},
+		{"todo", "TODO", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			content, ok := LookupEmbeddedWorkflow(tt.name)
+			if !ok {
+				t.Fatal("not embedded")
+			}
+			if !strings.Contains(content, "#id-example") {
+				t.Fatal("no #id-example lines")
+			}
+			dir := t.TempDir()
+			shipped := filepath.Join(dir, "shipped.yaml")
+			if err := os.WriteFile(shipped, []byte(content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if fd, err := readCustomFieldsFromFile(shipped); err != nil || fd.Prefix != "" {
+				t.Fatalf("shipped workflow must keep random ids: prefix %q, err %v", fd.Prefix, err)
+			}
+
+			on := filepath.Join(dir, "on.yaml")
+			if err := os.WriteFile(on, []byte(uncommentIDExample(content)), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			defs, err := LoadWorkflowFieldsFromFile(on)
+			if err != nil {
+				t.Fatalf("uncommented example does not load: %v", err)
+			}
+			fd, err := readCustomFieldsFromFile(on)
+			if err != nil || fd.Prefix != tt.prefix {
+				t.Fatalf("top-level prefix = %q (err %v), want %q", fd.Prefix, err, tt.prefix)
+			}
+			for _, d := range defs {
+				if d.Name != "type" {
+					continue
+				}
+				for _, v := range d.EnumValues {
+					if v.Prefix != tt.typePrefixes[v.Value] {
+						t.Errorf("type %s prefix = %q, want %q", v.Value, v.Prefix, tt.typePrefixes[v.Value])
+					}
+				}
+			}
+		})
+	}
+}

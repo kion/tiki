@@ -481,3 +481,6 @@ func TestOSUsername_ReturnsSomething(t *testing.T) {
 	}
 	_ = osUsername()
 }
+
+func (f *fakeGitOps) RootCommits() ([]string, error) { return nil, nil }
+func (f *fakeGitOps) CommonDir() (string, error)     { return "", nil }

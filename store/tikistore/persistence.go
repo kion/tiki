@@ -389,54 +389,9 @@ func validateCustomFieldEntry(k string, v interface{}, fd workflow.FieldDef) err
 // follows tk.Path() so renames are preserved; new tikis land at the
 // id-derived default path.
 func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
-	path, err := s.pathForTiki(tk)
+	path, content, err := s.prepareTikiSave(tk)
 	if err != nil {
-		slog.Error("failed to resolve path for tiki", "tiki_id", tk.ID(), "error", err)
 		return err
-	}
-	slog.Debug("attempting to save tiki", "tiki_id", tk.ID(), "path", path)
-
-	// Validate custom fields before write: reject unregistered keys that
-	// were staged under the in-memory CustomFields map. This preserves the pre-Phase-3
-	// appendCustomFields contract; UnknownFields (stale-marked) bypass
-	// the check by design.
-	if err := validateTikiCustomFields(tk); err != nil {
-		slog.Error("custom-field validation failed", "tiki_id", tk.ID(), "error", err)
-		return err
-	}
-
-	// Check for external modification (optimistic locking)
-	// Only check if tiki was previously loaded (LoadedMtime is not zero)
-	if !tk.LoadedMtime.IsZero() {
-		if info, err := os.Stat(path); err == nil {
-			// size too: coarse timestamps can hide a competing write.
-			// 0 means not recorded (a loaded or saved document is never empty).
-			sizeChanged := tk.LoadedSize > 0 && info.Size() != tk.LoadedSize
-			if !info.ModTime().Equal(tk.LoadedMtime) || sizeChanged {
-				slog.Warn("tiki modified externally, conflict detected", "tiki_id", tk.ID(), "path", path,
-					"loaded_mtime", tk.LoadedMtime, "file_mtime", info.ModTime(),
-					"loaded_size", tk.LoadedSize, "file_size", info.Size())
-				return ErrConflict
-			}
-		} else if !os.IsNotExist(err) {
-			slog.Error("failed to stat file for optimistic locking", "tiki_id", tk.ID(), "path", path, "error", err)
-			return fmt.Errorf("stat file for optimistic locking: %w", err)
-		}
-	}
-
-	yamlBytes, err := marshalTikiFrontmatter(tk)
-	if err != nil {
-		slog.Error("failed to marshal frontmatter for tiki", "tiki_id", tk.ID(), "error", err)
-		return fmt.Errorf("marshaling frontmatter: %w", err)
-	}
-
-	var content strings.Builder
-	content.WriteString("---\n")
-	content.Write(yamlBytes)
-	content.WriteString("---\n")
-	if tk.Body() != "" {
-		content.WriteString(tk.Body())
-		content.WriteString("\n")
 	}
 
 	// Ensure parent directory exists; with recursive loading a document's
@@ -450,10 +405,69 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 	}
 
 	//nolint:gosec // G306: 0644 is appropriate for document files
-	if err := os.WriteFile(path, []byte(content.String()), 0644); err != nil {
+	if err := os.WriteFile(path, content, 0644); err != nil {
 		slog.Error("failed to write tiki file", "tiki_id", tk.ID(), "path", path, "error", err)
 		return fmt.Errorf("writing file: %w", err)
 	}
+	s.finishTikiSave(tk, path)
+	return nil
+}
+
+// prepareTikiSave is split from saveTiki so a multi-file rename can check every file before it writes any.
+func (s *TikiStore) prepareTikiSave(tk *tiki.Tiki) (string, []byte, error) {
+	path, err := s.pathForTiki(tk)
+	if err != nil {
+		slog.Error("failed to resolve path for tiki", "tiki_id", tk.ID(), "error", err)
+		return "", nil, err
+	}
+	slog.Debug("attempting to save tiki", "tiki_id", tk.ID(), "path", path)
+
+	// Validate custom fields before write: reject unregistered keys that
+	// were staged under the in-memory CustomFields map. This preserves the pre-Phase-3
+	// appendCustomFields contract; UnknownFields (stale-marked) bypass
+	// the check by design.
+	if err := validateTikiCustomFields(tk); err != nil {
+		slog.Error("custom-field validation failed", "tiki_id", tk.ID(), "error", err)
+		return "", nil, err
+	}
+
+	// Check for external modification (optimistic locking)
+	// Only check if tiki was previously loaded (LoadedMtime is not zero)
+	if !tk.LoadedMtime.IsZero() {
+		if info, err := os.Stat(path); err == nil {
+			// size too: coarse timestamps can hide a competing write.
+			// 0 means not recorded (a loaded or saved document is never empty).
+			sizeChanged := tk.LoadedSize > 0 && info.Size() != tk.LoadedSize
+			if !info.ModTime().Equal(tk.LoadedMtime) || sizeChanged {
+				slog.Warn("tiki modified externally, conflict detected", "tiki_id", tk.ID(), "path", path,
+					"loaded_mtime", tk.LoadedMtime, "file_mtime", info.ModTime(),
+					"loaded_size", tk.LoadedSize, "file_size", info.Size())
+				return "", nil, ErrConflict
+			}
+		} else if !os.IsNotExist(err) {
+			slog.Error("failed to stat file for optimistic locking", "tiki_id", tk.ID(), "path", path, "error", err)
+			return "", nil, fmt.Errorf("stat file for optimistic locking: %w", err)
+		}
+	}
+
+	yamlBytes, err := marshalTikiFrontmatter(tk)
+	if err != nil {
+		slog.Error("failed to marshal frontmatter for tiki", "tiki_id", tk.ID(), "error", err)
+		return "", nil, fmt.Errorf("marshaling frontmatter: %w", err)
+	}
+
+	var content strings.Builder
+	content.WriteString("---\n")
+	content.Write(yamlBytes)
+	content.WriteString("---\n")
+	if tk.Body() != "" {
+		content.WriteString(tk.Body())
+		content.WriteString("\n")
+	}
+	return path, []byte(content.String()), nil
+}
+
+func (s *TikiStore) finishTikiSave(tk *tiki.Tiki, path string) {
 	if writesCreatedAt(tk) {
 		tk.SetCreatedAt(writtenCreatedAt(tk.CreatedAt()))
 		tk.SetCreatedAtSource(tiki.CreatedAtStored)
@@ -477,7 +491,6 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 	}
 
 	slog.Info("tiki saved successfully", "tiki_id", tk.ID(), "path", path)
-	return nil
 }
 
 // ErrEmptyTitleForSlug is returned when a new tiki's title slugs to nothing,

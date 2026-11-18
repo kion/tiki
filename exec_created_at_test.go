@@ -4,10 +4,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func TestRunExec_CreateWritesCreatedAt(t *testing.T) {
@@ -63,3 +65,32 @@ func TestRunExec_SelectDoesNotStamp(t *testing.T) {
 		t.Errorf("select changed the file (mtime %v):\n%s", info.ModTime(), data)
 	}
 }
+
+func TestRunExec_CreatePrintsThePrefixedID(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	dir := t.TempDir()
+	t.Chdir(dir)
+	config.ResetPathManager()
+	t.Cleanup(config.ResetPathManager)
+	wf := "prefix: TIK\nfields:\n  - name: status\n    type: enum\n    values:\n      - {value: open, default: true}\n      - {value: done}\n"
+	if err := os.WriteFile(filepath.Join(dir, "workflow.yaml"), []byte(wf), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(workflowCleanup)
+
+	for _, step := range []struct{ title, want string }{{"Ta", "created TIK-1"}, {"Tb", "created TIK-2"}} {
+		want := step.want
+		var code int
+		out := captureStdout(t, func() { code = runExec([]string{`create title="` + step.title + `"`}) })
+		if code != exitOK {
+			t.Fatalf("exec create: exit %d", code)
+		}
+		if !strings.Contains(out, want) {
+			t.Errorf("output %q, want it to contain %q", out, want)
+		}
+	}
+}
+
+// workflowCleanup drops a project prefix a test's workflow left registered.
+func workflowCleanup() { workflow.SetProjectPrefix("") }

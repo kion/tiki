@@ -53,9 +53,13 @@ title: Implement search
 Markdown body.
 ```
 
-- **`id`** — required. A bare 6-character uppercase alphanumeric string matching `^[A-Z0-9]{6}$`.
-  No `TIKI-` prefix, no slug, globally unique across the scan root. Legacy prefixed ids are not recognized;
-  edit them to the bare form manually if you are migrating old content.
+- **`id`** — required, globally unique across the scan root, and assigned by tiki. Either 6 uppercase
+  letters or digits (`X7F4K2`, the default), or a prefixed sequential id such as `FEAT-12` or `MEM-DB-35`
+  when the workflow sets a `prefix` (see
+  [Readable sequential ids](customization/customization.md#readable-sequential-ids)). The old `TIKI-XXXXXX`
+  form is not recognized; edit such ids by hand, or with `tiki ids rename`.
+- **`formerIds`** — optional, written by `tiki ids rename` and `tiki ids migrate`: the ids the tiki had
+  before. They are never given out again, so a search for an old id still finds only this tiki.
 - **`title`** — optional on disk; the loader accepts a missing or empty title and stores it as `""`.
   Required and non-empty (max 200 characters) on **create** and **update** paths via `tiki exec` —
   ruki rejects assignments that would leave the title blank. Recommended on every tiki, since the
@@ -173,8 +177,7 @@ tags: [frontend, urgent]
 
 ### `dependsOn`
 
-Optional string list. Each entry must be a bare 6-character uppercase document id referencing an existing
-document. Ids are uppercased, empty entries are dropped, and duplicates are removed. A dependency means
+Optional string list. Each entry must be the id of an existing document (`X7F4K2` or `FEAT-12`). Ids are uppercased, empty entries are dropped, and duplicates are removed. A dependency means
 this document is blocked by the listed documents. Default: empty.
 
 ```yaml
@@ -307,7 +310,7 @@ Entry points, component boundaries, and deployment diagrams.
 
 ## Cross-tiki links
 
-Reference another tiki by its bare id inside double brackets:
+Reference another tiki by its id inside double brackets (`[[X7F4K2]]`, `[[FEAT-12]]`):
 
 ```markdown
 See the [[ABC123]] for background.

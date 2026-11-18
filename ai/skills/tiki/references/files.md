@@ -9,8 +9,11 @@
   fields use ids.
 - Get a tiki's path from its id, never by guessing a filename:
   `tiki exec 'select filepath where id = "X7F4K2"'`.
-- An `id:` must be exactly 6 characters of `[A-Z0-9]`. A file with any other id (wrong length,
-  lowercase, a prefix such as `task-1234`) fails to load and has to be fixed by hand.
+- An `id:` is either 6 characters of `[A-Z0-9]` (`X7F4K2`) or uppercase prefix segments and a number
+  joined by `-` (`FEAT-12`, `MEM-DB-35`). A file with any other id (lowercase, `task-1234`, `FEAT-012`)
+  fails to load and has to be fixed by hand.
+- Never edit an `id:` line, even in a notes-only tiki: ids change only through `tiki ids rename`, which
+  also rewrites the references and records the old id in `formerIds`.
 
 ## Notes-only tikis
 

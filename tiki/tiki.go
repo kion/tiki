@@ -51,6 +51,10 @@ type Tiki struct {
 	// liveAt comes from an agent's live-status sidecar, so it is never saved. Read via LiveAt().
 	liveAt time.Time
 
+	// provisionalID marks a placeholder id that the store replaces with a prefixed one at save.
+	// Never saved.
+	provisionalID bool
+
 	// stale records the subset of Fields keys that were loaded from disk
 	// with unknown-field provenance despite matching a registered Custom
 	// field (e.g. a value that failed coercion on load and was demoted).
@@ -125,6 +129,12 @@ func (t *Tiki) SetCreatedAtSource(v CreatedAtSource) { t.createdAtSource = v }
 func (t *Tiki) SetUpdatedAt(v time.Time)             { t.updatedAt = v }
 func (t *Tiki) SetLiveAt(v time.Time)                { t.liveAt = v }
 
+// ProvisionalID reports whether the id is a placeholder the store replaces at save.
+func (t *Tiki) ProvisionalID() bool { return t.provisionalID }
+
+// SetProvisionalID marks the id as a placeholder, or as final.
+func (t *Tiki) SetProvisionalID(v bool) { t.provisionalID = v }
+
 // Clone returns a deep copy. Slice values inside Fields are copied; maps
 // nested inside Fields are copied one level (sufficient for all current
 // workflow-declared values and the unknown-field round-trip case).
@@ -143,6 +153,7 @@ func (t *Tiki) Clone() *Tiki {
 		createdAtSource: t.createdAtSource,
 		updatedAt:       t.updatedAt,
 		liveAt:          t.liveAt,
+		provisionalID:   t.provisionalID,
 	}
 	if t.Fields != nil {
 		clone.Fields = make(map[string]interface{}, len(t.Fields))

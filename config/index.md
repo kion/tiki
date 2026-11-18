@@ -13,7 +13,7 @@ code. Press `Tab/Shift-Tab` to move between links and `Enter` to follow them.
 ## What is tiki
 
 `tiki` is a terminal workspace for a single Markdown directory. Every file under
-`.doc/` is a **document** — identified by a bare 6-character `id` in its
+`.doc/` is a **document** — identified by an `id` in its
 frontmatter. Documents with workflow fields (`status`, `priority`, …) show up on
 boards and lists; documents with only `id` and `title` act as wiki pages.
 
@@ -89,7 +89,7 @@ def hello():
 
 | Field | Type | Notes |
 |---|---|---|
-| id | string | bare 6-char id |
+| id | string | 6 characters, or prefixed like BUG-12 |
 | title | string | required |
 
 ### Tasks

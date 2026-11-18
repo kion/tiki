@@ -19,7 +19,7 @@ const (
 	TypeTimestamp            // full timestamp (e.g. createdAt, updatedAt)
 	TypeDuration             // reserved for future use
 	TypeBool                 // reserved for future use
-	TypeID                   // bare document identifier (^[A-Z0-9]{6}$)
+	TypeID                   // document identifier (see ruki idfmt)
 	TypeRef                  // reference to another document ID
 	TypeRecurrence           // structured cron-based recurrence pattern
 	TypeListString           // []string of free-form values
@@ -47,6 +47,7 @@ type EnumValue struct {
 	Label   string
 	Visual  string
 	Default bool
+	Prefix  string // id prefix segment contributed by this value; empty adds none
 }
 
 // FieldDef describes a single document field's name and semantic type.
@@ -59,6 +60,8 @@ type FieldDef struct {
 	Caption      string      // optional display caption; falls back to Name via DisplayCaption()
 	EnumValues   []EnumValue // populated only for TypeEnum
 	DefaultValue interface{} // creation default for non-enum fields; for enum, derived from EnumValues[i].Default
+	Required     bool        // a create must give it a value, and an update can't clear it
+	Immutable    bool        // once set, the value can't change or be cleared
 }
 
 // DisplayCaption returns the field's display caption, falling back to the
@@ -405,6 +408,7 @@ func ClearWorkflowFields() {
 	workflowMu.Lock()
 	workflowFields = nil
 	workflowFieldByName = nil
+	projectPrefix = ""
 	workflowMu.Unlock()
 }
 

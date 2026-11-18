@@ -1,7 +1,7 @@
 ---
 name: tiki
-description: Use when working with tikis (Markdown tasks, docs and notes that carry an `id` in their frontmatter) - finding, creating, updating, deleting or estimating them, managing their dependencies, or implementing one, e.g. "implement X7F4K2"
-allowed-tools: Read, Grep, Glob, Write, WebFetch, Bash(tiki exec:*), Bash(tiki live:*), Bash(tiki workflow schema:*), Bash(git log:*), Bash(git blame:*), Bash(jq:*)
+description: Use when working with tikis (Markdown tasks, docs and notes that carry an `id` in their frontmatter) - finding, creating, updating, deleting or estimating them, managing their dependencies, or implementing one, e.g. "implement X7F4K2" or "implement BUG-12"
+allowed-tools: Read, Grep, Glob, Write, WebFetch, Bash(tiki exec:*), Bash(tiki live:*), Bash(tiki workflow schema:*), Bash(tiki ids:*), Bash(git log:*), Bash(git blame:*), Bash(jq:*)
 ---
 
 # tiki
@@ -52,8 +52,11 @@ tiki exec 'count(select where <field> = "<value>")'                   # a number
 tiki exec 'create title="Fix login" description="What is wrong and how to see it." <field>="<value>"'
 ```
 
-Prints `created <ID>`. Unset fields get their schema default. If the schema lists a `points` field,
-set it in the same statement: read `references/points.md` first.
+Prints `created <ID>`. Unset fields get their schema default. Set every field the schema marks
+`required` that has no default, or the create is refused. A field marked `immutable` can't be changed
+after this. When its values show `=PREFIX` (`feature=FEAT`), the value you pick also becomes part of
+the tiki's id (`FEAT-12`): choose it deliberately, and ask the user when the right value is unclear.
+If the schema lists a `points` field, set it in the same statement: read `references/points.md` first.
 
 ## Update
 
@@ -65,6 +68,10 @@ tiki exec 'update where id = "X7F4K2" set <field>=empty'                        
 
 Prints `updated N tikis`. A trigger that refuses prints `updated 0 tikis (1 failed)` with the reason
 and exits with code 4: meet its condition, often in the same statement, and run it again.
+
+A field marked `immutable` can't be changed or cleared once it has a value (`<field> is immutable`).
+If the user wants it changed, tell them and let them decide, for example on a new tiki that replaces
+this one; never edit the file to get around it.
 
 ## Delete
 
@@ -109,8 +116,10 @@ tiki live clear X7F4K2; git status --short
 ## Rules
 
 - Change a tiki that has workflow fields only through `tiki exec`, never by editing its file.
-- An id is 6 characters of `[A-Z0-9]`, assigned by tiki. Take ids from a query or from
-  `created <ID>`; never invent or reformat one.
+- An id is 6 characters of `[A-Z0-9]` (`X7F4K2`), or a prefix and a number (`FEAT-12`) when the schema
+  shows a `prefix:` line. tiki assigns it: take ids from a query or from `created <ID>`; never invent,
+  reformat or guess the next one. Change an id only when the user asks, with
+  `tiki ids rename <OLD> <NEW>`, which also rewrites references to it.
 - `tiki exec` never touches git. Don't stage or commit tiki files unless the user asks.
 - Exit codes: 0 ok, 2 usage error, 3 startup failure, 4 statement failed or refused.
 

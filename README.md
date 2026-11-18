@@ -137,7 +137,9 @@ priority: medium-high
 Markdown body.
 ```
 
-- **Identity is in the frontmatter.** Every tiki has a bare 6-character uppercase `id` (e.g. `ABC123`).
+- **Identity is in the frontmatter.** Every tiki has an uppercase `id`: 6 random characters by default
+  (`ABC123`), or readable and sequential (`BUG-12`) when the workflow sets a `prefix`
+  (see [Customization](docs/customization/customization.md#readable-sequential-ids)).
   The file path is mutable organization, not identity — move or rename files freely, the `id` follows the tiki.
 - **`./**/*.md` is scanned.** The whole tree under the current directory is loaded recursively. `.git/`,
   dotted directories, `.gitignore`/`.tikiignore` matches, the workflow config files (`workflow.yaml`,

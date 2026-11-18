@@ -22,6 +22,10 @@ type GitOps interface {
 	ChangedFiles(dirPattern string) (map[string]FileChange, error)
 	// HeadContents returns the contents at HEAD of repo-relative paths; paths missing there are left out.
 	HeadContents(paths []string) (map[string][]byte, error)
+	// RootCommits returns the sorted hashes of parentless commits reachable from HEAD; none without commits.
+	RootCommits() ([]string, error)
+	// CommonDir returns the absolute git directory shared by every worktree of the repository.
+	CommonDir() (string, error)
 }
 
 // NewGitOps creates a new GitOps instance. Backend selection (shell vs go-git)

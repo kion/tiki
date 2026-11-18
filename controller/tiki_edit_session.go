@@ -29,6 +29,8 @@ type TikiEditSession struct {
 	statusline    *model.StatuslineConfig
 	currentTikiID string
 	draftTiki     *tikipkg.Tiki // For new tiki creation only
+	// createdID is the id a draft was saved under, which can differ from its provisional one
+	createdID     string
 	editingTiki   *tikipkg.Tiki // In-memory copy being edited (existing tikis)
 	originalMtime time.Time     // LoadedMtime when edit started
 	registry      *ActionRegistry
@@ -106,6 +108,13 @@ func (tc *TikiEditSession) CancelEditSession() {
 	tc.currentTikiID = ""
 }
 
+// TakeCreatedID returns, once, the id the last committed draft was saved under.
+func (tc *TikiEditSession) TakeCreatedID() string {
+	id := tc.createdID
+	tc.createdID = ""
+	return id
+}
+
 // CommitEditSession validates and persists changes from the current edit session.
 // For draft tikis (new tiki creation), it validates, sets timestamps, and creates the file.
 // For existing tikis, it checks for external modifications and updates the tiki in the store.
@@ -120,7 +129,8 @@ func (tc *TikiEditSession) CommitEditSession() error {
 			return fmt.Errorf("failed to create tiki: %w", err)
 		}
 
-		// Clear the draft
+		tc.createdID = tc.draftTiki.ID()
+		tc.currentTikiID = tc.createdID
 		tc.draftTiki = nil
 		return nil
 	}

@@ -39,7 +39,7 @@ func NormalizeID(id string) string {
 // otherwise. The format rules live in ruki/idfmt — the single source of truth.
 func ValidateID(id string) error {
 	if !idfmt.IsValidID(id) {
-		return fmt.Errorf("invalid document id %q: expected %d uppercase alphanumeric characters", id, idfmt.IDLength)
+		return fmt.Errorf("invalid document id %q: expected %d uppercase letters or digits, or a prefixed id such as ABC-12", id, idfmt.IDLength)
 	}
 	return nil
 }

@@ -16,3 +16,6 @@ const (
 	FileChanged = types.FileChanged
 	FileGone    = types.FileGone
 )
+
+// ErrShallowRepository means a shallow clone can't name its repository's first commit.
+var ErrShallowRepository = types.ErrShallow

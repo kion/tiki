@@ -158,3 +158,17 @@ func (s *selector) HeadContents(paths []string) (map[string][]byte, error) {
 	}
 	return s.backend.HeadContents(paths)
 }
+
+func (s *selector) RootCommits() ([]string, error) {
+	if err := s.ensureBackend(); err != nil {
+		return nil, err
+	}
+	return s.backend.RootCommits()
+}
+
+func (s *selector) CommonDir() (string, error) {
+	if err := s.ensureBackend(); err != nil {
+		return "", err
+	}
+	return s.backend.CommonDir()
+}

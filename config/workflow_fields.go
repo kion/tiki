@@ -15,17 +15,20 @@ import (
 
 // customFieldYAML represents a single field entry in workflow.yaml fields:.
 type customFieldYAML struct {
-	Name    string          `yaml:"name"`
-	Type    string          `yaml:"type"`
-	Caption string          `yaml:"caption,omitempty"` // optional display caption; defaults to Name
-	Values  []enumValueYAML `yaml:"values,omitempty"`  // enum only
-	Default interface{}     `yaml:"default,omitempty"` // creation default for non-enum
+	Name      string          `yaml:"name"`
+	Type      string          `yaml:"type"`
+	Caption   string          `yaml:"caption,omitempty"` // optional display caption; defaults to Name
+	Values    []enumValueYAML `yaml:"values,omitempty"`  // enum only
+	Default   interface{}     `yaml:"default,omitempty"` // creation default for non-enum
+	Required  bool            `yaml:"required,omitempty"`
+	Immutable bool            `yaml:"immutable,omitempty"`
 }
 
 // customFieldFileData is the minimal YAML structure for reading fields from
 // workflow.yaml. statuses: and types: are accepted only to produce a clear
 // migration error if a legacy file is encountered.
 type customFieldFileData struct {
+	Prefix   string            `yaml:"prefix"`
 	Fields   []customFieldYAML `yaml:"fields"`
 	Statuses yaml.Node         `yaml:"statuses"`
 	Types    yaml.Node         `yaml:"types"`
@@ -42,6 +45,7 @@ type enumValueYAML struct {
 	Default    bool
 	HasDefault bool
 	Structured bool
+	Prefix     string
 }
 
 func (v *enumValueYAML) UnmarshalYAML(node *yaml.Node) error {
@@ -79,12 +83,16 @@ func (v *enumValueYAML) unmarshalMapping(node *yaml.Node) error {
 				return fmt.Errorf("default: %w", err)
 			}
 			v.HasDefault = true
+		case "prefix":
+			if err := val.Decode(&v.Prefix); err != nil {
+				return fmt.Errorf("prefix: %w", err)
+			}
 		case "emoji":
 			return fmt.Errorf("enum value key %q was renamed to %q — move the glyph into visual: (it accepts the same content plus optional <role> color markup)", key, "visual")
 		case "active", "done":
 			return fmt.Errorf("enum value key %q is no longer supported; status semantics are not built into the runtime — remove it (rendering hints can use the visual: field)", key)
 		default:
-			return fmt.Errorf("unknown enum value key %q (valid keys: value, label, visual, default)", key)
+			return fmt.Errorf("unknown enum value key %q (valid keys: value, label, visual, default, prefix)", key)
 		}
 	}
 	return nil
@@ -127,14 +135,18 @@ func LoadWorkflowFields() error {
 		return fmt.Errorf("no workflow.yaml found; workflow fields must be defined in workflow.yaml")
 	}
 
-	defs, err := loadWorkflowFieldsFromFile(files[0])
+	defs, prefix, err := loadWorkflowFieldsFromFile(files[0])
 	if err != nil {
+		return fmt.Errorf("loading workflow fields from %s: %w", files[0], err)
+	}
+	if err := workflow.ValidateIDScheme(prefix, defs); err != nil {
 		return fmt.Errorf("loading workflow fields from %s: %w", files[0], err)
 	}
 
 	if err := workflow.RegisterWorkflowFields(defs); err != nil {
 		return fmt.Errorf("registering workflow fields from %s: %w", files[0], err)
 	}
+	workflow.SetProjectPrefix(prefix)
 
 	workflowFieldsLoaded.Store(true)
 	slog.Debug("loaded workflow fields", "count", len(defs), "file", files[0])
@@ -148,11 +160,14 @@ func LoadWorkflowFieldsFromFile(path string) ([]workflow.FieldDef, error) {
 	if err := CheckFileVersionCompatibility(path); err != nil {
 		return nil, err
 	}
-	defs, err := loadWorkflowFieldsFromFile(path)
+	defs, prefix, err := loadWorkflowFieldsFromFile(path)
 	if err != nil {
 		return nil, err
 	}
 	if err := workflow.ValidateWorkflowFields(defs); err != nil {
+		return nil, err
+	}
+	if err := workflow.ValidateIDScheme(prefix, defs); err != nil {
 		return nil, err
 	}
 	return defs, nil
@@ -180,43 +195,43 @@ func FindRegistryWorkflowFiles() []string {
 	return FindWorkflowFiles()
 }
 
-func loadWorkflowFieldsFromFile(path string) ([]workflow.FieldDef, error) {
-	rawDefs, err := readCustomFieldsFromFile(path)
+func loadWorkflowFieldsFromFile(path string) ([]workflow.FieldDef, string, error) {
+	fileData, err := readCustomFieldsFromFile(path)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	defs := make([]workflow.FieldDef, 0, len(rawDefs))
-	for _, raw := range rawDefs {
+	defs := make([]workflow.FieldDef, 0, len(fileData.Fields))
+	for _, raw := range fileData.Fields {
 		if workflow.IsSystemField(raw.Name) {
-			return nil, fmt.Errorf("workflow field %q collides with reserved system field; remove it from workflow.yaml", raw.Name)
+			return nil, "", fmt.Errorf("workflow field %q collides with reserved system field; remove it from workflow.yaml", raw.Name)
 		}
 		def, err := convertWorkflowFieldDef(raw)
 		if err != nil {
-			return nil, fmt.Errorf("field %q: %w", raw.Name, err)
+			return nil, "", fmt.Errorf("field %q: %w", raw.Name, err)
 		}
 		defs = append(defs, def)
 	}
 	// Preserve declaration order from workflow.yaml — no name-based ranking.
-	return defs, nil
+	return defs, fileData.Prefix, nil
 }
 
 // readCustomFieldsFromFile reads the fields: section from a single workflow.yaml.
-func readCustomFieldsFromFile(path string) ([]customFieldYAML, error) {
+func readCustomFieldsFromFile(path string) (customFieldFileData, error) {
+	var fd customFieldFileData
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return fd, nil
 		}
-		return nil, err
+		return fd, err
 	}
-	var fd customFieldFileData
 	if err := yaml.Unmarshal(data, &fd); err != nil {
-		return nil, fmt.Errorf("parsing %s: %w", path, err)
+		return fd, fmt.Errorf("parsing %s: %w", path, err)
 	}
 	if err := rejectLegacyRegistrySections(fd); err != nil {
-		return nil, err
+		return fd, err
 	}
-	return fd.Fields, nil
+	return fd, nil
 }
 
 func rejectLegacyRegistrySections(fd customFieldFileData) error {
@@ -242,10 +257,12 @@ func convertWorkflowFieldDef(def customFieldYAML) (workflow.FieldDef, error) {
 		return workflow.FieldDef{}, err
 	}
 	fd := workflow.FieldDef{
-		Name:    def.Name,
-		Type:    vt,
-		Custom:  true,
-		Caption: def.Caption,
+		Name:      def.Name,
+		Type:      vt,
+		Custom:    true,
+		Caption:   def.Caption,
+		Required:  def.Required,
+		Immutable: def.Immutable,
 	}
 
 	if vt == workflow.TypeEnum {
@@ -269,6 +286,7 @@ func convertWorkflowFieldDef(def customFieldYAML) (workflow.FieldDef, error) {
 				Label:   v.Label,
 				Visual:  visual,
 				Default: v.Default,
+				Prefix:  v.Prefix,
 			})
 		}
 		return fd, nil

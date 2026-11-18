@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/boolean-maybe/ruki"
+	"github.com/boolean-maybe/ruki/idfmt"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/service"
@@ -419,7 +420,7 @@ func sortTikisByTitle(tikis []*tikipkg.Tiki) {
 	for i := 1; i < n; i++ {
 		for j := i; j > 0; j-- {
 			ti, tj := strings.ToLower(tikis[j].Title()), strings.ToLower(tikis[j-1].Title())
-			if ti < tj || (ti == tj && tikis[j].ID() < tikis[j-1].ID()) {
+			if ti < tj || (ti == tj && idfmt.Compare(tikis[j].ID(), tikis[j-1].ID()) < 0) {
 				tikis[j], tikis[j-1] = tikis[j-1], tikis[j]
 			} else {
 				break

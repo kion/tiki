@@ -14,10 +14,9 @@ import (
 // The lookup uses the in-memory tiki map as the authoritative id→path index.
 // Callers should not mutate the returned string (it is already a value, not a reference).
 func (s *TikiStore) PathForID(id string) string {
-	normalized := normalizeTikiID(id)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if tk, ok := s.tikis[normalized]; ok {
+	if tk, ok := s.tikis[s.resolveIDLocked(id)]; ok {
 		return tk.Path()
 	}
 	return ""

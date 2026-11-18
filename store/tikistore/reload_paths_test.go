@@ -831,3 +831,6 @@ func TestRescansLogOnlyNewRejections(t *testing.T) {
 		t.Errorf("a new rejection logged %d error lines, want 1", n)
 	}
 }
+
+func (g *countingGit) RootCommits() ([]string, error) { return nil, nil }
+func (g *countingGit) CommonDir() (string, error)     { return "", nil }
