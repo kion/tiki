@@ -158,16 +158,26 @@ func dirWithGitEntry(dir string) (string, bool) {
 	}
 }
 
+// origin is where a moved tiki came from, with the createdAt it had at HEAD (zero if none).
+type origin struct {
+	path      string
+	createdAt time.Time
+}
+
 type workingTree struct {
 	changes map[string]git.FileChange
-	// tiki id → the gone path it was moved from; "" when two gone paths carry the id
-	moved map[string]string
+	// tiki id → where it was moved from; an empty path when two places carry the id
+	origins map[string]origin
+	// changed path holding the same tiki at HEAD → the createdAt it had there (zero if none);
+	// only these may be stamped, since a path's history may belong to another tiki
+	sameAtHead map[string]time.Time
+	// changed path holding a different tiki at HEAD
+	reused map[string]bool
 	// status or HEAD unreadable: a moved tiki can't be told from a new one
 	unknown bool
 }
 
-// readWorkingTree asks git only when some tiki's creation time depends on the answer,
-// so most loads add no git call.
+// git is asked only when its answer could change a creation time.
 func (s *TikiStore) readWorkingTree(state historyState, admitted []*tiki.Tiki) workingTree {
 	if state != historyRead || !s.anyWorkingTreeCandidate(admitted) {
 		return workingTree{}
@@ -177,12 +187,66 @@ func (s *TikiStore) readWorkingTree(state historyState, admitted []*tiki.Tiki) w
 		slog.Warn("can't read git status, so no new tiki's own times are trusted", "error", err)
 		return workingTree{unknown: true}
 	}
-	moved, err := s.movedOrigins(changes)
-	if err != nil {
-		slog.Warn("can't read moved tikis at HEAD, so no new tiki's own times are trusted", "error", err)
-		return workingTree{changes: changes, unknown: true}
+	wt := workingTree{changes: changes, origins: map[string]origin{},
+		sameAtHead: map[string]time.Time{}, reused: map[string]bool{}}
+	byKey := make(map[string]*tiki.Tiki, len(admitted))
+	for _, tk := range admitted {
+		if key, err := s.gitUtil.RepoRelPath(tk.Path()); err == nil {
+			byKey[key] = tk
+		}
 	}
-	return workingTree{changes: changes, moved: moved}
+	var reads []string
+	for path, change := range changes {
+		if strings.EqualFold(filepath.Ext(path), ".md") && (change == git.FileGone || byKey[path] != nil) {
+			reads = append(reads, path)
+		}
+	}
+	if len(reads) == 0 {
+		return wt
+	}
+	heads, err := s.gitUtil.HeadContents(reads)
+	if err != nil {
+		slog.Warn("can't read files at HEAD, so no new tiki's own times are trusted", "error", err)
+		wt.unknown = true
+		return wt
+	}
+	for path, content := range heads {
+		id, createdAt, ok := headIdentity(content)
+		if !ok {
+			continue
+		}
+		if tk := byKey[path]; tk != nil && changes[path] == git.FileChanged {
+			if tk.ID() == id {
+				wt.sameAtHead[path] = createdAt
+				continue
+			}
+			wt.reused[path] = true
+		}
+		wt.addOrigin(id, path, createdAt)
+	}
+	return wt
+}
+
+func (wt *workingTree) addOrigin(id, path string, createdAt time.Time) {
+	if _, seen := wt.origins[id]; seen {
+		wt.origins[id] = origin{}
+		return
+	}
+	wt.origins[id] = origin{path: path, createdAt: createdAt}
+}
+
+func headIdentity(content []byte) (id string, createdAt time.Time, ok bool) {
+	fm, ok := frontmatterMap(content)
+	if !ok {
+		return "", time.Time{}, false
+	}
+	raw, ok := document.FrontmatterID(fm)
+	id = document.NormalizeID(raw)
+	if !ok || !idfmt.IsValidID(id) {
+		return "", time.Time{}, false
+	}
+	createdAt, _ = parseStoredCreatedAt(fm["createdAt"])
+	return id, createdAt, true
 }
 
 func (s *TikiStore) anyWorkingTreeCandidate(admitted []*tiki.Tiki) bool {
@@ -199,66 +263,79 @@ func (s *TikiStore) anyWorkingTreeCandidate(admitted []*tiki.Tiki) bool {
 	return false
 }
 
-func (s *TikiStore) movedOrigins(changes map[string]git.FileChange) (map[string]string, error) {
-	var gone []string
-	for path, change := range changes {
-		if change == git.FileGone && strings.EqualFold(filepath.Ext(path), ".md") {
-			gone = append(gone, path)
-		}
-	}
-	if len(gone) == 0 {
-		return nil, nil
-	}
-	contents, err := s.gitUtil.HeadContents(gone)
-	if err != nil {
-		return nil, err
-	}
-	moved := make(map[string]string)
-	for path, content := range contents {
-		fm, ok := frontmatterMap(content)
-		if !ok {
-			continue
-		}
-		raw, ok := document.FrontmatterID(fm)
-		id := document.NormalizeID(raw)
-		if !ok || !idfmt.IsValidID(id) {
-			continue
-		}
-		if _, seen := moved[id]; seen {
-			moved[id] = ""
-		} else {
-			moved[id] = path
-		}
-	}
-	return moved, nil
-}
-
 // Only what is already a diff and correctly dated gets stamped:
 // a stamp alone would cost a commit, and a wrong date would win over git.
 func (s *TikiStore) settleCreatedAt(tk *tiki.Tiki, state historyState, wt workingTree,
 	authorMap map[string]*git.AuthorInfo, lastCommitMap map[string]time.Time) {
+	key, keyErr := s.gitUtil.RepoRelPath(tk.Path())
+	reused := keyErr == nil && wt.reused[key]
 	moved := false
-	if tk.CreatedAtSource() == tiki.CreatedAtGuess {
-		if from, isMove := wt.moved[tk.ID()]; isMove {
-			author, dated := authorMap[from]
-			if from == "" || !dated {
+	if tk.CreatedAtSource() == tiki.CreatedAtGuess || reused {
+		o, isMove := wt.origins[tk.ID()]
+		switch {
+		case isMove:
+			if !dateFromOrigin(tk, o, authorMap) {
+				s.guessFromFileTimes(tk)
 				return
 			}
-			tk.SetCreatedAt(author.Date)
-			tk.SetCreatedAtSource(tiki.CreatedAtGit)
-			setCreatedBy(tk, author.Name, author.Email)
 			moved = true
+		case reused:
+			s.guessFromFileTimes(tk)
+			return
+		}
+	}
+	if !moved && tk.CreatedAtSource() == tiki.CreatedAtGit && keyErr == nil {
+		if at := wt.sameAtHead[key]; !at.IsZero() {
+			tk.SetCreatedAt(at)
 		}
 	}
 	if !wt.unknown {
 		s.trustFileTimes(tk, state, lastCommitMap)
 	}
-	if s.stampOnLoad && s.shouldStamp(tk, moved, wt.changes) {
+	if s.stampOnLoad && s.shouldStamp(tk, moved, key, keyErr == nil, wt) {
 		s.stampLogged(tk)
 	}
 }
 
-func (s *TikiStore) shouldStamp(tk *tiki.Tiki, moved bool, changes map[string]git.FileChange) bool {
+// The createdAt a tiki had at HEAD is older information than its old path's add commit.
+func dateFromOrigin(tk *tiki.Tiki, o origin, authorMap map[string]*git.AuthorInfo) bool {
+	if o.path == "" {
+		return false
+	}
+	author, dated := authorMap[o.path]
+	switch {
+	case !o.createdAt.IsZero():
+		tk.SetCreatedAt(o.createdAt)
+	case dated:
+		tk.SetCreatedAt(author.Date)
+	default:
+		return false
+	}
+	tk.SetCreatedAtSource(tiki.CreatedAtGit)
+	if dated {
+		setCreatedBy(tk, author.Name, author.Email)
+	}
+	return true
+}
+
+// A path's history may belong to another tiki,
+// so this one falls back to its own file times, as a guess that is never written.
+func (s *TikiStore) guessFromFileTimes(tk *tiki.Tiki) {
+	if info, err := os.Stat(tk.Path()); err == nil {
+		if birth, ok := birthTimeOf(tk.Path(), info); ok {
+			tk.SetCreatedAt(birth)
+		} else {
+			tk.SetCreatedAt(info.ModTime())
+		}
+	}
+	tk.SetCreatedAtSource(tiki.CreatedAtGuess)
+	if name, email, err := s.GetCurrentUser(); err == nil {
+		tk.Delete("createdBy")
+		setCreatedBy(tk, name, email)
+	}
+}
+
+func (s *TikiStore) shouldStamp(tk *tiki.Tiki, moved bool, key string, keyOK bool, wt workingTree) bool {
 	if s.inNestedRepo(tk.Path()) {
 		return false
 	}
@@ -269,8 +346,8 @@ func (s *TikiStore) shouldStamp(tk *tiki.Tiki, moved bool, changes map[string]gi
 		if moved {
 			return true
 		}
-		key, err := s.gitUtil.RepoRelPath(tk.Path())
-		return err == nil && changes[key] == git.FileChanged
+		_, verified := wt.sameAtHead[key]
+		return keyOK && verified && wt.changes[key] == git.FileChanged
 	}
 	return false
 }

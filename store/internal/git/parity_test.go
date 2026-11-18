@@ -795,3 +795,61 @@ func TestParity_CommittedRenameIsNotAnAdd(t *testing.T) {
 		}
 	}
 }
+
+// Only a similar file counts as renamed, as in git's own -M:
+// an unrelated delete in the same commit must not swallow an add.
+func TestParity_UnrelatedDeleteAndAddIsAnAdd(t *testing.T) {
+	dir := newShellRepo(t)
+	writeIn(t, filepath.Join(dir, "src", "main.go"), "package main\n\nfunc main() {}\n")
+	writeIn(t, filepath.Join(dir, "x.md"), "---\nid: XXXXXX\ntitle: x\n---\nthe first tiki\n")
+	gitIn(t, dir, "add", "-A")
+	gitIn(t, dir, "commit", "-q", "-m", "first")
+	gitIn(t, dir, "rm", "-q", "x.md", "src/main.go")
+	writeIn(t, filepath.Join(dir, "y.md"), "---\nid: YYYYYY\ntitle: y\n---\nan unrelated tiki\n")
+	writeIn(t, filepath.Join(dir, ".doc", "new.md"), "---\nid: NNNNNN\ntitle: n\n---\nanother one\n")
+	gitIn(t, dir, "add", "-A")
+	gitIn(t, dir, "commit", "-q", "-m", "second")
+
+	sh, err := shell.NewUtil(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gg, err := gogit.NewUtil(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, all := range map[string]func(string) (map[string]*types.AuthorInfo, error){"shell": sh.AllAuthors, "gogit": gg.AllAuthors} {
+		authors, err := all(dir)
+		if err != nil {
+			t.Fatalf("%s AllAuthors: %v", name, err)
+		}
+		for _, path := range []string{"y.md", ".doc/new.md"} {
+			if _, ok := authors[path]; !ok {
+				t.Errorf("%s AllAuthors lacks %s, added next to an unrelated delete", name, path)
+			}
+		}
+	}
+}
+
+// A clean checkout whose files got CRLF line endings on disk has nothing changed.
+func TestParity_ChangedFilesCRLFCheckout(t *testing.T) {
+	dir := newShellRepo(t)
+	writeIn(t, filepath.Join(dir, "a.md"), "---\nid: AAAAAA\ntitle: a\n---\nbody\n")
+	gitIn(t, dir, "add", "-A")
+	gitIn(t, dir, "commit", "-q", "-m", "init")
+	gitIn(t, dir, "config", "core.autocrlf", "true")
+	if err := os.Remove(filepath.Join(dir, "a.md")); err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, dir, "checkout", "--", "a.md")
+
+	for name, b := range bothBackends(t, dir) {
+		got, err := b.ChangedFiles(dir)
+		if err != nil {
+			t.Fatalf("%s ChangedFiles: %v", name, err)
+		}
+		if len(got) != 0 {
+			t.Errorf("%s ChangedFiles = %v, want nothing changed", name, got)
+		}
+	}
+}

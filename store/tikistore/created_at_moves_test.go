@@ -251,3 +251,94 @@ func TestFullLoad_ScriptedGitControlStampsNewFile(t *testing.T) {
 		t.Errorf("control: a genuinely new tiki was not stamped:\n%s", readFile(t, path))
 	}
 }
+
+func commitAsAlice(t *testing.T, repo string) {
+	t.Helper()
+	runGit(t, repo, "add", "-A")
+	runGit(t, repo, "-c", "user.name=alice", "-c", "user.email=alice@example.com",
+		"commit", "-q", "-m", "add", "--date", "2020-01-01T00:00:00Z")
+}
+
+func withoutCreatedAtLine(content string) string {
+	return strings.Replace(content, "createdAt: 2019-06-01T00:00:00Z\n", "", 1)
+}
+
+// HEAD's stored createdAt is older information than the add commit,
+// so a lost line comes back with it.
+func TestFullLoad_ChangedTikiTakesCreatedAtFromHead(t *testing.T) {
+	repo := t.TempDir()
+	initRepo(t, repo)
+	writeDoc(t, filepath.Join(repo, "keep.md"), "KKKKKK", "keep")
+	path := filepath.Join(repo, "a.md")
+	writeRaw(t, path, docWithCreatedLine("a", "createdAt: 2019-06-01T00:00:00Z"))
+	commitAsAlice(t, repo)
+	writeRaw(t, path, strings.Replace(withoutCreatedAtLine(readFile(t, path)), "body\n", "body edited\n", 1))
+
+	newStoreIn(t, repo, WithCreatedAtStamping())
+
+	if got := readFile(t, path); !strings.Contains(got, "createdAt: 2019-06-01T00:00:00Z") {
+		t.Errorf("the value at HEAD wasn't restored:\n%s", got)
+	}
+}
+
+func TestFullLoad_MovedTikiTakesCreatedAtFromHead(t *testing.T) {
+	repo := t.TempDir()
+	initRepo(t, repo)
+	writeDoc(t, filepath.Join(repo, "keep.md"), "KKKKKK", "keep")
+	writeRaw(t, filepath.Join(repo, "a.md"), docWithCreatedLine("a", "createdAt: 2019-06-01T00:00:00Z"))
+	commitAsAlice(t, repo)
+	plainMove(t, repo, "a.md", "done/a.md")
+	moved := filepath.Join(repo, "done", "a.md")
+	writeRaw(t, moved, withoutCreatedAtLine(readFile(t, moved)))
+
+	newStoreIn(t, repo, WithCreatedAtStamping())
+
+	if got := readFile(t, moved); !strings.Contains(got, "createdAt: 2019-06-01T00:00:00Z") {
+		t.Errorf("the moved tiki didn't get the value at HEAD:\n%s", got)
+	}
+}
+
+// A new tiki written where a moved one used to be inherits nothing from that path's history.
+func TestFullLoad_ReusedPathIsNotStampedWithOldDate(t *testing.T) {
+	repo, _ := repoWithCommittedTiki(t, "a.md")
+	plainMove(t, repo, "a.md", "done/a.md")
+	reused := filepath.Join(repo, "a.md")
+	writeDoc(t, reused, "BBBBBB", "b")
+
+	s := newStoreIn(t, repo, WithCreatedAtStamping())
+
+	if got := readFile(t, reused); strings.Contains(got, "createdAt") {
+		t.Errorf("the new tiki at a reused path was stamped:\n%s", got)
+	}
+	if v, _ := s.GetTiki("BBBBBB").Get("createdBy"); v == "alice" {
+		t.Error("the new tiki took the old tiki's author")
+	}
+	if got := readFile(t, filepath.Join(repo, "done", "a.md")); !strings.Contains(got, commitDateLine) {
+		t.Errorf("the moved tiki wasn't recognised:\n%s", got)
+	}
+}
+
+func TestFullLoad_ChangedTikiStampedOnlyWhenHeadConfirmsIt(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		heads     map[string][]byte
+		headsErr  error
+		wantStamp bool
+	}{
+		{"HEAD unreadable", nil, os.ErrPermission, false},
+		{"HEAD holds the same tiki", map[string][]byte{"keep.md": headWithID("KKKKKK")}, nil, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, _ := storeWithScriptedGit(t, &movesGit{
+				authors:  map[string]*gitops.AuthorInfo{"keep.md": {Name: "alice", Date: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)}},
+				changes:  map[string]gitops.FileChange{"keep.md": gitops.FileChanged},
+				heads:    tc.heads,
+				headsErr: tc.headsErr,
+			})
+			keep := filepath.Join(s.dir, "keep.md")
+			if got := strings.Contains(readFile(t, keep), commitDateLine); got != tc.wantStamp {
+				t.Errorf("stamped = %v, want %v:\n%s", got, tc.wantStamp, readFile(t, keep))
+			}
+		})
+	}
+}

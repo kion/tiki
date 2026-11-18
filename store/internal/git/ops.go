@@ -17,7 +17,8 @@ type GitOps interface {
 	AllUsers() ([]string, error)
 	// RepoRelPath returns the key AllAuthors and AllLastCommitTimes use for path.
 	RepoRelPath(path string) (string, error)
-	// ChangedFiles reports tracked files under dirPattern that differ from HEAD or are gone; untracked files are left out.
+	// ChangedFiles reports tracked files under dirPattern that differ from HEAD or are gone;
+	// untracked files are left out.
 	ChangedFiles(dirPattern string) (map[string]FileChange, error)
 	// HeadContents returns the contents at HEAD of repo-relative paths; paths missing there are left out.
 	HeadContents(paths []string) (map[string][]byte, error)

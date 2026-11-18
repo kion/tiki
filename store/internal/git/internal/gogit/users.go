@@ -187,8 +187,10 @@ func (g *Util) AllUsers() ([]string, error) {
 
 // diffTreesFollowingRenames is for finding the commit that added a file:
 // without rename detection a rename would count as adding the new name.
+// Score and limit are git's -M defaults, without which any delete pairs with any add.
 func diffTreesFollowingRenames(from, to *object.Tree) (object.Changes, error) {
-	return object.DiffTreeWithOptions(context.Background(), from, to, &object.DiffTreeOptions{DetectRenames: true})
+	return object.DiffTreeWithOptions(context.Background(), from, to,
+		&object.DiffTreeOptions{DetectRenames: true, RenameScore: 50, RenameLimit: 1000})
 }
 
 // diffTrees diffs two trees (nil-safe for root commits where parent tree is nil).

@@ -1,6 +1,7 @@
 package gogit
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -61,7 +62,12 @@ func (g *Util) sameAsIndex(path string, idx **index.Index) bool {
 	if err != nil {
 		return false
 	}
-	return plumbing.ComputeHash(plumbing.BlobObject, content) == entry.Hash
+	if plumbing.ComputeHash(plumbing.BlobObject, content) == entry.Hash {
+		return true
+	}
+	// go-git ignores core.autocrlf, so a clean CRLF checkout of LF content would look changed
+	lf := bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
+	return plumbing.ComputeHash(plumbing.BlobObject, lf) == entry.Hash
 }
 
 // HeadContents reads files from the HEAD commit's tree.
