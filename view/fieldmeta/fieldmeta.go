@@ -87,6 +87,7 @@ var readOnlyFields = map[string]bool{
 	"createdBy": true,
 	"createdAt": true,
 	"updatedAt": true,
+	"activeAt":  true,
 }
 
 // SemanticEditable reports whether a semantic type has a generic in-place

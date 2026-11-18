@@ -468,6 +468,13 @@ func registerBuiltinFields() {
 		Get:      func(tk *tikipkg.Tiki) any { return tk.UpdatedAt() },
 		ReadOnly: true,
 	}
+	fieldRegistry["activeAt"] = FieldDescriptor{
+		Name:     "activeAt",
+		Label:    "Active",
+		Semantic: SemanticDateTime,
+		Get:      func(tk *tikipkg.Tiki) any { return tk.ActiveAt() },
+		ReadOnly: true,
+	}
 	fieldRegistry["title"] = FieldDescriptor{
 		Name:            "title",
 		Label:           "Title",

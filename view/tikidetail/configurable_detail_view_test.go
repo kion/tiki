@@ -718,7 +718,7 @@ func TestSemanticDateTimeIsEditable(t *testing.T) {
 
 func TestSystemTimestampsStayReadOnly(t *testing.T) {
 	// createdAt/updatedAt are ReadOnly descriptors -> FieldHasEditor false
-	for _, name := range []string{"createdAt", "updatedAt"} {
+	for _, name := range []string{"createdAt", "updatedAt", "activeAt"} {
 		if FieldHasEditor(name) {
 			t.Errorf("FieldHasEditor(%q) = true, want false (read-only system field)", name)
 		}
@@ -806,5 +806,43 @@ func TestRenderDateTimeValue_AuditTimeShowsLocal(t *testing.T) {
 	}
 	if got := gt.GetText(true); got != "2025-06-01 14:30" {
 		t.Errorf("rendered %q, want %q", got, "2025-06-01 14:30")
+	}
+}
+
+func TestRenderDateTimeValue_ActiveAtIsLaterOfUpdateAndLiveStatus(t *testing.T) {
+	fd, ok := LookupField("activeAt")
+	if !ok {
+		t.Fatal("LookupField(activeAt) failed")
+	}
+	updated := time.Date(2025, 6, 1, 19, 30, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name   string
+		liveAt time.Time
+		want   string
+	}{
+		{"no live status", time.Time{}, "2025-06-01 14:30"},
+		{"newer live status", time.Date(2025, 6, 1, 20, 45, 0, 0, time.UTC), "2025-06-01 15:45"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tk := tikipkg.New()
+			tk.SetUpdatedAt(updated)
+			tk.SetLiveAt(tc.liveAt)
+			ctx := withFieldDescriptor(FieldRenderContext{Roles: theme.Roles(), Location: time.FixedZone("TST", -5*3600)}, fd)
+
+			prim := renderDateTimeValue(tk, ctx)
+			gt, ok := prim.(interface{ GetText(bool) string })
+			if !ok {
+				t.Fatalf("unexpected primitive %T", prim)
+			}
+			if got := gt.GetText(true); got != tc.want {
+				t.Errorf("rendered %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFieldCaptionText_ActiveAt(t *testing.T) {
+	if got := fieldCaptionText("activeAt"); got != "Active" {
+		t.Errorf("caption = %q, want %q", got, "Active")
 	}
 }
