@@ -267,7 +267,7 @@ func TestRunWorkflowInstall_URL(t *testing.T) {
 		t.Fatalf("exit code = %d, want %d", code, exitOK)
 	}
 
-	got, _ := os.ReadFile(filepath.Join(tikiDir, "workflow.yaml"))
+	got, _ := os.ReadFile(filepath.Join(tikiDir, config.WorkflowFileName))
 	if string(got) != todoContent {
 		t.Errorf("workflow.yaml content mismatch")
 	}
@@ -280,7 +280,7 @@ func TestRunWorkflowInstall_Embedded(t *testing.T) {
 		t.Fatalf("exit code = %d, want %d", code, exitOK)
 	}
 
-	got, err := os.ReadFile(filepath.Join(tikiDir, "workflow.yaml"))
+	got, err := os.ReadFile(filepath.Join(tikiDir, config.WorkflowFileName))
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}

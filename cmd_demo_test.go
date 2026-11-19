@@ -67,7 +67,7 @@ func TestRunDemo_MaterializesAllFiles(t *testing.T) {
 	}
 
 	// the demo ships flat: workflow.yaml and .gitignore at the root, no .doc.
-	for _, rel := range []string{".gitignore", "workflow.yaml"} {
+	for _, rel := range []string{".gitignore", config.WorkflowFileName} {
 		if _, err := os.Stat(filepath.Join(demoRoot, rel)); err != nil {
 			t.Errorf("missing expected entry %q: %v", rel, err)
 		}
@@ -145,8 +145,8 @@ func TestRunDemo_WritesEmbeddedKanbanWorkflow(t *testing.T) {
 		t.Fatalf("runDemo: %v", err)
 	}
 
-	// runDemo chdirs into tiki-demo, so workflow.yaml is at the cwd root.
-	got, err := os.ReadFile("workflow.yaml")
+	// runDemo chdirs into tiki-demo, so the workflow is at the cwd root.
+	got, err := os.ReadFile(config.WorkflowFileName)
 	if err != nil {
 		t.Fatalf("read workflow: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestRunDemo_PreservesExistingWorkflowEdits(t *testing.T) {
 	if err := os.MkdirAll(demoDirName, 0o750); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	custom := []byte("version: 9.9.9\n# user's edits\n")
+	custom := []byte("version: 9.9.9\nfields: []\n# user's edits\n")
 	wfPath := filepath.Join(demoDirName, "workflow.yaml")
 	if err := os.WriteFile(wfPath, custom, 0o644); err != nil {
 		t.Fatalf("seed workflow: %v", err)
@@ -184,6 +184,9 @@ func TestRunDemo_PreservesExistingWorkflowEdits(t *testing.T) {
 	}
 	if string(got) != string(custom) {
 		t.Errorf("workflow.yaml was overwritten; want preserved user edits")
+	}
+	if _, err := os.Stat(config.WorkflowFileName); !os.IsNotExist(err) {
+		t.Errorf("%s was created beside an existing demo workflow; it would shadow the user's edits", config.WorkflowFileName)
 	}
 }
 
@@ -208,7 +211,7 @@ func TestRunDemo_HealsMissingWorkflowOnReuse(t *testing.T) {
 		t.Fatalf("runDemo: %v", err)
 	}
 
-	got, err := os.ReadFile("workflow.yaml")
+	got, err := os.ReadFile(config.WorkflowFileName)
 	if err != nil {
 		t.Fatalf("read healed workflow: %v", err)
 	}
@@ -275,9 +278,9 @@ func TestRunDemo_FlatLayout(t *testing.T) {
 		t.Fatalf("read demo root: %v", err)
 	}
 	reserved := map[string]struct{}{
-		"workflow.yaml": {},
-		"config.yaml":   {},
-		"index.md":      {},
+		config.WorkflowFileName: {},
+		"config.yaml":           {},
+		"index.md":              {},
 	}
 	var workflowFileCount int
 	for _, e := range entries {
@@ -285,8 +288,8 @@ func TestRunDemo_FlatLayout(t *testing.T) {
 			continue
 		}
 		name := e.Name()
-		if strings.HasPrefix(name, "tiki-") {
-			t.Errorf("legacy-named workflow file %s; demo must not use tiki- prefix", name)
+		if name == config.LegacyWorkflowFileName {
+			t.Errorf("demo wrote %s; it must use %s", name, config.WorkflowFileName)
 		}
 		if _, isReserved := reserved[name]; isReserved {
 			continue

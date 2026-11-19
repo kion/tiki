@@ -110,8 +110,8 @@ func TestResetConfig_CurrentDeletesAllFiles(t *testing.T) {
 	_ = os.Chdir(cwdDir)
 
 	// seed project config files at the cwd root
-	writeTestFile(t, filepath.Join(cwdDir, "config.yaml"), "custom\n")
-	writeTestFile(t, filepath.Join(cwdDir, "workflow.yaml"), "custom\n")
+	writeTestFile(t, filepath.Join(cwdDir, "config.yaml"), "logging:\n  level: debug\n")
+	writeTestFile(t, filepath.Join(cwdDir, "workflow.yaml"), "fields: []\n")
 
 	// also write global defaults so we can verify current doesn't overwrite
 	writeTestFile(t, filepath.Join(tikiDir, "workflow.yaml"), "global\n")
@@ -149,7 +149,7 @@ func TestResetConfig_CurrentDeletesFiles(t *testing.T) {
 	defer func() { _ = os.Chdir(originalDir) }()
 	_ = os.Chdir(cwdDir)
 
-	writeTestFile(t, filepath.Join(cwdDir, "workflow.yaml"), "override\n")
+	writeTestFile(t, filepath.Join(cwdDir, "workflow.yaml"), "fields: []\n")
 
 	affected, err := ResetConfig(ScopeCurrent, TargetWorkflow)
 	if err != nil {
@@ -193,12 +193,12 @@ func TestResetConfig_GlobalWorkflowCreatesDir(t *testing.T) {
 
 	// should have created the directory and written the default
 	tikiDir := filepath.Join(xdgDir, "tiki")
-	got, err := os.ReadFile(filepath.Join(tikiDir, "workflow.yaml"))
+	got, err := os.ReadFile(filepath.Join(tikiDir, WorkflowFileName))
 	if err != nil {
-		t.Fatalf("read workflow.yaml: %v", err)
+		t.Fatalf("read workflow: %v", err)
 	}
 	if string(got) != GetDefaultWorkflowYAML() {
-		t.Error("workflow.yaml should match embedded default")
+		t.Error("workflow should match embedded default")
 	}
 }
 

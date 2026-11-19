@@ -311,12 +311,6 @@ func GetUserConfigWorkflowFile() string {
 	return mustGetPathManager().UserConfigWorkflowFile()
 }
 
-// configFilename is the default name for the configuration file
-const configFilename = "config.yaml"
-
-// defaultWorkflowFilename is the default name for the workflow configuration file
-const defaultWorkflowFilename = "workflow.yaml"
-
 // findHighestPriorityFile returns the highest-priority existing file from
 // the standard search order: user config → project config → cwd.
 // The last existing (deduplicated) candidate wins.

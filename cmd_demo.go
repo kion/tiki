@@ -61,15 +61,19 @@ func runDemo() error {
 }
 
 // ensureDemoWorkflow writes the canonical embedded kanban workflow to
-// <dst>/workflow.yaml when that file is absent. It is the single source of the
-// demo's workflow: the embedded demo tree (demoFS) deliberately ships no
-// workflow.yaml of its own, so this is the only writer — config.GetDefaultWorkflowYAML()
-// is the one authoritative copy. Idempotent: a present file is left untouched so
-// user edits survive re-runs; a missing file self-heals (first run, interrupted
-// extract, or user deletion).
+// <dst>/tiki-workflow.yaml when the demo has no workflow of its own. It is the single
+// source of the demo's workflow: the embedded demo tree (demoFS) deliberately ships no
+// workflow file, so this is the only writer — config.GetDefaultWorkflowYAML()
+// is the one authoritative copy. Idempotent: a workflow already there, under either
+// name, is left untouched so user edits survive re-runs; a missing one self-heals
+// (first run, interrupted extract, or user deletion).
+// It resolves in dst explicitly because it runs before the chdir and InitPaths.
 func ensureDemoWorkflow(dst string) error {
-	path := filepath.Join(dst, "workflow.yaml")
-	if _, err := os.Stat(path); err == nil {
+	if config.ResolveInFolder(config.KindWorkflow, dst, false).Chosen != "" {
+		return nil
+	}
+	path := filepath.Join(dst, config.WorkflowFileName)
+	if _, err := os.Lstat(path); err == nil {
 		return nil
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {

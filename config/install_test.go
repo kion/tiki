@@ -50,7 +50,7 @@ func TestInstallWorkflow_URL(t *testing.T) {
 		t.Errorf("expected %s to be changed on fresh install", results[0].Path)
 	}
 
-	got, err := os.ReadFile(filepath.Join(tikiDir, "workflow.yaml"))
+	got, err := os.ReadFile(filepath.Join(tikiDir, WorkflowFileName))
 	if err != nil {
 		t.Fatalf("read workflow.yaml: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestInstallWorkflow_Embedded(t *testing.T) {
 		t.Errorf("expected file to be changed on fresh install")
 	}
 
-	got, err := os.ReadFile(filepath.Join(tikiDir, "workflow.yaml"))
+	got, err := os.ReadFile(filepath.Join(tikiDir, WorkflowFileName))
 	if err != nil {
 		t.Fatalf("read workflow.yaml: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestInstallWorkflow_File(t *testing.T) {
 		t.Errorf("expected file to be changed")
 	}
 
-	got, _ := os.ReadFile(filepath.Join(tikiDir, "workflow.yaml"))
+	got, _ := os.ReadFile(filepath.Join(tikiDir, WorkflowFileName))
 	if string(got) != validTestWorkflow {
 		t.Errorf("workflow.yaml content mismatch")
 	}
@@ -180,7 +180,7 @@ func TestInstallWorkflowFromContent(t *testing.T) {
 		t.Error("expected file to be changed")
 	}
 
-	got, _ := os.ReadFile(filepath.Join(tikiDir, "workflow.yaml"))
+	got, _ := os.ReadFile(filepath.Join(tikiDir, WorkflowFileName))
 	if string(got) != "test content" {
 		t.Errorf("workflow.yaml = %q, want %q", got, "test content")
 	}

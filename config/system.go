@@ -64,18 +64,18 @@ func GetDefaultWorkflowYAML() string {
 	return embeddedKanbanYAML
 }
 
-// InstallDefaultWorkflow installs the default workflow.yaml to the user config directory
-// if it does not already exist. This runs on every launch to handle first-run and upgrade cases.
+// InstallDefaultWorkflow seeds the user config directory with the default workflow
+// when it has no workflow file under either name.
+// This runs on every launch to handle first-run and upgrade cases.
 func InstallDefaultWorkflow() error {
-	path := GetUserConfigWorkflowFile()
-
-	// No-op if the file already exists
-	if _, err := os.Stat(path); err == nil {
-		return nil
+	dir := GetConfigDir()
+	for _, name := range []string{WorkflowFileName, LegacyWorkflowFileName} {
+		if exists(filepath.Join(dir, name)) {
+			return nil
+		}
 	}
+	path := filepath.Join(dir, WorkflowFileName)
 
-	// Ensure the config directory exists
-	dir := filepath.Dir(path)
 	//nolint:gosec // G301: 0755 is appropriate for config directory
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("create config directory %s: %w", dir, err)
@@ -83,7 +83,7 @@ func InstallDefaultWorkflow() error {
 
 	//nolint:gosec // G306: 0644 is appropriate for config file
 	if err := os.WriteFile(path, []byte(embeddedKanbanYAML), 0644); err != nil {
-		return fmt.Errorf("write default workflow.yaml: %w", err)
+		return fmt.Errorf("write default workflow %s: %w", path, err)
 	}
 
 	return nil

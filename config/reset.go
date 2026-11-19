@@ -22,17 +22,17 @@ const (
 	TargetWorkflow ResetTarget = "workflow"
 )
 
-// resetEntry pairs a filename with the default content to restore for global scope.
-// If defaultContent is empty, the file is always deleted (no embedded default exists).
+// resetEntry pairs a file kind with the default content to restore for global scope.
+// If defaultContent is empty, the files are always deleted (no embedded default exists).
 type resetEntry struct {
-	filename       string
+	kind           FileKind
 	defaultContent string
 }
 
 var resetEntries = []resetEntry{
 	// TODO: embed a default config.yaml once one exists; until then, global reset deletes the file
-	{filename: configFilename, defaultContent: ""},
-	{filename: defaultWorkflowFilename, defaultContent: embeddedKanbanYAML},
+	{kind: KindConfig, defaultContent: ""},
+	{kind: KindWorkflow, defaultContent: embeddedKanbanYAML},
 }
 
 // ResetConfig resets configuration files for the given scope and target.
@@ -48,18 +48,53 @@ func ResetConfig(scope Scope, target ResetTarget) ([]string, error) {
 		return nil, err
 	}
 
+	global := scope == ScopeGlobal
 	var affected []string
 	for _, e := range entries {
-		path := filepath.Join(dir, e.filename)
-		changed, err := resetFile(path, scope, e.defaultContent)
+		paths, err := resetKind(dir, global, e)
+		affected = append(affected, paths...)
 		if err != nil {
-			return affected, fmt.Errorf("reset %s: %w", e.filename, err)
-		}
-		if changed {
-			affected = append(affected, path)
+			return affected, err
 		}
 	}
 
+	return affected, nil
+}
+
+// resetKind restores the global workflow to the default, and otherwise deletes
+// every tiki file of the kind in dir under both names, so an old one can't become active again.
+// Files that aren't tiki's are never deleted.
+func resetKind(dir string, global bool, e resetEntry) ([]string, error) {
+	if global && e.defaultContent != "" {
+		path, err := WorkflowWriteTarget(dir, true)
+		if err != nil {
+			return nil, err
+		}
+		changed, err := writeFileIfChanged(path, e.defaultContent)
+		if err != nil {
+			return nil, fmt.Errorf("reset %s: %w", path, err)
+		}
+		if changed {
+			return []string{path}, nil
+		}
+		return nil, nil
+	}
+
+	preferred, legacy := e.kind.Names()
+	var affected []string
+	for _, name := range []string{preferred, legacy} {
+		path := filepath.Join(dir, name)
+		if _, err := os.Lstat(path); err != nil || !IsDeletableTikiFile(e.kind, path, global) {
+			continue
+		}
+		deleted, err := deleteIfExists(path)
+		if err != nil {
+			return affected, fmt.Errorf("reset %s: %w", path, err)
+		}
+		if deleted {
+			affected = append(affected, path)
+		}
+	}
 	return affected, nil
 }
 
@@ -96,34 +131,16 @@ func ValidResetTarget(target ResetTarget) bool {
 
 // filterEntries returns the reset entries matching the target.
 func filterEntries(target ResetTarget) ([]resetEntry, error) {
-	if target == TargetAll {
-		return resetEntries, nil
-	}
-	var filename string
 	switch target {
+	case TargetAll:
+		return resetEntries, nil
 	case TargetConfig:
-		filename = configFilename
+		return resetEntries[:1], nil
 	case TargetWorkflow:
-		filename = defaultWorkflowFilename
+		return resetEntries[1:], nil
 	default:
 		return nil, fmt.Errorf("unknown target: %q (use config or workflow)", target)
 	}
-	for _, e := range resetEntries {
-		if e.filename == filename {
-			return []resetEntry{e}, nil
-		}
-	}
-	return nil, fmt.Errorf("no reset entry for target %q", target)
-}
-
-// resetFile either overwrites or deletes a file depending on scope and available defaults.
-// For global scope with non-empty default content, the file is overwritten.
-// Otherwise the file is deleted. Returns true if the file was changed.
-func resetFile(path string, scope Scope, defaultContent string) (bool, error) {
-	if scope == ScopeGlobal && defaultContent != "" {
-		return writeFileIfChanged(path, defaultContent)
-	}
-	return deleteIfExists(path)
 }
 
 // writeFileIfChanged writes content to path, skipping if the file already has identical content.
