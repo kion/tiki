@@ -48,7 +48,7 @@ func ResetConfig(scope Scope, target ResetTarget) ([]string, error) {
 		return nil, err
 	}
 
-	global := scope == ScopeGlobal
+	global := isUserConfigScope(scope, dir)
 	var affected []string
 	for _, e := range entries {
 		paths, err := resetKind(dir, global, e)

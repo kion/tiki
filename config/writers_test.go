@@ -202,3 +202,39 @@ func TestInstallDefaultWorkflow_ThenLoad(t *testing.T) {
 
 	assertContent(t, filepath.Join(tikiDir, WorkflowFileName), GetDefaultWorkflowYAML())
 }
+
+func TestWriters_CwdInUserFolderBehaveAsGlobal(t *testing.T) {
+	tikiDir := setupResetTest(t)
+	t.Chdir(tikiDir)
+	dotfile := filepath.Join(t.TempDir(), "workflow.yaml")
+	writeTestFile(t, dotfile, "fields: []\n")
+	if err := os.Symlink(dotfile, filepath.Join(tikiDir, WorkflowFileName)); err != nil {
+		t.Skip("symlinks unavailable:", err)
+	}
+
+	if _, err := InstallWorkflowFromContent("views: []\n", ScopeCurrent); err != nil {
+		t.Fatalf("install in the user folder should follow its symlink: %v", err)
+	}
+	assertContent(t, dotfile, "views: []\n")
+
+	if _, err := ResetConfig(ScopeCurrent, TargetWorkflow); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(filepath.Join(tikiDir, WorkflowFileName)); err != nil {
+		t.Fatalf("reset in the user folder should restore the default, not delete the link: %v", err)
+	}
+	assertContent(t, dotfile, GetDefaultWorkflowYAML())
+}
+
+func TestInstallDefaultWorkflow_DanglingSymlinkCountsAsPresent(t *testing.T) {
+	tikiDir := setupResetTest(t)
+	if err := os.Symlink(filepath.Join(t.TempDir(), "not-synced-yet.yaml"), filepath.Join(tikiDir, LegacyWorkflowFileName)); err != nil {
+		t.Skip("symlinks unavailable:", err)
+	}
+
+	if err := InstallDefaultWorkflow(); err != nil {
+		t.Fatal(err)
+	}
+
+	assertMissing(t, filepath.Join(tikiDir, WorkflowFileName))
+}

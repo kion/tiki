@@ -270,7 +270,7 @@ func TestLoadTriggerDefs_FileReadError(t *testing.T) {
 `)
 
 	// cwd-root has an unreadable file (not invalid YAML, but unreadable)
-	f := filepath.Join(cwdDir, "workflow.yaml")
+	f := filepath.Join(cwdDir, WorkflowFileName)
 	if err := os.WriteFile(f, []byte("triggers: []\n"), 0644); err != nil {
 		t.Fatal(err)
 	}

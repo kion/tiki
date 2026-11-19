@@ -69,8 +69,9 @@ func GetDefaultWorkflowYAML() string {
 // This runs on every launch to handle first-run and upgrade cases.
 func InstallDefaultWorkflow() error {
 	dir := GetConfigDir()
+	// Lstat: a dotfile link that hasn't synced yet still means the user has a workflow
 	for _, name := range []string{WorkflowFileName, LegacyWorkflowFileName} {
-		if exists(filepath.Join(dir, name)) {
+		if _, err := os.Lstat(filepath.Join(dir, name)); err == nil {
 			return nil
 		}
 	}

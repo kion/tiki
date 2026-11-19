@@ -70,6 +70,11 @@ func ProjectDirLabel() string {
 	return shortenDir(mustGetPathManager().projectRoot, home, dirLabelMax)
 }
 
+// StripControl removes control characters, so text from a file can't drive the terminal.
+func StripControl(s string) string {
+	return sanitizeLine(s)
+}
+
 func sanitizeLine(s string) string {
 	return strings.Map(func(r rune) rune {
 		if unicode.IsControl(r) {

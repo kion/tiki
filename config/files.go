@@ -29,6 +29,8 @@ const (
 // a cloned repo could plant a huge file or a device under a tiki name
 const maxTikiFileSize = 1 << 20
 
+const maxListedKeys = 5
+
 // CandidateStatus says what resolution did with one file in a folder.
 type CandidateStatus string
 
@@ -128,6 +130,9 @@ func IsDeletableTikiFile(kind FileKind, path string, global bool) bool {
 	if filepath.Base(path) == preferred || global {
 		return true
 	}
+	if unsafeReason(path) != "" {
+		return false
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return false
@@ -146,13 +151,14 @@ func legacyRejection(kind FileKind, path string, global bool) string {
 	if global {
 		return ""
 	}
-	// a broken tiki file should report its read or parse error, not vanish
+	// an unreadable file can't be recognised, and another app's file must not stop tiki
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return ""
+		return "unreadable: " + err.Error()
 	}
 	top, err := topLevelKeys(data)
 	if err != nil {
+		// a broken tiki file should report its parse error, not vanish
 		if _, isShape := err.(shapeError); !isShape {
 			return ""
 		}
@@ -207,13 +213,17 @@ func recognitionFailure(kind FileKind, keys []string) string {
 	var unknown []string
 	for _, k := range keys {
 		if !known[strings.ToLower(k)] {
-			unknown = append(unknown, k)
+			// keys come from a possibly hostile file and end up on the terminal
+			unknown = append(unknown, StripControl(k))
 		}
 	}
 	if len(unknown) == 0 {
 		return ""
 	}
 	sort.Strings(unknown)
+	if len(unknown) > maxListedKeys {
+		unknown = append(unknown[:maxListedKeys], "…")
+	}
 	return fmt.Sprintf("not a tiki file (unknown keys: %s)", strings.Join(unknown, ", "))
 }
 

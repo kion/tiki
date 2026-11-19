@@ -85,7 +85,7 @@ Each folder contributes at most one file of each kind:
   A misspelled section makes tiki skip the whole file; `tiki config` names the unknown keys.
   Renaming the file to `tiki-config.yaml` makes tiki always read it.
 - A file that isn't valid YAML counts, so you see its error instead of having it silently skipped.
-  An empty file, or one whose top level isn't a map, doesn't count.
+  A file tiki can't read, an empty file, or one whose top level isn't a map doesn't count.
 
 tiki reads only regular files of at most 1 MiB.
 

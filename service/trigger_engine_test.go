@@ -984,7 +984,7 @@ func TestTriggerEngine_PersistDeleteError(t *testing.T) {
 func TestLoadAndRegisterTriggers_LoadDefError(t *testing.T) {
 	cwdDir := setupTriggerLoadTest(t)
 
-	f := filepath.Join(cwdDir, "workflow.yaml")
+	f := filepath.Join(cwdDir, config.WorkflowFileName)
 	if err := os.WriteFile(f, []byte("triggers: []\n"), 0644); err != nil {
 		t.Fatal(err)
 	}

@@ -41,7 +41,7 @@ func writeConfigReport(w io.Writer, cfg, wf config.Resolution) error {
 	writeResolutionRows(&b, cfg, false)
 	if cfg.Local != nil && cfg.Local.Chosen != "" {
 		if keys := config.PersonalKeysIn(cfg.Local.Chosen); len(keys) > 0 {
-			fmt.Fprintf(&b, "  note: %s in %s apply to everyone who uses this project\n", strings.Join(keys, ", "), cfg.Local.Chosen)
+			fmt.Fprintf(&b, "  note: %s in %s apply to everyone who uses this project\n", strings.Join(keys, ", "), config.StripControl(cfg.Local.Chosen))
 		}
 	}
 	b.WriteString("\nworkflow\n")
@@ -60,14 +60,14 @@ func writeResolutionRows(b *strings.Builder, r config.Resolution, singleWinner b
 		if singleWinner && localWins && c.Status == config.StatusLoaded {
 			status = "overridden by local"
 		}
-		_, _ = fmt.Fprintf(tw, "  global\t%s\t%s\n", c.Path, status)
+		_, _ = fmt.Fprintf(tw, "  global\t%s\t%s\n", config.StripControl(c.Path), status)
 	}
 	if r.Local == nil {
-		_, _ = fmt.Fprintf(tw, "  local\t%s\t%s\n", r.Global.Dir, "same folder as global")
+		_, _ = fmt.Fprintf(tw, "  local\t%s\t%s\n", config.StripControl(r.Global.Dir), "same folder as global")
 	}
 	if r.Local != nil {
 		for _, c := range r.Local.Candidates {
-			_, _ = fmt.Fprintf(tw, "  local\t%s\t%s\n", c.Path, candidateStatus(c))
+			_, _ = fmt.Fprintf(tw, "  local\t%s\t%s\n", config.StripControl(c.Path), candidateStatus(c))
 		}
 	}
 	_ = tw.Flush()
@@ -77,7 +77,7 @@ func candidateStatus(c config.Candidate) string {
 	if c.Reason == "" {
 		return string(c.Status)
 	}
-	return string(c.Status) + ": " + c.Reason
+	return string(c.Status) + ": " + config.StripControl(c.Reason)
 }
 
 func printConfigUsage() {

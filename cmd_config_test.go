@@ -104,3 +104,18 @@ func TestRunConfig_Usage(t *testing.T) {
 		t.Errorf("unexpected argument: exit %d, want %d", code, exitUsage)
 	}
 }
+
+func TestConfigReport_StripsControlCharacters(t *testing.T) {
+	cfg := config.Resolution{Global: config.FolderResolution{Dir: "/g", Global: true, Candidates: []config.Candidate{
+		{Path: "/g/\x1b]0;evil\x07/config.yaml", Status: config.StatusSkipped, Reason: "x\x1by"},
+	}}}
+
+	var b strings.Builder
+	if err := writeConfigReport(&b, cfg, config.Resolution{Global: config.FolderResolution{Dir: "/g", Global: true}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.ContainsAny(b.String(), "\x1b\x07") {
+		t.Errorf("report carries control characters: %q", b.String())
+	}
+}

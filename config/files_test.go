@@ -297,3 +297,47 @@ func TestResolutionAll_GlobalThenLocal(t *testing.T) {
 		t.Errorf("empty resolution: %d candidates", n)
 	}
 }
+
+func TestIsDeletableTikiFile_OversizedLegacyLocalNotRead(t *testing.T) {
+	path := writeFolderFile(t, t.TempDir(), LegacyWorkflowFileName, "fields: []\n#"+strings.Repeat("x", maxTikiFileSize))
+
+	if IsDeletableTikiFile(KindWorkflow, path, false) {
+		t.Error("a local file tiki won't read must not be read or deleted by reset")
+	}
+}
+
+func TestResolveInFolder_UnknownKeysSanitisedAndCapped(t *testing.T) {
+	dir := t.TempDir()
+	writeFolderFile(t, dir, LegacyConfigFileName, "\"\\e]52;c;SGk=\\a\": 1\na: 1\nb: 1\nc: 1\nd: 1\ne: 1\nf: 1\n")
+
+	c := candidateFor(t, ResolveInFolder(KindConfig, dir, false), LegacyConfigFileName)
+
+	if strings.ContainsAny(c.Reason, "\x1b\x07") {
+		t.Errorf("reason carries control characters: %q", c.Reason)
+	}
+	if !strings.HasSuffix(c.Reason, ", …)") || strings.Count(c.Reason, ",") != 5 {
+		t.Errorf("reason should list 5 keys and an ellipsis: %q", c.Reason)
+	}
+}
+
+func TestResolveInFolder_UnreadableLegacyLocalSkipped(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFolderFile(t, dir, LegacyConfigFileName, "logging:\n  level: debug\n")
+	if err := os.Chmod(path, 0o000); err != nil {
+		t.Skip("cannot change permissions:", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
+	if f, err := os.Open(path); err == nil {
+		_ = f.Close()
+		t.Skip("chmod 0000 did not restrict reading")
+	}
+
+	r := ResolveInFolder(KindConfig, dir, false)
+
+	if r.Chosen != "" {
+		t.Fatalf("Chosen = %q: another app's unreadable config.yaml must not stop tiki", r.Chosen)
+	}
+	if c := candidateFor(t, r, LegacyConfigFileName); c.Status != StatusSkipped || !strings.HasPrefix(c.Reason, "unreadable: ") {
+		t.Errorf("candidate = %+v", c)
+	}
+}

@@ -39,7 +39,7 @@ func InstallWorkflowFromContent(content string, scope Scope) ([]InstallResult, e
 		return nil, err
 	}
 
-	path, err := WorkflowWriteTarget(dir, scope == ScopeGlobal)
+	path, err := WorkflowWriteTarget(dir, isUserConfigScope(scope, dir))
 	if err != nil {
 		return nil, err
 	}
@@ -96,3 +96,9 @@ func DescribeWorkflow(src WorkflowSource) (string, error) {
 }
 
 var httpClient = &http.Client{Timeout: httpTimeout}
+
+// isUserConfigScope reports whether a write goes to the user config folder,
+// including --current run from inside it, so readers and writers agree on what's global.
+func isUserConfigScope(scope Scope, dir string) bool {
+	return scope == ScopeGlobal || sameFolder(dir, GetConfigDir())
+}
