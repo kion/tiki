@@ -18,10 +18,12 @@ type HeaderAction struct {
 	Enabled      bool
 }
 
-// StatValue represents a single stat entry for the statusline
+// StatValue represents a single stat entry for the statusline.
+// Fg and Bg are optional "#rrggbb" colours; empty means the theme's alternating colours.
 type StatValue struct {
 	Value    string
 	Priority int
+	Fg, Bg   string
 }
 
 // HeaderConfig manages header visibility state.

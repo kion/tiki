@@ -92,3 +92,12 @@ func TestShortenDir(t *testing.T) {
 		}
 	}
 }
+
+func TestContrastingText(t *testing.T) {
+	cases := map[string]string{"#ffff00": "#000000", "#ff8800": "#000000", "#000080": "#ffffff", "#202020": "#ffffff"}
+	for bg, want := range cases {
+		if got := ContrastingText(bg); got != want {
+			t.Errorf("ContrastingText(%s) = %s, want %s", bg, got, want)
+		}
+	}
+}

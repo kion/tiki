@@ -142,3 +142,14 @@ func shortFolder(name string) string {
 	}
 	return string(r)
 }
+
+// ContrastingText returns black or white, whichever reads better on the "#rrggbb" background.
+func ContrastingText(bgHex string) string {
+	c := tcell.GetColor(bgHex)
+	r, g, b := c.RGB()
+	// perceived luminance (ITU-R BT.601)
+	if 299*r+587*g+114*b >= 128000 {
+		return "#000000"
+	}
+	return "#ffffff"
+}

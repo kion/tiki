@@ -330,3 +330,43 @@ func TestStatuslineWidget_MessageWhenNoProgress(t *testing.T) {
 		t.Fatalf("message should render when no progress active: %q", mid)
 	}
 }
+
+func TestSortedSegments_KeepsColours(t *testing.T) {
+	segments := sortedSegments(map[string]model.StatValue{"Dir": {Value: "~/x", Priority: -1, Fg: "#000000", Bg: "#ff8800"}})
+	if segments[0].fg != "#000000" || segments[0].bg != "#ff8800" {
+		t.Errorf("segment = %+v, want its colours kept", segments[0])
+	}
+}
+
+func TestRenderLeftSegments_CustomColouredSegment(t *testing.T) {
+	sw := newTestWidget()
+	roles := testRoles()
+	segments := []statSegment{
+		{value: "~/x", order: -1, fg: "#000000", bg: "#ff8800"},
+		{value: "v1.0", order: 0},
+	}
+
+	result := sw.renderLeftSegments(segments, roles)
+
+	if !strings.Contains(result, "[#000000:#ff8800] ~/x ") {
+		t.Errorf("custom segment should use its own colours, got %q", result)
+	}
+	arrow := fmt.Sprintf("[#ff8800:%s]%s", roles.StatuslineMain().Bg().Hex(), separatorRight)
+	if !strings.Contains(result, arrow) {
+		t.Errorf("arrow after the custom segment should start from its colour %q, got %q", arrow, result)
+	}
+}
+
+func TestRenderLeftSegments_EscapesValue(t *testing.T) {
+	sw := newTestWidget()
+	segments := []statSegment{{value: "a[red]b", order: 1}}
+
+	result := sw.renderLeftSegments(segments, testRoles())
+
+	if !strings.Contains(result, " "+tview.Escape("a[red]b")+" ") {
+		t.Errorf("value should be escaped, got %q", result)
+	}
+	if got, want := segmentsVisibleLen(segments), 7+2+1; got != want {
+		t.Errorf("visible length = %d, want %d (measured on the raw value)", got, want)
+	}
+}

@@ -74,8 +74,9 @@ func (sw *StatuslineWidget) rebuild() {
 
 // statSegment holds a single stat for rendering
 type statSegment struct {
-	value string
-	order int
+	value  string // raw text: escaped when drawn, measured as is
+	order  int
+	fg, bg string
 }
 
 // render builds the powerline text for the given terminal width
@@ -123,17 +124,17 @@ func (sw *StatuslineWidget) renderLeftSegments(segments []statSegment, roles *th
 	var b strings.Builder
 
 	for i, seg := range segments {
-		bg, fg := segmentColors(i, roles)
+		bg, fg := segmentColorsAt(segments, i, roles)
 
 		// segment text: " value "
-		fmt.Fprintf(&b, "[%s:%s] %s ", fg.Hex(), bg.Hex(), seg.value)
+		fmt.Fprintf(&b, "[%s:%s] %s ", fg, bg, tview.Escape(seg.value))
 
 		// separator: fg = current bg (creates the arrow), bg = next segment's bg or fill
-		nextBg := roles.StatuslineFill()
+		nextBg := roles.StatuslineFill().Hex()
 		if i < len(segments)-1 {
-			nextBg, _ = segmentColors(i+1, roles)
+			nextBg, _ = segmentColorsAt(segments, i+1, roles)
 		}
-		fmt.Fprintf(&b, "[%s:%s]%s", bg.Hex(), nextBg.Hex(), separatorRight)
+		fmt.Fprintf(&b, "[%s:%s]%s", bg, nextBg, separatorRight)
 	}
 
 	// reset colors
@@ -151,22 +152,32 @@ func (sw *StatuslineWidget) renderRightSegments(segments []statSegment, roles *t
 	var b strings.Builder
 
 	for i, seg := range segments {
-		bg, fg := segmentColors(i, roles)
+		bg, fg := segmentColorsAt(segments, i, roles)
 
 		// separator before segment: fg = segment bg, bg = previous segment bg (or fill)
-		prevBg := roles.StatuslineFill()
+		prevBg := roles.StatuslineFill().Hex()
 		if i > 0 {
-			prevBg, _ = segmentColors(i-1, roles)
+			prevBg, _ = segmentColorsAt(segments, i-1, roles)
 		}
-		fmt.Fprintf(&b, "[%s:%s]%s", bg.Hex(), prevBg.Hex(), separatorLeft)
+		fmt.Fprintf(&b, "[%s:%s]%s", bg, prevBg, separatorLeft)
 
 		// segment text
-		fmt.Fprintf(&b, "[%s:%s] %s ", fg.Hex(), bg.Hex(), seg.value)
+		fmt.Fprintf(&b, "[%s:%s] %s ", fg, bg, tview.Escape(seg.value))
 	}
 
 	// reset colors
 	b.WriteString("[-:-]")
 	return b.String()
+}
+
+// segmentColorsAt returns the (bg, fg) hex of segments[i]: its own colours when it has them,
+// otherwise the theme's alternating ones. Arrows use it too, so they match a coloured neighbour.
+func segmentColorsAt(segments []statSegment, i int, roles *theme.Theme) (string, string) {
+	if seg := segments[i]; seg.bg != "" && seg.fg != "" {
+		return seg.bg, seg.fg
+	}
+	bg, fg := segmentColors(i, roles)
+	return bg.Hex(), fg.Hex()
 }
 
 // segmentColors returns (bg, fg) for a segment at the given index.
@@ -258,7 +269,7 @@ func messageColors(level model.MessageLevel, roles *theme.Theme) (theme.Role, th
 func sortedSegments(stats map[string]model.StatValue) []statSegment {
 	segments := make([]statSegment, 0, len(stats))
 	for _, v := range stats {
-		segments = append(segments, statSegment{value: v.Value, order: v.Priority})
+		segments = append(segments, statSegment{value: v.Value, order: v.Priority, fg: v.Fg, bg: v.Bg})
 	}
 	sort.Slice(segments, func(i, j int) bool {
 		return segments[i].order < segments[j].order

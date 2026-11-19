@@ -42,6 +42,7 @@ func InitDetailBodyMode() *model.DetailBodyMode {
 // InitStatuslineModel creates and populates the statusline config with base stats (version, workflow scope, branch, user).
 func InitStatuslineModel(tikiStore *tikistore.TikiStore, workflowScope config.Scope) *model.StatuslineConfig {
 	cfg := model.NewStatuslineConfig()
+	addProjectDirStat(cfg)
 	cfg.SetLeftStat("Version", config.Version, 0)
 	cfg.SetLeftStat("Workflow", config.WorkflowScopeLabel(workflowScope), 1)
 	for _, stat := range tikiStore.GetStats() {
@@ -52,4 +53,16 @@ func InitStatuslineModel(tikiStore *tikistore.TikiStore, workflowScope config.Sc
 		cfg.SetLeftStat(stat.Name, value, stat.Order)
 	}
 	return cfg
+}
+
+// addProjectDirStat puts the project folder first in the bottom bar,
+// in the project colour when one is set.
+// First, because a narrow bar cuts its right end rather than dropping blocks.
+func addProjectDirStat(cfg *model.StatuslineConfig) {
+	label := config.ProjectDirLabel()
+	if hex, ok := config.GetProjectColor(); ok {
+		cfg.SetLeftStatColored("Dir", label, -1, config.ContrastingText(hex), hex)
+		return
+	}
+	cfg.SetLeftStat("Dir", label, -1)
 }

@@ -56,6 +56,14 @@ func (sc *StatuslineConfig) SetLeftStat(key, value string, priority int) {
 	sc.notifyListeners()
 }
 
+// SetLeftStatColored sets a base stat drawn in its own colours instead of the theme's.
+func (sc *StatuslineConfig) SetLeftStatColored(key, value string, priority int, fg, bg string) {
+	sc.mu.Lock()
+	sc.leftStats[key] = StatValue{Value: value, Priority: priority, Fg: fg, Bg: bg}
+	sc.mu.Unlock()
+	sc.notifyListeners()
+}
+
 func (sc *StatuslineConfig) RemoveLeftStat(key string) {
 	sc.mu.Lock()
 	_, existed := sc.leftStats[key]

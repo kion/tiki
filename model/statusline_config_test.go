@@ -606,3 +606,13 @@ func TestStatuslineConfig_RemoveLeftStat(t *testing.T) {
 		t.Errorf("removing an absent stat notified listeners")
 	}
 }
+
+func TestStatuslineConfig_SetLeftStatColored(t *testing.T) {
+	sc := NewStatuslineConfig()
+	sc.SetLeftStatColored("Dir", "~/x", -1, "#000000", "#ff8800")
+
+	got := sc.GetLeftStats()["Dir"]
+	if got != (StatValue{Value: "~/x", Priority: -1, Fg: "#000000", Bg: "#ff8800"}) {
+		t.Errorf("Dir = %+v", got)
+	}
+}
