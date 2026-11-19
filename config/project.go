@@ -1,14 +1,13 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/boolean-maybe/tiki/theme"
 	"github.com/mattn/go-runewidth"
 	"github.com/spf13/viper"
 )
@@ -50,12 +49,12 @@ func ParseProjectColor(s string) (string, bool) {
 	if s == "" || strings.ContainsAny(s, "[]") {
 		return "", false
 	}
-	c := tcell.GetColor(s)
+	c := theme.NewColorHex(s)
 	// unknown names, "default" and "reset" don't name a real colour
-	if c == tcell.ColorDefault || c == tcell.ColorReset || c.Hex() < 0 {
+	if r, g, b := c.RGB(); c.IsDefault() || r < 0 || g < 0 || b < 0 {
 		return "", false
 	}
-	return fmt.Sprintf("#%06x", c.Hex()), true
+	return c.Hex(), true
 }
 
 // GetProjectLogo returns project.logo with tabs expanded, control characters removed
@@ -145,8 +144,7 @@ func shortFolder(name string) string {
 
 // ContrastingText returns black or white, whichever reads better on the "#rrggbb" background.
 func ContrastingText(bgHex string) string {
-	c := tcell.GetColor(bgHex)
-	r, g, b := c.RGB()
+	r, g, b := theme.NewColorHex(bgHex).RGB()
 	// perceived luminance (ITU-R BT.601)
 	if 299*r+587*g+114*b >= 128000 {
 		return "#000000"

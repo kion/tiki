@@ -48,7 +48,7 @@ func (iw *InfoWidget) SetViewInfo(name, description string) {
 	mutedTag := roles.TextMuted().Tag()
 
 	var title strings.Builder
-	if project := fitTitle(iw.project, name, infoTextWidth); project != "" {
+	if project := fitTitle(iw.project, name); project != "" {
 		fmt.Fprintf(&title, "[%s::b]%s[-::-]%s%s[-]", iw.projectColor, tview.Escape(project), mutedTag, titleSeparator)
 	}
 	fmt.Fprintf(&title, "%s%s[-::-]", boldColor, tview.Escape(name))
@@ -65,11 +65,11 @@ func (iw *InfoWidget) SetViewInfo(name, description string) {
 // fitTitle returns the part of the project name that fits before the view name on one line.
 // The widget word-wraps, so an over-long line would wrap instead of being cut:
 // the project name is truncated, and dropped when the view name alone fills the line.
-func fitTitle(project, view string, width int) string {
+func fitTitle(project, view string) string {
 	if project == "" {
 		return ""
 	}
-	avail := width - runewidth.StringWidth(view) - runewidth.StringWidth(titleSeparator)
+	avail := infoTextWidth - runewidth.StringWidth(view) - runewidth.StringWidth(titleSeparator)
 	if runewidth.StringWidth(project) <= avail {
 		return project
 	}

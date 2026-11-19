@@ -311,31 +311,6 @@ func GetUserConfigWorkflowFile() string {
 	return mustGetPathManager().UserConfigWorkflowFile()
 }
 
-// findHighestPriorityFile returns the highest-priority existing file from
-// the standard search order: user config → project config → cwd.
-// The last existing (deduplicated) candidate wins.
-func findHighestPriorityFile(candidates []string) string {
-	var best string
-	seen := make(map[string]bool)
-
-	for _, path := range candidates {
-		abs, err := filepath.Abs(path)
-		if err != nil {
-			abs = path
-		}
-		if seen[abs] {
-			continue
-		}
-		if _, err := os.Stat(path); err != nil {
-			continue
-		}
-		seen[abs] = true
-		best = path
-	}
-
-	return best
-}
-
 // findWorkflowFileWithScope returns the workflow file that applies and its scope:
 // the project folder's when it contributes one, otherwise the user config folder's.
 // This is the single source of truth — FindWorkflowFile and FindWorkflowFiles delegate here.

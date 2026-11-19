@@ -8,13 +8,13 @@ import (
 )
 
 func TestFitTitle_Fits(t *testing.T) {
-	if got := fitTitle("Tiki fork", "Kanban", infoTextWidth); got != "Tiki fork" {
+	if got := fitTitle("Tiki fork", "Kanban"); got != "Tiki fork" {
 		t.Errorf("fitTitle = %q", got)
 	}
 }
 
 func TestFitTitle_TruncatesProject(t *testing.T) {
-	got := fitTitle("A very long project name that keeps going", "Kanban", infoTextWidth)
+	got := fitTitle("A very long project name that keeps going", "Kanban")
 	if !strings.HasSuffix(got, "…") {
 		t.Errorf("fitTitle = %q, want a truncated name ending in …", got)
 	}
@@ -24,7 +24,7 @@ func TestFitTitle_TruncatesProject(t *testing.T) {
 }
 
 func TestFitTitle_DropsProjectWhenViewFills(t *testing.T) {
-	if got := fitTitle("Acme", strings.Repeat("v", infoTextWidth-3), infoTextWidth); got != "" {
+	if got := fitTitle("Acme", strings.Repeat("v", infoTextWidth-3)); got != "" {
 		t.Errorf("fitTitle = %q, want the project dropped", got)
 	}
 }

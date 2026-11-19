@@ -144,7 +144,7 @@ func TestResolveInFolder_GlobalLegacyAcceptedAsIs(t *testing.T) {
 
 func TestResolveInFolder_NotARegularFile(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.Mkdir(filepath.Join(dir, ConfigFileName), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(dir, ConfigFileName), 0o750); err != nil {
 		t.Fatal(err)
 	}
 	writeFolderFile(t, dir, LegacyConfigFileName, "logging:\n  level: debug\n")
@@ -233,7 +233,7 @@ func setupResolveFilesTest(t *testing.T) (userDir, projectDir string) {
 	xdg := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", xdg)
 	userDir = filepath.Join(xdg, "tiki")
-	if err := os.MkdirAll(userDir, 0o755); err != nil {
+	if err := os.MkdirAll(userDir, 0o750); err != nil {
 		t.Fatal(err)
 	}
 	projectDir = t.TempDir()
