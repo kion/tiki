@@ -59,6 +59,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	// before the piped-stdin check, like live: it only reads files
+	if len(os.Args) > 1 && os.Args[1] == "config" {
+		os.Exit(runConfig(os.Args[2:]))
+	}
+
 	// Handle workflow command
 	if len(os.Args) > 1 && os.Args[1] == "workflow" {
 		os.Exit(runWorkflow(os.Args[2:]))
@@ -90,7 +95,7 @@ func main() {
 	}
 
 	// Handle viewer mode (standalone markdown viewer)
-	viewerInput, runViewer, err := viewer.ParseViewerInput(os.Args[1:], map[string]struct{}{"demo": {}, "exec": {}, "ids": {}, "live": {}, "workflow": {}})
+	viewerInput, runViewer, err := viewer.ParseViewerInput(os.Args[1:], map[string]struct{}{"config": {}, "demo": {}, "exec": {}, "ids": {}, "live": {}, "workflow": {}})
 	if err != nil {
 		if errors.Is(err, viewer.ErrMultipleInputs) {
 			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
@@ -373,6 +378,7 @@ Usage:
   tiki ids rename <OLD> <NEW>  Give a tiki a new id and rewrite references to it
   tiki ids migrate           Give every 6-character id a prefixed id (--dry-run to preview)
   tiki ids counter           Show this project's id counter file and its numbers
+  tiki config                Show which config and workflow files tiki uses here
   tiki workflow reset [target]  Reset config files (--global, --current)
   tiki workflow install <source> Install a workflow (--global, --current)
   tiki workflow schema       Print the current workflow's fields and triggers, for AI agents

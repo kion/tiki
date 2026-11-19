@@ -257,3 +257,39 @@ func sameFolder(a, b string) bool {
 	}
 	return os.SameFile(ai, bi)
 }
+
+// personal settings describe the person running tiki, not the project
+var personalConfigKeys = []string{"ai", "identity", "logging"}
+
+// PersonalKeysIn returns the personal settings a config file sets, sorted.
+// In a project file they apply to everyone who uses the project.
+func PersonalKeysIn(path string) []string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	top, err := topLevelKeys(data)
+	if err != nil {
+		return nil
+	}
+	set := make(map[string]bool, len(top))
+	for _, k := range top {
+		set[strings.ToLower(k)] = true
+	}
+	var found []string
+	for _, k := range personalConfigKeys {
+		if set[k] {
+			found = append(found, k)
+		}
+	}
+	return found
+}
+
+// All returns every candidate, global folder first.
+func (r Resolution) All() []Candidate {
+	all := append([]Candidate(nil), r.Global.Candidates...)
+	if r.Local != nil {
+		all = append(all, r.Local.Candidates...)
+	}
+	return all
+}

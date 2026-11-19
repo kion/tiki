@@ -73,6 +73,12 @@ func Bootstrap() (*Result, error) {
 		return nil, err
 	}
 	logLevel := InitLogging(cfg)
+	// resolution ran before logging existed; resolve again so the debug log says which files were used
+	for _, kind := range []config.FileKind{config.KindConfig, config.KindWorkflow} {
+		for _, c := range config.ResolveFiles(kind).All() {
+			slog.Debug("tiki file", "path", c.Path, "status", c.Status, "reason", c.Reason)
+		}
+	}
 
 	// Phase 0.5: Validate store backend before any side effects
 	if name := config.GetStoreName(); name != "tiki" {

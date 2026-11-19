@@ -280,3 +280,20 @@ func sameFile(a, b string) bool {
 	bi, errB := os.Stat(b)
 	return errA == nil && errB == nil && os.SameFile(ai, bi)
 }
+
+func TestResolutionAll_GlobalThenLocal(t *testing.T) {
+	local := FolderResolution{Candidates: []Candidate{{Path: "l"}}}
+	r := Resolution{Global: FolderResolution{Candidates: []Candidate{{Path: "g1"}, {Path: "g2"}}}, Local: &local}
+
+	var got []string
+	for _, c := range r.All() {
+		got = append(got, c.Path)
+	}
+
+	if strings.Join(got, ",") != "g1,g2,l" {
+		t.Errorf("All() = %v, want g1,g2,l", got)
+	}
+	if n := len((Resolution{}).All()); n != 0 {
+		t.Errorf("empty resolution: %d candidates", n)
+	}
+}
