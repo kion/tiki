@@ -13,5 +13,5 @@ const (
 	// TikiList max rows when displayed inside the layout box
 	TikiListMetadataMaxRows = 4
 	// Note: Header dimensions are already centralized in view/header/header.go:
-	// HeaderHeight, HeaderColumnSpacing, InfoWidth, LogoWidth
+	// HeaderHeight, HeaderColumnSpacing, InfoWidth, MinContextWidth
 )
