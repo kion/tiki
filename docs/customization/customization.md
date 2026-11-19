@@ -195,8 +195,9 @@ projects never share a file even when they use the same prefixes. Every clone, b
 the repository on your machine shares it, and a file lock makes tiki processes take turns, so they never
 hand out the same number. Each number is one above
 the larger of the counter and the highest number among the loaded tikis (former ids included), so
-tikis merged in from elsewhere are counted too. A project that
-isn't a git repository has one counter per folder tiki runs in. A shallow clone (`git clone --depth`)
+tikis merged in from elsewhere are counted too. A project that isn't a git repository is keyed by its
+folder's path instead, so it has one counter per folder tiki runs in: renaming or moving the folder, or
+running tiki from a subfolder, starts a new counter. A shallow clone (`git clone --depth`)
 can't create prefixed ids until `git fetch --unshallow`: its first commit, which names the counter,
 is unknown.
 
@@ -208,8 +209,9 @@ counter on your machine. In normal use a number is never issued twice: the count
 deleting a tiki doesn't free its number (after deleting `TIK-3`, the next tiki is `TIK-4`). But the
 counter can't know about numbers it never saw:
 
-- **Lost counter file** (state directory wiped, new install): tiki restarts above the highest number
-  still in the tikis, so numbers of deleted tikis above it can be issued again.
+- **Lost counter file** (state directory wiped, new install, or, without git, the project folder renamed
+  or moved): tiki restarts above the highest number still in the tikis, so numbers of deleted tikis
+  above it can be issued again.
 - **Another machine or a teammate:** each machine has its own counter. Two machines creating tikis
   before their work is merged can hand out the same id; tiki reports the duplicate when it loads and
   skips the second file until one of them gets a new id (`tiki ids rename`, then check the references
