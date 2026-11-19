@@ -39,6 +39,8 @@ fields:
 - Optional per field: `default:`, `required: true` (set on create), `immutable: true` (never changes
   after create). An enum value can carry a `label` and a `visual` (an emoji or symbol).
 - Keep the `status` and `type` fields.
+- Lane filters and actions, other views and triggers can name a field's values. When you add, rename
+  or remove a value, search the file for its uses and update them too.
 - Rename or remove an enum value in three steps, so no tiki is left holding a value the workflow no
   longer has: add the new value, move the tikis
   (`tiki exec 'update where <field> = "old" set <field>="new"'`), then remove the old value.
@@ -52,8 +54,8 @@ prefixSeparator: "-"   # "-" (ACME-12), "_" (ACME_12) or "" (ACME12)
 
 - An enum field's values can add their own segment, such as `{value: bug, prefix: BUG}` for ids like
   `BUG-12`. That field must be `required: true` and `immutable: true`.
-- Existing tikis keep their ids. Only when the user asks, preview with `tiki ids migrate --dry-run`,
-  then run `tiki ids migrate`.
+- Existing tikis keep their ids. `tiki ids migrate --dry-run` shows how they would be renamed and
+  writes nothing; run `tiki ids migrate` only when the user asks for it.
 
 ## Views
 
