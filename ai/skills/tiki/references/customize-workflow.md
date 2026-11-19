@@ -40,10 +40,13 @@ fields:
   after create). An enum value can carry a `label` and a `visual` (an emoji or symbol).
 - Keep the `status` and `type` fields.
 - Lane filters and actions, other views and triggers can name a field's values. When you add, rename
-  or remove a value, search the file for its uses and update them too.
+  or remove a value, search the file for its uses and update them too. When you add one, also read
+  the triggers: a rule such as "only from inProgress to done" never names the new value, yet blocks it.
 - Rename or remove an enum value in three steps, so no tiki is left holding a value the workflow no
   longer has: add the new value, move the tikis
   (`tiki exec 'update where <field> = "old" set <field>="new"'`), then remove the old value.
+  Two values of a field can't look the same (the same `visual`, or the same `label` without one), so
+  give the new value its own until the old one is gone.
 
 ## Readable ids
 
