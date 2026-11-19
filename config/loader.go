@@ -1,13 +1,12 @@
 package config
 
-// Viper configuration loader: loads config.yaml from the highest-priority location
+// Viper configuration loader: merges the user config and the project config
 
 import (
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -86,28 +85,31 @@ type Config struct {
 
 var appConfig *Config
 
-// LoadConfig loads configuration from the highest-priority config.yaml.
-// Only one file is used (cwd > project > user config). Missing values
-// fall back to built-in defaults.
+// LoadConfig merges the user config folder's file and then the project folder's file
+// over the built-in defaults, so the project file only overrides the keys it sets.
 func LoadConfig() (*Config, error) {
 	viper.Reset()
 	viper.SetConfigType("yaml")
 	setDefaults()
 
-	path := findConfigFile()
-	if path == "" {
-		slog.Debug("no config.yaml found, using defaults")
-	} else {
-		f, err := os.Open(path)
-		if err != nil {
-			return nil, fmt.Errorf("opening config %s: %w", path, err)
+	r := ResolveFiles(KindConfig)
+	paths := []string{r.Global.Chosen}
+	if r.Local != nil {
+		paths = append(paths, r.Local.Chosen)
+	}
+	merged := 0
+	for _, path := range paths {
+		if path == "" {
+			continue
 		}
-		readErr := viper.ReadConfig(f)
-		_ = f.Close()
-		if readErr != nil {
-			return nil, fmt.Errorf("reading config from %s: %w", path, readErr)
+		if err := mergeConfigFile(path); err != nil {
+			return nil, err
 		}
-		slog.Debug("loaded configuration", "file", path)
+		merged++
+		slog.Debug("merged configuration", "file", path)
+	}
+	if merged == 0 {
+		slog.Debug("no tiki config file found, using defaults")
 	}
 
 	// environment variables and flags override everything
@@ -128,15 +130,16 @@ func LoadConfig() (*Config, error) {
 	return cfg, nil
 }
 
-// findConfigFile returns the highest-priority config.yaml that exists,
-// or empty string if none found. Priority: cwd > project > user config.
-func findConfigFile() string {
-	pm := mustGetPathManager()
-	return findHighestPriorityFile([]string{
-		pm.ConfigFile(),
-		filepath.Join(pm.ProjectConfigDir(), "config.yaml"),
-		filepath.Join(".", "config.yaml"),
-	})
+func mergeConfigFile(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("opening config %s: %w", path, err)
+	}
+	defer func() { _ = f.Close() }()
+	if err := viper.MergeConfig(f); err != nil {
+		return fmt.Errorf("reading config from %s: %w", path, err)
+	}
+	return nil
 }
 
 // setDefaults sets default configuration values

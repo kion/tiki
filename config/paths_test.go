@@ -183,10 +183,6 @@ func TestPathManagerPaths(t *testing.T) {
 			name:   "CacheDir",
 			getter: pm.CacheDir,
 		},
-		{
-			name:   "ConfigFile",
-			getter: pm.ConfigFile,
-		},
 	}
 
 	for _, tt := range tests {

@@ -179,11 +179,6 @@ func (pm *PathManager) StateDir() string {
 	return pm.stateDir
 }
 
-// ConfigFile returns the path to the user config file
-func (pm *PathManager) ConfigFile() string {
-	return filepath.Join(pm.configDir, "config.yaml")
-}
-
 // DocDir returns the document scan/write root, which is the current working
 // directory itself. All `.md` files under it are candidate documents.
 func (pm *PathManager) DocDir() string {

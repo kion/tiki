@@ -236,65 +236,12 @@ logging:
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
 
-	// project file wins exclusively
 	if cfg.Logging.Level != "debug" {
 		t.Errorf("expected logging.level 'debug' from project, got %q", cfg.Logging.Level)
 	}
-	// header.visible falls back to built-in default (true), not inherited from user config
-	if cfg.Header.Visible != true {
-		t.Errorf("expected header.visible true (built-in default), got %v", cfg.Header.Visible)
-	}
-}
-
-func TestLoadConfig_CwdOverridesProject(t *testing.T) {
-	// user config
-	userDir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", userDir)
-	userTikiDir := filepath.Join(userDir, "tiki")
-	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(userTikiDir, "config.yaml"), []byte(`
-logging:
-  level: error
-`), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	// project config
-	projectDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(projectDir, "config.yaml"), []byte(`
-logging:
-  level: warn
-`), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	// cwd config (highest priority)
-	cwdDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(cwdDir, "config.yaml"), []byte(`
-logging:
-  level: debug
-`), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	originalDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(originalDir) }()
-	_ = os.Chdir(cwdDir)
-
-	appConfig = nil
-	ResetPathManager()
-	pm := mustGetPathManager()
-	pm.projectRoot = projectDir
-
-	cfg, err := LoadConfig()
-	if err != nil {
-		t.Fatalf("LoadConfig failed: %v", err)
-	}
-
-	if cfg.Logging.Level != "debug" {
-		t.Errorf("expected logging.level 'debug' from cwd, got %q", cfg.Logging.Level)
+	// the project file merges over the user file, so unset keys come from the user
+	if cfg.Header.Visible != false {
+		t.Errorf("expected header.visible false inherited from user config, got %v", cfg.Header.Visible)
 	}
 }
 
@@ -658,5 +605,58 @@ func TestLoadConfigLiveStatusStaleAfter(t *testing.T) {
 				t.Errorf("GetLiveStatusStaleAfter() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func setupMergeTest(t *testing.T, userYAML string) (projectDir string) {
+	t.Helper()
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	userTikiDir := filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(userTikiDir, "config.yaml"), []byte(userYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+	projectDir = t.TempDir()
+	t.Chdir(projectDir)
+	appConfig = nil
+	ResetPathManager()
+	t.Cleanup(ResetPathManager)
+	return projectDir
+}
+
+func TestLoadConfig_ForeignLocalConfigIgnored(t *testing.T) {
+	projectDir := setupMergeTest(t, "logging:\n  level: info\n")
+	if err := os.WriteFile(filepath.Join(projectDir, "config.yaml"), []byte("database: x\nlogging:\n  level: debug\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.Logging.Level != "info" {
+		t.Errorf("logging.level = %q, want the user's 'info': another app's config.yaml must not apply", cfg.Logging.Level)
+	}
+}
+
+func TestLoadConfig_TikiConfigPreferred(t *testing.T) {
+	projectDir := setupMergeTest(t, "logging:\n  level: info\n")
+	for name, level := range map[string]string{"tiki-config.yaml": "debug", "config.yaml": "warn"} {
+		if err := os.WriteFile(filepath.Join(projectDir, name), []byte("logging:\n  level: "+level+"\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.Logging.Level != "debug" {
+		t.Errorf("logging.level = %q, want 'debug' from tiki-config.yaml", cfg.Logging.Level)
 	}
 }
