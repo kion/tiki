@@ -39,7 +39,7 @@ the values, expressions, built-in functions, and tiki fields you use.
 
 The runtime hardcodes a small set of system fields (`id`, `title`, `description`, `createdBy`,
 `createdAt`, `updatedAt`, `activeAt`, `filepath`). Every other field — including `status`, `type`, `priority`,
-`points`, `tags`, and any project-specific fields — is declared in `workflow.yaml fields:` and joins
+`points`, `tags`, and any project-specific fields — is declared in `tiki-workflow.yaml fields:` and joins
 the same catalog at load time. From `ruki`'s perspective, all fields behave identically.
 
 | Field | Type |
@@ -47,15 +47,15 @@ the same catalog at load time. From `ruki`'s perspective, all fields behave iden
 | `id` | `id` |
 | `title` | `string` |
 | `description` | `string` |
-| `status` | enum (declared in `workflow.yaml`) |
-| `type` | enum (declared in `workflow.yaml`) |
+| `status` | enum (declared in `tiki-workflow.yaml`) |
+| `type` | enum (declared in `tiki-workflow.yaml`) |
 | `tags` | `list<string>` |
 | `dependsOn` | `list<ref>` |
 | `due` | `date` |
 | `recurrence` | `recurrence` |
 | `assignee` | `string` |
-| `priority` | enum (declared in `workflow.yaml`) |
-| `points` | enum (declared in `workflow.yaml`) |
+| `priority` | enum (declared in `tiki-workflow.yaml`) |
+| `points` | enum (declared in `tiki-workflow.yaml`) |
 | `createdBy` | `string` |
 | `createdAt` | `timestamp` |
 | `updatedAt` | `timestamp` |
@@ -186,4 +186,4 @@ select where status in ["done", 1]
   other. When the right side is a `string` field, `in` performs a substring check — both sides must be
   `string` type (not enum, `id`, or `ref`).
 - Enum fields reject non-literal field references in assignments such as `category=title`.
-- Each enum field accepts only the values declared for that field in `workflow.yaml`.
+- Each enum field accepts only the values declared for that field in `tiki-workflow.yaml`.

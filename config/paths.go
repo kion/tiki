@@ -186,7 +186,7 @@ func (pm *PathManager) DocDir() string {
 }
 
 // ProjectConfigDir returns the project-level config directory — the project
-// root, where a cwd workflow.yaml/config.yaml live.
+// root, where a project's tiki-workflow.yaml/tiki-config.yaml live.
 func (pm *PathManager) ProjectConfigDir() string {
 	return pm.projectRoot
 }
@@ -306,7 +306,7 @@ func GetDocDir() string {
 	return mustGetPathManager().DocDir()
 }
 
-// GetUserConfigWorkflowFile returns the path to workflow.yaml in the user config directory
+// GetUserConfigWorkflowFile returns the workflow file of the user config directory (see UserConfigWorkflowFile)
 func GetUserConfigWorkflowFile() string {
 	return mustGetPathManager().UserConfigWorkflowFile()
 }
@@ -350,14 +350,14 @@ func findWorkflowFileWithScope() (string, Scope) {
 	return "", ""
 }
 
-// FindWorkflowFileWithScope returns the highest-priority workflow.yaml path
+// FindWorkflowFileWithScope returns the workflow file that applies
 // and its classified scope. If no file is found, returns ("", "").
 func FindWorkflowFileWithScope() (string, Scope) {
 	return findWorkflowFileWithScope()
 }
 
 // FindWorkflowFiles returns a single-element slice with the highest-priority
-// workflow.yaml that exists, or nil if none found. All workflow-backed sections
+// workflow file, or nil if none found. All workflow-backed sections
 // (views, statuses, types, fields, triggers) come from this one file.
 func FindWorkflowFiles() []string {
 	path, _ := findWorkflowFileWithScope()
@@ -367,7 +367,7 @@ func FindWorkflowFiles() []string {
 	return []string{path}
 }
 
-// FindWorkflowFile returns the highest-priority workflow.yaml path,
+// FindWorkflowFile returns the workflow file that applies,
 // or empty string if none found.
 func FindWorkflowFile() string {
 	path, _ := findWorkflowFileWithScope()

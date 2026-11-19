@@ -16,7 +16,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config holds all application configuration loaded from config.yaml
+// Config holds all application configuration, merged from the user and project config files
 type Config struct {
 	Version string `mapstructure:"version"`
 
@@ -231,11 +231,11 @@ type workflowFileData struct {
 func readWorkflowFile(path string) (*workflowFileData, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("reading workflow.yaml: %w", err)
+		return nil, fmt.Errorf("reading %s: %w", path, err)
 	}
 	var wf workflowFileData
 	if err := yaml.Unmarshal(data, &wf); err != nil {
-		return nil, fmt.Errorf("parsing workflow.yaml: %w", err)
+		return nil, fmt.Errorf("parsing %s: %w", path, err)
 	}
 	return &wf, nil
 }

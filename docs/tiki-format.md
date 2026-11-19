@@ -13,8 +13,8 @@ identity.
 
 ```
 ./                          # the scan root (current working directory)
-├── workflow.yaml           # workflow/view configuration (excluded from scan)
-├── config.yaml             # appearance/display config (excluded from scan)
+├── tiki-workflow.yaml      # workflow/view configuration (excluded from scan)
+├── tiki-config.yaml        # appearance/display config (excluded from scan)
 ├── ABC123.md               # a tiki carrying status/type/priority fields
 ├── DEF456.md               # a tiki with only id + title
 ├── notes.md                # plain Markdown, no id — wiki-viewable by path, not a tiki
@@ -30,7 +30,7 @@ Rules:
 
 - `./**/*.md` is scanned recursively and loaded; files with a frontmatter `id` become tikis.
 - `.git/`, dotted directories, and paths matched by `.gitignore`/`.tikiignore` at the scan root are skipped.
-- `workflow.yaml` and `config.yaml` are configuration files, not tikis.
+- `tiki-workflow.yaml` and `tiki-config.yaml` are configuration files, not tikis.
 - Non-Markdown files (images, svgs, binary assets) are not loaded as tikis; keep them under `assets/`
   or alongside the tikis that reference them.
 - New tikis from `tiki demo`, piped input, and `ruki create` are named `./<slug>.md`, where `<slug>` is
@@ -68,7 +68,7 @@ Markdown body.
 ## Workflow-declared fields (optional)
 
 Beyond `id` and `title`, frontmatter is an open field map. The fields below are **workflow-declared**
-— the active `workflow.yaml fields:` lists them, so they get type coercion, validation, and any
+— the active `tiki-workflow.yaml fields:` lists them, so they get type coercion, validation, and any
 typed UI treatment. They are all optional. Absence is preserved on disk: a tiki with no `status:`
 key has no status, not a defaulted one. Default values apply only on explicit creation —
 `ruki create`, piped capture, and the TUI's create action.
@@ -119,7 +119,7 @@ status: inProgress
 
 ### `priority`
 
-Optional. Priority is an `enum` field whose values are defined in `workflow.yaml` — tiki has no built-in
+Optional. Priority is an `enum` field whose values are defined in `tiki-workflow.yaml` — tiki has no built-in
 priority scale. The stock kanban workflow ships with five string values, most to least urgent:
 
 | Value | TUI label | Emoji |
@@ -139,7 +139,7 @@ priority: medium-high
 
 ### `points`
 
-Optional. Like `priority`, points is an `enum` field defined in `workflow.yaml` — there is no built-in
+Optional. Like `priority`, points is an `enum` field defined in `tiki-workflow.yaml` — there is no built-in
 numeric scale or `maxPoints` setting. The stock kanban workflow ships with a 1–10 estimation scale,
 `1` (small, easy) through `10` (large, hard), stored as strings. It has no default, so a new tiki stays
 unestimated until someone sets its points. Redefine the `points` field in your own workflow to use a
@@ -231,7 +231,7 @@ recurrence: 0 0 * * MON
 
 ## Project-specific fields
 
-Any field declared under `workflow.yaml fields:` is round-tripped through save/load with type
+Any field declared under `tiki-workflow.yaml fields:` is round-tripped through save/load with type
 coercion. Unknown frontmatter keys that the workflow does not declare are preserved as-is, so
 workflow schema changes do not lose data. See [Custom fields](customization/custom-fields.md).
 

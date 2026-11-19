@@ -102,6 +102,33 @@ tiki ids migrate
 tiki ids rename X7F4K2 FEAT-12
 ```
 
+### config
+
+Show which config and workflow files tiki uses in the current directory, and why any other file was
+ignored or skipped.
+
+```bash
+tiki config
+```
+
+It lists each folder (global: your user config directory; local: the current directory) and each file
+it looked at, with its status:
+
+```text
+config
+  global  /home/you/.config/tiki/config.yaml  loaded
+  local   /work/acme/tiki-config.yaml         loaded
+  local   /work/acme/config.yaml              ignored: tiki-config.yaml takes precedence
+
+workflow
+  global  /home/you/.config/tiki/tiki-workflow.yaml  loaded
+  local   /work/acme/workflow.yaml                   skipped: no tiki workflow keys
+```
+
+A workflow's global row reads `overridden by local` when the project has its own workflow.
+A note follows the config rows when the local file sets personal settings (`identity`, `ai`, `logging`).
+See [which files tiki reads](config.md#which-files-tiki-reads) for the rules.
+
 ### workflow
 
 Manage workflow configuration files.
@@ -115,17 +142,20 @@ tiki workflow reset [target] [--scope]
 ```
 
 **Targets** (omit to reset all files):
-- `config` — config.yaml
-- `workflow` — workflow.yaml
+- `config` — the config file (`tiki-config.yaml`, or a recognised `config.yaml`)
+- `workflow` — the workflow file (`tiki-workflow.yaml`, or a recognised `workflow.yaml`)
 
 **Scopes** (default: `--current`):
 - `--global` — user config directory
 - `--current` — current working directory (the scan root)
 - `--local` — deprecated alias for `--current` (the project tier and the cwd tier are the same directory now)
 
-For `--global`, workflow.yaml is overwritten with the default. config.yaml is deleted (built-in defaults take over).
+For `--global`, the workflow file is overwritten with the default (`tiki-workflow.yaml` when there is none).
+The config file is deleted (built-in defaults take over).
 
-For `--current`, files are deleted so the next tier in the [precedence chain](config.md#precedence) takes effect.
+For `--current`, the files are deleted so your global ones take effect (see [which files tiki reads](config.md#which-files-tiki-reads)).
+Both names are deleted when both are tiki's, so an old file can't become active again.
+Only files recognised as tiki's are deleted: another tool's `config.yaml` or `workflow.yaml` is left alone.
 
 ```bash
 # restore all global config to defaults
@@ -140,8 +170,9 @@ tiki workflow reset config --current
 
 #### workflow install
 
-Install a workflow from a name, local file, or URL. Writes `workflow.yaml` into the
-scope directory, overwriting any existing file.
+Install a workflow from a name, local file, or URL. Overwrites the workflow file the scope directory
+already uses, or writes `tiki-workflow.yaml` when it has none. In the current directory it refuses to
+write through a symlink.
 
 ```bash
 tiki workflow install <source> [--scope]
@@ -193,13 +224,13 @@ tiki workflow describe https://example.com/workflow.yaml
 #### workflow schema
 
 Print the fields and triggers of the workflow that applies to the current directory, in a compact form
-for AI agents. The bundled [AI skill](ai.md) runs it once per session instead of reading `workflow.yaml`.
+for AI agents. The bundled [AI skill](ai.md) runs it once per session instead of reading `tiki-workflow.yaml`.
 
 ```bash
 tiki workflow schema
 ```
 
-It prints the path of the resolved `workflow.yaml`, then:
+It prints the path of the workflow file in use, then:
 
 - the intrinsic fields every tiki has
 - each workflow field with its type, its allowed values (`*` marks the default on create) or its literal
@@ -207,7 +238,9 @@ It prints the path of the resolved `workflow.yaml`, then:
 - each trigger with when it fires, what it does (`deny`, `update`, `create`, `delete` or `run`) and its
   description; a trigger without a description shows its rule instead
 
-Views, actions, captions and visuals are left out. For the bundled kanban workflow the output is about
+It also loads the views and actions the way tiki does at startup, and fails with their error if they
+don't load, so a workflow that passes also starts. Views, actions, captions and visuals are left out of
+the output. For the bundled kanban workflow the output is about
 1.7 KB, a tenth of the file:
 
 ```text

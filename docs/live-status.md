@@ -92,7 +92,7 @@ to a temporary file in the same directory and rename it, so tiki never reads a h
   the action palette (`Ctrl-A`). It works in every workflow.
 - A status that hasn't been updated for 15 minutes is dimmed and stops animating. Its age keeps
   growing until it is updated or cleared. Change the threshold with `liveStatus.staleAfter` in
-  [config.yaml](config.md), or the `TIKI_LIVESTATUS_STALEAFTER` environment variable.
+  [tiki-config.yaml](config.md), or the `TIKI_LIVESTATUS_STALEAFTER` environment variable.
 
 ## Recent activity
 
@@ -135,7 +135,7 @@ doesn't run on Windows; there, clear statuses with `tiki live clear` or the "Cle
 action.
 
 A workflow you installed before this feature existed doesn't have the trigger. Add it to your
-`workflow.yaml`, or reinstall the bundled workflow with `tiki workflow reset`.
+`tiki-workflow.yaml`, or reinstall the bundled workflow with `tiki workflow reset`.
 
 ## Limitations
 

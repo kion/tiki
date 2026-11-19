@@ -1,6 +1,6 @@
 # Custom Statuses and Types
 
-`status` and `type` are ordinary enum fields declared in `workflow.yaml fields:`. They have no
+`status` and `type` are ordinary enum fields declared in `tiki-workflow.yaml fields:`. They have no
 special semantics in the runtime — only the meaning you encode via the enum values you declare.
 This page covers the validation rules that apply to any enum field, with `status` and `type` as
 examples.
@@ -64,8 +64,8 @@ color markup.
 any other enum field. If your workflow doesn't declare them, no `status` or `type` semantics
 exist for that workflow — frontmatter values for those keys round-trip as unknown.
 
-All workflow-backed sections come from the single highest-priority `workflow.yaml`.
-See [Configuration: Precedence](../config.md#precedence).
+All workflow-backed sections come from one workflow file: the project's `tiki-workflow.yaml` when it has one, otherwise your global one.
+See [Configuration: Which files tiki reads](../config.md#which-files-tiki-reads).
 
 ## Failure Behavior
 
@@ -81,7 +81,7 @@ See [Configuration: Precedence](../config.md#precedence).
 
 ### Invalid Saved Tasks
 
-- An enum value not declared in `workflow.yaml` is demoted to "stale" on load and round-trips
+- An enum value not declared in `tiki-workflow.yaml` is demoted to "stale" on load and round-trips
   verbatim, so the user can see the bad value and fix it manually rather than silently lose it.
 - Save-time validation (the mutation gate) rejects writes whose enum values don't match the
   declared set.

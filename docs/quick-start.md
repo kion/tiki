@@ -71,7 +71,7 @@ See [Document format](tiki-format.md) for the full frontmatter reference.
   `echo ... | tiki` captures pipes as documents.
 - The **TUI** — run `tiki` with no arguments in a directory of Markdown. Lets you create, view, edit, and
   delete documents, and compose custom views (Recent, Architecture notes, Saved prompts, Security review,
-  Future roadmap, …) via `workflow.yaml`. Press `?` for the Action Palette.
+  Future roadmap, …) via `tiki-workflow.yaml`. Press `?` for the Action Palette.
 
 # AI skills
 

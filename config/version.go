@@ -111,7 +111,7 @@ func CheckWorkflowVersionCompatibility(workflowVersion string) error {
 
 	if CompareSemVer(wfVer, appVer) > 0 {
 		return fmt.Errorf(
-			"workflow.yaml version %s is newer than tiki v%d.%d.%d — upgrade tiki to open this workflow",
+			"workflow version %s is newer than tiki v%d.%d.%d — upgrade tiki to open this workflow",
 			workflowVersion, appVer.Major, appVer.Minor, appVer.Patch,
 		)
 	}

@@ -52,7 +52,7 @@ keying documents by their frontmatter `id`. The scan skips:
 - every path matched by a `.tikiignore` at the scan root (same gitignore syntax — tiki-only exclusions)
 
 When the directory is a git repository, `tiki` reads commit times and authorship automatically; it never
-writes to git. To try a custom workflow, drop a `workflow.yaml` in the directory — see
+writes to git. To try a custom workflow, drop a `tiki-workflow.yaml` in the directory — see
 [Configuration](config.md#workflowyaml). To enable AI skills, copy the bundled skill manually — see
 [AI collaboration](ai.md).
 

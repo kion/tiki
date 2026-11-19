@@ -1,19 +1,19 @@
 # Customization
 
-tiki is highly customizable. `workflow.yaml` lets you define fields and the **views** that shape how
+tiki is highly customizable. `tiki-workflow.yaml` lets you define fields and the **views** that shape how
 documents are displayed and how you interact with them. An enum field can represent lifecycle stages,
 categories, or any other finite domain. Views decide what you see on each screen (board lanes, list filters,
 wiki pages, or a configured tiki detail view) and which keyboard actions are available. This section covers
 both.
 
-> **Version.** This reference describes the 0.6.1 `workflow.yaml` schema that ships with unified documents.
+> **Version.** This reference describes the 0.6.1 `tiki-workflow.yaml` schema that ships with unified documents.
 > Pre-0.6.0 `type: tiki` / `type: doki` plugins, `views: plugins:` wrappers, `fetcher:`/`url:`/`text:`, and
 > `view: compact|expanded` are no longer accepted. See [Workflow format versions](../workflow-format.md)
 > for the migration map and rejection-error table.
 
 ## Description
 
-An optional top-level `description:` field in `workflow.yaml` describes what
+An optional top-level `description:` field in `tiki-workflow.yaml` describes what
 the workflow is for. It supports multi-line text via YAML's block scalar (`|`)
 and is used by `tiki workflow describe <name>` to preview a workflow before
 installing it.
@@ -96,7 +96,7 @@ If no type is marked, the first configured type wins.
 
 ## Task Creation Defaults
 
-Creation defaults are derived from `workflow.yaml fields:`. Every field that declares a default
+Creation defaults are derived from `tiki-workflow.yaml fields:`. Every field that declares a default
 contributes one frontmatter key on capture:
 
 - Enum fields apply the value marked `default: true` (in the stock workflow, `status: inbox`, `type: story`).
@@ -246,7 +246,7 @@ piped input. A refused change reports which field refused it, for example `area 
 
 ## Views
 
-Every screen in the tiki TUI is a **view**. Views are defined at the top level of `workflow.yaml` under a
+Every screen in the tiki TUI is a **view**. Views are defined at the top level of `tiki-workflow.yaml` under a
 `views:` list. Each view has a `kind:` that decides what it does:
 
 | kind | purpose | required fields |
@@ -401,7 +401,7 @@ tiki has no value for it. When a row is too narrow to fit every column, columns 
 leftmost (core) fields survive longest and rightmost (optional) content drops first. See
 [workflow-format.md](../workflow-format.md) for the full cell vocabulary and the shedding rule.
 
-Any field declared in `workflow.yaml fields:` — plus the audit fields `createdBy`, `createdAt`,
+Any field declared in `tiki-workflow.yaml fields:` — plus the audit fields `createdBy`, `createdAt`,
 `updatedAt` — may appear in `layout:`. Fields whose declared semantic type has an implemented editor
 are fully editable in place on a detail view. Unsupported and read-only types still render but are
 skipped during edit traversal. Project-specific fields like `severity`, `sprint`, or `blocked`
@@ -456,7 +456,7 @@ would be confusing without a real input widget behind it.
 
 #### Project-specific fields in detail views
 
-Any field declared in `workflow.yaml fields:` — including project-specific fields like
+Any field declared in `tiki-workflow.yaml fields:` — including project-specific fields like
 `severity`, `sprint`, or `blocked` — can appear in `layout:`. Fields without a typed editor
 render as a generic read-only `Label: value` row, with the value formatted by the field's declared
 type (lists are joined with commas, dates show as `YYYY-MM-DD`, enums show their `Label Emoji`,
@@ -484,7 +484,7 @@ If no lanes specify width, all lanes are equally sized (the default behavior).
 
 ### Global actions
 
-You can define actions at the top level of `workflow.yaml` under `actions:`. Top-level actions are **global**
+You can define actions at the top level of `tiki-workflow.yaml` under `actions:`. Top-level actions are **global**
 — they are available from every view:
 
 ```yaml
@@ -645,7 +645,7 @@ actions:
     require: ["ai", "id"]
 ```
 
-This action requires both `ai` (an AI agent configured in `config.yaml`) and `id` (a task selected in the current view).
+This action requires both `ai` (an AI agent configured in `tiki-config.yaml`) and `id` (a task selected in the current view).
 
 #### Built-in context attributes
 
@@ -655,7 +655,7 @@ This action requires both `ai` (an AI agent configured in `config.yaml`) and `id
 | `selection:one` | Exactly one task is selected |
 | `selection:any` | One or more tasks are selected |
 | `selection:many` | Two or more tasks are selected |
-| `ai` | `ai.agent` is configured in `config.yaml` |
+| `ai` | `ai.agent` is configured in `tiki-config.yaml` |
 | `view:<view-id>` | Identifies the currently active view (e.g. `view:plugin:Kanban`) |
 
 `id` and `selection:one` are equivalent; both require exactly one selected task. Prefer whichever reads better in
@@ -763,7 +763,7 @@ update where id = id() set assignee=user()
 
 - `id` — document identifier: 6 uppercase letters or digits (`"M7N2XK"`), or a prefixed id (`"FEAT-12"`)
 - `title` — document title
-- every field declared in `workflow.yaml fields:` — behavior and validation follow its declared type
+- every field declared in `tiki-workflow.yaml fields:` — behavior and validation follow its declared type
 - audit fields such as `createdAt` and `updatedAt` are available for reads but not assignments
 
 #### Conditions

@@ -54,8 +54,8 @@ The skill's content is tool-agnostic.
 
 The same copy works in every project. The skill doesn't describe any workflow's fields: the agent runs
 [`tiki workflow schema`](command-line.md#workflow-schema) once per session to learn the fields, values and
-triggers of the project it is in, so it stays correct when a `workflow.yaml` changes. This needs a `tiki`
-that has the command; with an older one the skill falls back to reading `workflow.yaml`.
+triggers of the project it is in, so it stays correct when a `tiki-workflow.yaml` changes. This needs a `tiki`
+that has the command; with an older one the skill falls back to reading the project's `workflow.yaml`.
 
 When you update tiki, run the script again to pick up changes to the skill.
 
@@ -68,7 +68,7 @@ If you [configured](config.md) an AI agent these features are enabled:
 
 ## Configuration
 
-In your `config.yaml`:
+In your global `tiki-config.yaml` (in your [user config directory](config.md#configuration-directories)), since it's a personal choice:
 
 ```yaml
 # AI agent integration

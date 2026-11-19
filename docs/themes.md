@@ -2,7 +2,7 @@
 
 ## Setting a theme
 
-Set the theme in your `config.yaml` under the `appearance` section (see [Configuration](config.md) for file locations and precedence):
+Set the theme in your `tiki-config.yaml` under the `appearance` section (see [Configuration](config.md) for file locations and which files tiki reads):
 
 ```yaml
 appearance:
@@ -13,6 +13,20 @@ Available values:
 - `auto` — detects your terminal background and picks `dark` or `light` automatically (default)
 - `dark`, `light` — built-in base themes
 - Any named theme listed below
+
+## A theme per project
+
+A project's own `tiki-config.yaml` merges over your global one, so a project can pick its own theme
+without repeating your other settings. Put just this in the project folder's `tiki-config.yaml`:
+
+```yaml
+appearance:
+  theme: nord
+```
+
+A theme recolours everything. To tell projects apart with a lighter touch, give each one a
+`project.color` instead (see [Configuration](config.md#tiki-configyaml)): it colours the logo, the
+project name in the header and the directory block in the bottom bar, and leaves the theme alone.
 
 ## Dark themes
 

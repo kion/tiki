@@ -56,7 +56,7 @@ func rejectLegacyTopLevel(cfg pluginFileConfig) error {
 	}
 	if len(cfg.Metadata) > 0 {
 		return legacyFieldError("metadata",
-			"`metadata:` has been renamed to `layout:` — update your workflow.yaml")
+			"`metadata:` has been renamed to `layout:` — update your workflow file")
 	}
 	return nil
 }

@@ -4,13 +4,13 @@
 
 tiki manages Markdown documents under `.doc/`. Each document is identified by a bare frontmatter `id`; identity lives in the frontmatter, not the filename, so files can move freely without breaking references. Documents carrying workflow fields (`status`, `priority`, …) show up on board and list views; documents with only `id` and `title` act as wiki pages. A bundled Markdown viewer renders images, Mermaid diagrams, and link navigation.
 
-`workflow.yaml` defines statuses, fields, and views; kanban is one bundled workflow. Each plugin uses **ruki** — an SQL-like language for selecting, filtering, sorting, and updating documents. Triggers (ruki statements that fire on document changes) enforce workflow rules. AI skills let Claude Code, Gemini CLI, Codex, and Opencode manage documents through natural language.
+`tiki-workflow.yaml` defines statuses, fields, and views; kanban is one bundled workflow. Each plugin uses **ruki** — an SQL-like language for selecting, filtering, sorting, and updating documents. Triggers (ruki statements that fire on document changes) enforce workflow rules. AI skills let Claude Code, Gemini CLI, Codex, and Opencode manage documents through natural language.
 
 ## Docs
 
 - [Quick Start](docs/quick-start.md): getting started — markdown viewer, file management, tiki board, keyboard shortcuts
 - [Tiki Format](docs/tiki-format.md): .doc directory structure, tiki Markdown+YAML spec, field types
-- [Configuration](docs/config.md): config.yaml, workflow.yaml, config directories, settings reference
+- [Configuration](docs/config.md): tiki-config.yaml, tiki-workflow.yaml, which files tiki reads (old names, merging, `tiki config`), project identity, settings reference
 - [Custom Statuses and Types](docs/customization/custom-status-type.md): type and status definition rules, validation, key normalization, inheritance
 - [Customization](docs/customization/customization.md): workflow statuses, plugin definitions, lanes, actions, views
 - [Installation](docs/install.md): macOS, Linux, Windows, manual install

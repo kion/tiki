@@ -303,8 +303,11 @@ func printWorkflowResetUsage() {
 Reset configuration files to their defaults.
 
 Targets (omit to reset all):
-  config     Reset config.yaml
-  workflow   Reset workflow.yaml
+  config     Reset the config file (tiki-config.yaml, or a recognised config.yaml)
+  workflow   Reset the workflow file (tiki-workflow.yaml, or a recognised workflow.yaml)
+
+Only files recognised as tiki's are touched; other tools' config.yaml or
+workflow.yaml are left alone.
 
 Scopes (default: --current):
   --global   User config directory
@@ -316,8 +319,8 @@ func printWorkflowInstallUsage() {
 	fmt.Print(`Usage: tiki workflow install <source> [--scope]
 
 Install a workflow from an embedded name, local file, or URL.
-Writes workflow.yaml into the scope directory,
-overwriting any existing file.
+Overwrites the workflow file the scope directory already uses,
+or writes tiki-workflow.yaml when it has none.
 
 Sources:
   Embedded names:  kanban, todo, bug-tracker

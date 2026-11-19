@@ -26,7 +26,7 @@ type MissingPrefix struct {
 }
 
 // ErrNoProjectPrefix means the workflow has no top-level prefix to migrate to.
-var ErrNoProjectPrefix = errors.New("the workflow has no top-level prefix; add one to workflow.yaml first (for example prefix: TIK)")
+var ErrNoProjectPrefix = errors.New("the workflow has no top-level prefix; add one to the workflow file first (for example prefix: TIK); `tiki workflow schema` prints its path")
 
 // CheckRename reports why oldID can't become newID, or nil.
 func (s *TikiStore) CheckRename(oldID, newID string) error {

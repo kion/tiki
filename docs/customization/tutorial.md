@@ -13,8 +13,8 @@ and a visual theme — all tailored to the way your team works.
 
 Everything in this guide goes into your project directory (the directory you run `tiki` in):
 
-- `./workflow.yaml` — your workflow customization
-- `./config.yaml` — appearance and display settings
+- `./tiki-workflow.yaml` — your workflow customization
+- `./tiki-config.yaml` — appearance and display settings
 
 tiki looks for configuration in two places:
 
@@ -32,7 +32,7 @@ the customizations travel with your repo.
 
 ## 1. Meet your default workflow
 
-Before changing anything, let us look at what ships with tiki. With no `workflow.yaml`
+Before changing anything, let us look at what ships with tiki. With no `tiki-workflow.yaml`
 present, tiki uses its embedded default workflow:
 
 **Four statuses** — the stages a task moves through:
@@ -72,11 +72,11 @@ we will explore in later sections.
 Let us start with a small change: adding a "Blocked" status for tasks that are
 stuck waiting on something.
 
-Statuses are defined in `workflow.yaml` as a `fields:` entry named `status` with `type: enum`. There is
+Statuses are defined in `tiki-workflow.yaml` as a `fields:` entry named `status` with `type: enum`. There is
 one important thing to know: **when you define statuses, you replace the entire list**. That means you need
 to include all the statuses you want — the originals plus your new ones.
 
-Create `./workflow.yaml` with this content:
+Create `./tiki-workflow.yaml` with this content:
 
 ```yaml
 fields:
@@ -131,7 +131,7 @@ dependencies, cleaning up old branches, or writing documentation.
 Types work the same way as statuses: **when you define types, you replace the
 entire list**.
 
-Add this to your `./workflow.yaml`, right after the status field entry:
+Add this to your `./tiki-workflow.yaml`, right after the status field entry:
 
 ```yaml
   - name: type
@@ -188,7 +188,7 @@ The `value` (`testing`) is the permanent key stored in your task files; the
 `label` (`Testing`) is what shows on screen. They can differ — rename the label
 freely later without touching your tasks.
 
-Now for the Kanban view itself. Views live at the top level of `workflow.yaml`
+Now for the Kanban view itself. Views live at the top level of `tiki-workflow.yaml`
 under `views:`. Every view declares a `kind:` (here, `board`) that tells tiki
 what shape to draw. Here is our customized Kanban:
 
@@ -287,7 +287,7 @@ A few new things here:
   tall list. Handy when you have many tasks and want to use the screen width.
 - **`user()`** — this is a handy shortcut that means "you". It resolves to
   your configured `identity.name` (or `identity.email` if only the email is
-  set) from `config.yaml` (see
+  set) from `tiki-config.yaml` (see
   [Configuration](../config.md#identity-resolution)), falling back to your
   git user or your OS account username when `identity` is unset.
 
@@ -391,7 +391,7 @@ Custom fields let you add your own data to every task. Let us add three:
 - **component** — which part of the system? (frontend, backend, or infra)
 - **estimate** — how many hours do you think this will take?
 
-Add a `fields:` section to your `./workflow.yaml`:
+Add a `fields:` section to your `./tiki-workflow.yaml`:
 
 ```yaml
 fields:
@@ -597,7 +597,7 @@ documents.
 
 ## 10. Look and feel
 
-Appearance settings live in a separate file: `./config.yaml`. This file
+Appearance settings live in a separate file: `./tiki-config.yaml`. This file
 merges field by field — you only need to include what you want to change.
 
 ### Picking a theme
@@ -663,12 +663,12 @@ each view declares its layout directly.
 
 ## 11. The complete customized workflow
 
-Here is everything we have built, combined into a single `./workflow.yaml`.
+Here is everything we have built, combined into a single `./tiki-workflow.yaml`.
 You can use this as a starting point and adjust it to your needs.
 
 ```yaml
 # --- Customized team workflow ---
-# Place this file at ./workflow.yaml in your project
+# Place this file at ./tiki-workflow.yaml in your project
 
 fields:
   # Statuses: the lifecycle of a task
@@ -869,7 +869,7 @@ triggers:
         update where id = new.id set priority="high"
 ```
 
-And the companion `./config.yaml`:
+And the companion `./tiki-config.yaml`:
 
 ```yaml
 appearance:
@@ -884,7 +884,7 @@ header:
 You now have a fully customized workflow. Here are some places to go from here:
 
 - **[Customization reference](customization.md)** — the complete list of
-  everything you can put in `workflow.yaml`
+  everything you can put in `tiki-workflow.yaml`
 - **[ruki reference](../ruki/index.md)** — the full language for filters, actions,
   and triggers
 - **[Custom fields](custom-fields.md)** — more on field types, templates, and

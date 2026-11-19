@@ -14,7 +14,7 @@
 ## Overview
 
 Workflow fields — including `status`, `type`, `priority`, `points`, `tags`, and any project-specific
-fields you add — are all defined in `workflow.yaml`'s `fields:` list. The runtime hardcodes only system
+fields you add — are all defined in `tiki-workflow.yaml`'s `fields:` list. The runtime hardcodes only system
 fields: `id`, `title`, `description`/`body`, `createdAt`, `updatedAt`, `activeAt`, `createdBy`, `filepath`. Everything
 else is declared by the workflow.
 
@@ -36,7 +36,7 @@ Use cases include:
 
 ## Defining custom fields
 
-Add a `fields:` section to your `workflow.yaml`:
+Add a `fields:` section to your `tiki-workflow.yaml`:
 
 ```yaml
 fields:
@@ -68,7 +68,7 @@ Workflow field names must not collide with reserved system fields (`id`, `title`
 are ordinary enum fields — they have no special semantics in the runtime, only the meaning you
 encode via the values you declare.
 
-Custom fields come from the `workflow.yaml` file (see [Configuration: Precedence](../config.md#precedence))
+Custom fields come from the `tiki-workflow.yaml` file (see [Configuration: Which files tiki reads](../config.md#which-files-tiki-reads))
 
 ## Field types
 
@@ -186,7 +186,7 @@ create title="Fix crash" severity="critical" blocked=false
 
 ### Plugin filters and actions
 
-Custom fields integrate into view definitions in `workflow.yaml`:
+Custom fields integrate into view definitions in `tiki-workflow.yaml`:
 
 ```yaml
 views:
@@ -242,7 +242,7 @@ survive save-load round-trips. This allows workflow changes without losing data 
 
 ## Field Defaults
 
-Custom fields can declare a `default:` value directly in `workflow.yaml`. The value is
+Custom fields can declare a `default:` value directly in `tiki-workflow.yaml`. The value is
 validated against the field's type and enum constraints during workflow load — invalid
 defaults are hard errors, not silent fallbacks.
 

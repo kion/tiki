@@ -1,6 +1,6 @@
 # Workflow Format Versions
 
-This document tracks the evolution of the `workflow.yaml` schema. Each section describes one format version:
+This document tracks the evolution of the `tiki-workflow.yaml` schema. Each section describes one format version:
 what it introduced and what changed from the previous version. For usage details see
 [Customization](customization/customization.md). For file locations and precedence see [Configuration](config.md).
 
@@ -296,7 +296,7 @@ Validation rules for `layout:` on `kind: detail`:
 - Per-view `actions:` are allowed and surface alongside the built-in detail actions.
 - `require:` is honored as the navigation gate (typically `["selection:one"]`).
 
-The detail view recognizes any field declared in `workflow.yaml fields:` plus the supported audit fields.
+The detail view recognizes any field declared in `tiki-workflow.yaml fields:` plus the supported audit fields.
 Rendering, editing, sizing, and saving are selected from each field's declared type rather than its name.
 
 Anti-pattern examples (each fails workflow load):
@@ -446,7 +446,7 @@ Users upgrading will see one of these messages; each names the legacy field and 
 - `"type" is no longer supported — use kind: wiki instead`
 - `"view:" as a display mode is no longer supported — declare a layout: field on the board/list view instead`
 - `"mode" is no longer supported — use layout: to declare the tiki-box layout on a board/list view`
-- `"metadata" is no longer supported — metadata: has been renamed to layout: — update your workflow.yaml`
+- `"metadata" is no longer supported — metadata: has been renamed to layout: — update your tiki-workflow.yaml`
 - `"fetcher" is no longer supported — use document: or path: on a kind: wiki view`
 - `"text" is no longer supported — use document: or path: on a kind: wiki view`
 - `"url" is no longer supported — use document: or path: on a kind: wiki view`
@@ -462,7 +462,7 @@ Users upgrading will see one of these messages; each names the legacy field and 
 - `layout: only valid on kind: board, list, or detail` — set on a wiki view
 - ``layout cannot include "description"`` (or `body`/`id`) — identity/body fields are always rendered by the
   detail view chrome
-- `layout field "X" is not a workflow-declared field` — typo, or the field is not in `workflow.yaml fields:`
+- `layout field "X" is not a workflow-declared field` — typo, or the field is not in `tiki-workflow.yaml fields:`
 - `layout: row N has M cells, expected K` — the grid has a ragged row
 - ``layout: row N, col M: orphan '--'`` — no anchor to the left of the column-span marker
 - ``layout: row N, col M: orphan row-span '^'`` — no anchor above the row-span marker
@@ -476,7 +476,7 @@ declared, so boot is refused until the file is fixed.
 
 ## 0.5.3
 
-Removes `new.md` task template files. Task-creation defaults now live entirely in `workflow.yaml`.
+Removes `new.md` task template files. Task-creation defaults now live entirely in `tiki-workflow.yaml`.
 
 ### `new.md` removed
 
@@ -641,7 +641,7 @@ Single highest-priority file wins — no cross-file merging.
 
 ### Workflow fields
 
-`workflow.yaml fields:` is the single source of truth for every workflow field. The runtime hardcodes only
+`tiki-workflow.yaml fields:` is the single source of truth for every workflow field. The runtime hardcodes only
 system fields — `id`, `title`, `description`/`body`, `createdAt`, `updatedAt`, `activeAt`, `createdBy`, `filepath` — and
 loads everything else (status, type, priority, points, tags, dependsOn, due, recurrence, assignee, plus any
 project-specific fields) from the `fields:` list. Reserved system field names cannot be redeclared.

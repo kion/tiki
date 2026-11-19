@@ -215,7 +215,7 @@ func TestLoadWorkflowFields_NoFilesError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when no workflow files found")
 	}
-	if !contains(err.Error(), "no workflow.yaml found") {
+	if !contains(err.Error(), "no workflow file found") {
 		t.Errorf("expected missing-file error, got: %v", err)
 	}
 }

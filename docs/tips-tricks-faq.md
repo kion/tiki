@@ -154,7 +154,7 @@ Ask the agent to edit the tiki's **description**. Examples:
 
 When you exit the agent, tiki reloads and the updated description appears.
 
-Requires `ai.agent` to be set in `config.yaml`; if not configured, the `c` key is hidden. See
+Requires `ai.agent` to be set in `tiki-config.yaml`; if not configured, the `c` key is hidden. See
 [AI collaboration](ai.md) for setup.
 
 ### Copy description

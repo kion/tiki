@@ -339,7 +339,7 @@ actions:
 
 ## AI-gated action — require
 
-An action that only enables when an AI agent is configured and a task is selected. The `ai` requirement is checked against `config.yaml`'s `ai.agent` setting. The `id` requirement is auto-inferred from `id()` usage — listing it explicitly is allowed but redundant.
+An action that only enables when an AI agent is configured and a task is selected. The `ai` requirement is checked against `tiki-config.yaml`'s `ai.agent` setting. The `id` requirement is auto-inferred from `id()` usage — listing it explicitly is allowed but redundant.
 
 ```yaml
 actions:

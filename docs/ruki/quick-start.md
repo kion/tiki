@@ -161,7 +161,7 @@ after update where new.status = "inProgress" and "claude" in new.tags
 run("claude -p 'implement tiki " + old.id + "'")
 ```
 
-Triggers are configured in `workflow.yaml` under the `triggers:` key. See [Triggers](triggers.md) for configuration
+Triggers are configured in `tiki-workflow.yaml` under the `triggers:` key. See [Triggers](triggers.md) for configuration
 details and runtime behavior.
 
 ## Where to go next

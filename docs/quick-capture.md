@@ -7,7 +7,7 @@ First line becomes the title. Everything after becomes the description.
 ## What fields the new tiki gets
 
 The active workflow decides which fields the captured tiki carries. Every workflow field declared
-in `workflow.yaml fields:` that carries a default contributes one frontmatter key on capture:
+in `tiki-workflow.yaml fields:` that carries a default contributes one frontmatter key on capture:
 
 - Enum fields apply the value marked `default: true` (typically `status: backlog`, `type: story`,
   `priority: medium`).

@@ -142,8 +142,8 @@ Markdown body.
   (see [Customization](docs/customization/customization.md#readable-sequential-ids)).
   The file path is mutable organization, not identity — move or rename files freely, the `id` follows the tiki.
 - **`./**/*.md` is scanned.** The whole tree under the current directory is loaded recursively. `.git/`,
-  dotted directories, `.gitignore`/`.tikiignore` matches, the workflow config files (`workflow.yaml`,
-  `config.yaml`), and non-Markdown assets are excluded.
+  dotted directories, `.gitignore`/`.tikiignore` matches, the workflow config files (`tiki-workflow.yaml`,
+  `tiki-config.yaml`), and non-Markdown assets are excluded.
 - **Fields are open.** Beyond `id` and `title`, frontmatter is a generic field map. Fields declared in the
   active workflow get coercion from their declared types; unknown keys are preserved as-is. Absence is
   meaningful — an omitted field is distinct from a present field with an empty value.

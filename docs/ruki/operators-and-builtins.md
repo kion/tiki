@@ -283,7 +283,7 @@ Runtime notes:
 - `filepath()` and `filepaths()` are rejected in CLI, event-trigger, and time-trigger semantic runtimes.
   `filepaths()` is additionally rejected inside trigger guards and actions, mirroring the rule for `ids()`.
 - `user()` returns the current Tiki identity. Resolution order:
-  configured `identity.name` or `identity.email` (via `config.yaml` or
+  configured `identity.name` or `identity.email` (via `tiki-config.yaml` or
   `TIKI_IDENTITY_NAME` / `TIKI_IDENTITY_EMAIL`), then the git user when the
   scan root is a git repository, then the OS account username. Either config field
   alone is sufficient — when only email is set, it is used as the display

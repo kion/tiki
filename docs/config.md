@@ -2,8 +2,13 @@
 
 ## Configuration files
 
-- `config-dir/config.yaml` main configuration file
-- `config-dir/workflow.yaml` plugins/view configuration
+- `tiki-config.yaml` — settings: looks, behaviour, identity (see [the example](#tiki-configyaml))
+- `tiki-workflow.yaml` — fields, views, actions and triggers (see [workflow format](workflow-format.md))
+
+The `tiki-` names keep tiki's files from clashing with other tools' `config.yaml` or `workflow.yaml`.
+The old names still work: when a folder has no `tiki-` file, tiki reads `config.yaml` or `workflow.yaml` instead,
+as long as it is recognised as tiki's (see [Which files tiki reads](#which-files-tiki-reads)).
+Run `tiki config` to see which files tiki uses in the current directory.
 
 ## Configuration directories
 
@@ -15,8 +20,8 @@
 - **Windows**: `%APPDATA%\tiki`
 
 Files stored here:
-- `config.yaml` - User-global configuration
-- `workflow.yaml` - Statuses and plugin/view definitions
+- `tiki-config.yaml` (or `config.yaml`) - User-global configuration
+- `tiki-workflow.yaml` (or `workflow.yaml`) - Fields and view definitions; tiki installs the default kanban workflow here on first run
 
 **User Cache** (state tiki keeps on its own):
 - **Linux**: `~/.cache/tiki` (or `$XDG_CACHE_HOME/tiki`)
@@ -26,7 +31,7 @@ Files stored here:
 Files stored here:
 - `state.yaml` - Interface choices remembered between runs, currently whether the detail view shows a
   tiki body rendered or as source (`detail.bodyMode`). tiki writes this file itself; it never rewrites
-  `config.yaml`. Deleting it is safe and resets those choices.
+  your config file. Deleting it is safe and resets those choices.
 
 **Environment Variables**:
 - `XDG_CONFIG_HOME` - Override config directory location (all platforms)
@@ -40,7 +45,7 @@ tiki  # Will use ~/my-config/tiki/ for configuration
 
 ### Overriding config via environment variables
 
-Every setting in `config.yaml` can be overridden by a `TIKI_*` environment variable.
+Every setting in the config file can be overridden by a `TIKI_*` environment variable.
 The mapping rule is mechanical:
 
 1. Prefix with `TIKI_`
@@ -60,41 +65,58 @@ TIKI_APPEARANCE_THEME=dracula tiki              # try a theme without editing fi
 The values are read during config load at the start of each `tiki` invocation, so
 changes take effect on the next run — not retroactively for a running process.
 
-## Precedence
+## Which files tiki reads
 
-`tiki` looks for configuration in two locations, from least specific to most specific:
+`tiki` looks in two folders:
 
-1. **User config directory** (platform-specific, see [above](#configuration-directories)) - your personal defaults
-2. **Current working directory** (`./`) - the scan root; per-project overrides committed alongside the repo
+1. **global** — the user config directory (see [above](#configuration-directories)): your personal defaults
+2. **local** — the current working directory: per-project settings, committed alongside the repo
 
-The single highest-priority file wins — no merging across files. This means each directory can have
-its own workflow, statuses, and views that differ from your personal defaults. A design-team project
-might use statuses like "Draft / Review / Approved" while an engineering project uses
-"Backlog / In Progress / Done" — each defined in their own `./workflow.yaml`.
+Each folder contributes at most one file of each kind:
 
-### config.yaml
+1. `tiki-config.yaml` / `tiki-workflow.yaml` when present. The old name beside it is then ignored, never read as well.
+2. Otherwise `config.yaml` / `workflow.yaml`, if it is recognised as tiki's.
+3. Otherwise nothing.
 
-The single highest-priority `config.yaml` found is loaded. Values not specified in that file fall
-back to built-in defaults (not inherited from lower-priority files).
+**Recognised as tiki's** applies only to old-name files in the local folder; the global folder is tiki's own.
+- A `workflow.yaml` counts when it has a tiki workflow key at the top level:
+  `fields`, `views`, `statuses`, `types`, `triggers`, `prefix` or `prefixSeparator`.
+- A `config.yaml` counts only when every top-level key is a tiki setting (the sections in [the example](#tiki-configyaml)).
+  A misspelled section makes tiki skip the whole file; `tiki config` names the unknown keys.
+  Renaming the file to `tiki-config.yaml` makes tiki always read it.
+- A file that isn't valid YAML counts, so you see its error instead of having it silently skipped.
+  An empty file, or one whose top level isn't a map, doesn't count.
 
-Search order: user config dir → `./config.yaml` (cwd). Last match wins.
+tiki reads only regular files of at most 1 MiB.
 
-### workflow.yaml
+`tiki config` lists every file it looked at, with the reason for each one it ignored or skipped.
 
-The single highest-priority `workflow.yaml` found is loaded. All workflow-backed sections (fields, views,
-global actions, triggers) come from that one file. Lower-priority files are ignored entirely.
+### Settings: global, then local
+
+The two config files merge: tiki starts from built-in defaults, applies the global file, then the local file.
+A project file only needs the settings that should differ for that project; everything else comes from your global file.
+`TIKI_*` environment variables override both.
+
+Settings that describe you rather than the project (`identity`, `ai`, `logging`) belong in your global file.
+In a project file they apply to everyone who uses the project; `tiki config` points them out.
+
+### Workflow: local wins
+
+Workflows don't merge. All workflow-backed sections (fields, views, global actions, triggers) come from one file:
+the local one when the project has one, otherwise the global one.
+This means each project can have its own workflow, statuses, and views that differ from your personal defaults.
+A design-team project might use statuses like "Draft / Review / Approved" while an engineering project uses
+"Backlog / In Progress / Done" — each defined in its own `tiki-workflow.yaml`.
 See [Workflow format versions](workflow-format.md) for schema evolution.
 
-Search order: user config dir → `./workflow.yaml` (cwd). Last match wins. When neither file exists, the
-embedded default (kanban) workflow is used.
-
-On startup, tiki installs the bundled workflow only when the user config workflow does not already exist.
+On startup, tiki installs the bundled workflow as `tiki-workflow.yaml` in the user config directory only when
+that directory has no workflow file under either name.
 Existing installed workflows are not rewritten during upgrades. For example, an older `assignee: text`
 declaration remains plain text until you edit it to `type: user` or explicitly reinstall/reset the workflow.
 
-- Missing `fields:` entry `name: status` in the winning file is an error.
-- Missing `fields:` entry `name: type` in the winning file is an error.
-- Missing `views:` or explicit empty `views: []` means no views. The pre-0.6.0 `views: { plugins: [] }`
+- Missing `fields:` entry `name: status` in the workflow file is an error.
+- Missing `fields:` entry `name: type` in the workflow file is an error.
+- A workflow needs at least one view; tiki refuses to start without one. The pre-0.6.0 `views: { plugins: [] }`
   wrapper is rejected by the parser.
 - Missing `fields:` means no custom fields.
 - Missing `triggers:` means no triggers.
@@ -108,11 +130,36 @@ Actions can declare `require:` — a list of context attributes needed for the a
 Actions with unmet requirements are visible but greyed out. See
 [Action requirements](customization/customization.md#action-requirements) for details.
 
-### config.yaml
+### Writing files
 
-Example `config.yaml` with available settings:
+`tiki workflow install` and `tiki workflow reset --global` write to the workflow file the folder already uses,
+or create `tiki-workflow.yaml` when there is none. `tiki workflow reset` deletes only files recognised as tiki's,
+under both names, so another tool's `config.yaml` or `workflow.yaml` is left alone.
+In the local folder tiki refuses to write through a symlink; in the global folder it follows them.
+
+### tiki-config.yaml
+
+Example `tiki-config.yaml` with available settings:
 
 ```yaml
+# Project identity — tells this project's tiki apart from others at a glance
+project:
+  name: "Tiki fork"         # Terminal title "<name> • tiki" and the header's "<name> • <view>"
+                            # Default: the name of the folder tiki runs in
+  color: "#ff8800"          # Optional: "#rrggbb", "#rgb" or a colour name ("orange").
+                            # Colours the logo, the project name and the bottom bar's
+                            # directory block
+  # logo: optional, replaces the dot logo (at most 6 lines). ● ▓ ▒ take the three
+  # logo colours, any other character the main one; generate big letters with `figlet`.
+  # Hidden when the terminal is too narrow for it plus 40 columns of key hints.
+  # `|2` keeps leading spaces: plain `|` takes its indentation from the first line.
+  logo: |2
+     _   _ _    _
+    | |_(_) | _(_)
+    | __| | |/ / |
+    | |_| |   <| |
+     \__|_|_|\_\_|
+
 # Header settings
 header:
   visible: true             # Show/hide header: true, false
@@ -200,7 +247,7 @@ need to press `r`. Typical sources are an AI agent running `tiki exec`, an edito
 **Turning it on and off.** It is off by default. Turn it on at startup with any of:
 
 - the `--live-reload` flag
-- `liveReload.enabled: true` in `config.yaml`
+- `liveReload.enabled: true` in `tiki-config.yaml`
 - the `TIKI_LIVERELOAD_ENABLED=true` environment variable
 
 While tiki runs, toggle it with `Ctrl-L`, or pick "Live Reload" in the action palette (`Ctrl-A`).
@@ -231,7 +278,7 @@ Limitations:
   its stored `createdAt` if it has one. Without one, it shows the file's birth time, and the author from
   the file, until the next `r`. A save before then leaves `createdAt` out of the file, except outside git,
   where the file's own times are all there is, so they are written.
-- **Not reloaded.** Changes to `workflow.yaml` and `config.yaml` still need a restart. Wiki views
+- **Not reloaded.** Changes to `tiki-workflow.yaml` and `tiki-config.yaml` still need a restart. Wiki views
   and the branch shown in the statusline are not refreshed.
 - **Network drives.** Network filesystems and some WSL `/mnt/*` mounts don't report file changes,
   so live reload sees nothing there.
@@ -250,11 +297,11 @@ Limitations:
 If the system drops file events, for example during a very large checkout, tiki rescans the tree
 and picks up the result.
 
-### workflow.yaml
+### tiki-workflow.yaml
 
 For detailed instructions see [Customization](customization/customization.md)
 
-Example `workflow.yaml`:
+Example `tiki-workflow.yaml`:
 
 ```yaml
 fields:

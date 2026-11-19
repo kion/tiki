@@ -20,7 +20,7 @@ type InstallResult struct {
 }
 
 // InstallWorkflow fetches workflow content from the given source and writes it
-// to the workflow.yaml in the directory for the given scope.
+// to the workflow file of the directory for the given scope.
 // Callers are responsible for validating content before calling this function
 // (use ValidateWorkflowContent + validateWorkflowTriggers for non-embedded sources).
 func InstallWorkflow(src WorkflowSource, scope Scope) ([]InstallResult, error) {

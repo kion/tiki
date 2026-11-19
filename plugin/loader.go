@@ -56,7 +56,7 @@ type WorkflowFile struct {
 func loadPluginsFromFile(path string, schema ruki.Schema) ([]Plugin, []PluginAction, []string) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		slog.Warn("failed to read workflow.yaml", "path", path, "error", err)
+		slog.Warn("failed to read workflow file", "path", path, "error", err)
 		return nil, nil, []string{fmt.Sprintf("%s: %v", path, err)}
 	}
 
@@ -68,7 +68,7 @@ func loadPluginsFromFile(path string, schema ruki.Schema) ([]Plugin, []PluginAct
 
 	var wf WorkflowFile
 	if err := yaml.Unmarshal(data, &wf); err != nil {
-		slog.Warn("failed to parse workflow.yaml", "path", path, "error", err)
+		slog.Warn("failed to parse workflow file", "path", path, "error", err)
 		return nil, nil, []string{fmt.Sprintf("%s: %v", path, err)}
 	}
 
@@ -91,7 +91,7 @@ func loadPluginsFromFile(path string, schema ruki.Schema) ([]Plugin, []PluginAct
 		p, err := parsePluginConfig(cfg, source, schema, viewNames)
 		if err != nil {
 			msg := fmt.Sprintf("%s: view %q: %v", path, cfg.Name, err)
-			slog.Warn("failed to load plugin from workflow.yaml", "name", cfg.Name, "error", err)
+			slog.Warn("failed to load plugin from workflow file", "name", cfg.Name, "path", path, "error", err)
 			errs = append(errs, msg)
 			continue
 		}
@@ -228,7 +228,7 @@ func LoadPlugins(schema ruki.Schema) ([]Plugin, error) {
 func LoadPluginsAndGlobals(schema ruki.Schema) ([]Plugin, []PluginAction, error) {
 	files := config.FindWorkflowFiles()
 	if len(files) == 0 {
-		slog.Debug("no workflow.yaml files found")
+		slog.Debug("no workflow file found")
 		return nil, nil, nil
 	}
 

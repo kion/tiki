@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -134,7 +135,7 @@ func LoadWorkflowFields() error {
 
 	files := FindWorkflowFiles()
 	if len(files) == 0 {
-		return fmt.Errorf("no workflow.yaml found; workflow fields must be defined in workflow.yaml")
+		return fmt.Errorf("no workflow file found (tiki-workflow.yaml, or a workflow.yaml recognised as tiki's); run `tiki config` to see what tiki looked at")
 	}
 
 	defs, prefix, sep, err := loadWorkflowFieldsFromFile(files[0])
@@ -206,7 +207,7 @@ func loadWorkflowFieldsFromFile(path string) ([]workflow.FieldDef, string, strin
 	defs := make([]workflow.FieldDef, 0, len(fileData.Fields))
 	for _, raw := range fileData.Fields {
 		if workflow.IsSystemField(raw.Name) {
-			return nil, "", "", fmt.Errorf("workflow field %q collides with reserved system field; remove it from workflow.yaml", raw.Name)
+			return nil, "", "", fmt.Errorf("workflow field %q collides with reserved system field; remove it from %s", raw.Name, filepath.Base(path))
 		}
 		def, err := convertWorkflowFieldDef(raw)
 		if err != nil {

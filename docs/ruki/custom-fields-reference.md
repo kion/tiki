@@ -16,14 +16,14 @@
 
 ## Overview
 
-Workflow fields extend tiki's system field catalog with fields declared in `workflow.yaml`. This reference
+Workflow fields extend tiki's system field catalog with fields declared in `tiki-workflow.yaml`. This reference
 covers the precise rules for how they are loaded, validated, persisted, and queried — the behavioral contract
 behind the [Custom Fields](../customization/custom-fields.md) user guide.
 
 ## Registration and loading
 
-Custom field definitions come from the single highest-priority `workflow.yaml` (see
-[Configuration: Precedence](../config.md#precedence)). A missing `fields:` section means no custom fields are
+Custom field definitions come from the single highest-priority `tiki-workflow.yaml` (see
+[Configuration: Which files tiki reads](../config.md#which-files-tiki-reads)). A missing `fields:` section means no custom fields are
 registered.
 
 Fields are sorted by name for deterministic ordering and registered into the field catalog alongside system
@@ -95,13 +95,13 @@ Custom fields are stored in task file frontmatter alongside built-in fields. Whe
 
 A save-then-load cycle preserves custom field values exactly. This holds as long as:
 
-- the field definitions in `workflow.yaml` have not changed between save and load
+- the field definitions in `tiki-workflow.yaml` have not changed between save and load
 - enum values use canonical casing (enforced automatically by coercion)
 - timestamps round-trip through RFC3339 format
 
 ## Schema evolution and stale data
 
-When `workflow.yaml` changes — fields renamed, enum values added or removed, field types changed — existing task
+When `tiki-workflow.yaml` changes — fields renamed, enum values added or removed, field types changed — existing task
 files may contain values that no longer match the current schema. tiki handles this gracefully:
 
 ### Removed fields
@@ -130,7 +130,7 @@ rejected. On save, values are validated against the current schema.
 
 ## Field defaults
 
-Custom fields can declare a `default:` value in `workflow.yaml`. Default values are validated
+Custom fields can declare a `default:` value in `tiki-workflow.yaml`. Default values are validated
 against the field's type and enum constraints during workflow load — invalid defaults are hard
 errors. Valid defaults are copied into new tasks created via `create` statements or the
 new-task UI flow. Fields without a `default:` key start empty.

@@ -61,7 +61,7 @@ after delete
 
 ## Configuration
 
-Triggers are defined in `workflow.yaml` under the `triggers:` key. Each entry has two fields:
+Triggers are defined in `tiki-workflow.yaml` under the `triggers:` key. Each entry has two fields:
 
 - `ruki` — the trigger rule in `ruki` syntax (required)
 - `description` — an optional label
@@ -86,7 +86,7 @@ triggers:
       update where old.id in dependsOn set dependsOn=dependsOn - [old.id]
 ```
 
-Triggers come from the single highest-priority `workflow.yaml` (see [Configuration: Precedence](../config.md#precedence)). A missing `triggers:` section means no triggers. An explicit empty list (`triggers: []`) also means no triggers.
+Triggers come from the single highest-priority `tiki-workflow.yaml` (see [Configuration: Which files tiki reads](../config.md#which-files-tiki-reads)). A missing `triggers:` section means no triggers. An explicit empty list (`triggers: []`) also means no triggers.
 
 ## Patterns
 
@@ -183,8 +183,8 @@ The `run()` action evaluates the expression to a command string, then executes i
 - Test your guard condition as a `select where ...` statement first. If the select returns unexpected results, the trigger will fire unexpectedly too.
 - Before-triggers are fail-closed. If the guard expression itself has a runtime error, the mutation is rejected. Keep guard logic straightforward.
 - Triggers that modify the same fields they guard on can cascade. For example, an after-update trigger that changes `status` will fire other after-update triggers. Design triggers to converge — avoid chains that cycle indefinitely. The cascade depth limit (8) prevents runaway loops, but silent termination is rarely what you want.
-- `run()` commands execute with the permissions of the tiki process. Treat the `ruki` field in `workflow.yaml` the same as any other executable configuration.
-- A parse error in any trigger definition prevents the app from starting. Validate your `workflow.yaml` before deploying.
+- `run()` commands execute with the permissions of the tiki process. Treat the `ruki` field in `tiki-workflow.yaml` the same as any other executable configuration.
+- A parse error in any trigger definition prevents the app from starting. Validate your `tiki-workflow.yaml` before deploying.
 
 ---
 
@@ -261,7 +261,7 @@ The command string is dynamically evaluated from the trigger's expression, which
 
 ## Configuration discovery
 
-Triggers come from the single highest-priority `workflow.yaml` (see [Configuration: Precedence](../config.md#precedence)). Lower-priority files are ignored entirely.
+Triggers come from the single highest-priority `tiki-workflow.yaml` (see [Configuration: Which files tiki reads](../config.md#which-files-tiki-reads)). Lower-priority files are ignored entirely.
 
 - Missing `triggers:` section: no triggers.
 - Explicit `triggers: []`: no triggers.
