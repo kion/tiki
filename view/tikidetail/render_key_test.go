@@ -14,3 +14,13 @@ func TestAddIDTokensFindsBothIDForms(t *testing.T) {
 		t.Errorf("MEM-0 is not a valid id but was collected: %v", ids)
 	}
 }
+
+func TestAddIDTokensFindsUnderscoreAndUnseparatedIDs(t *testing.T) {
+	ids := map[string]struct{}{}
+	addIDTokens(ids, "see MEM_DB_35 and B95")
+	for _, want := range []string{"MEM_DB_35", "B95"} {
+		if _, ok := ids[want]; !ok {
+			t.Errorf("missing %s in %v", want, ids)
+		}
+	}
+}

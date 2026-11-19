@@ -82,7 +82,7 @@ func writeWorkflowSchema(w io.Writer, path string, triggers []config.TriggerDef)
 	var b strings.Builder
 	fmt.Fprintf(&b, "workflow: %s\n", path)
 	if p := workflow.ProjectPrefix(); p != "" {
-		fmt.Fprintf(&b, "prefix: %s (tiki assigns new ids as <prefix>-<number>)\n", p)
+		fmt.Fprintf(&b, "prefix: %s (tiki assigns new ids as <prefix>%s<number>)\n", p, workflow.PrefixSeparator())
 	}
 
 	b.WriteString("\nintrinsic fields (every tiki):\n")

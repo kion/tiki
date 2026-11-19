@@ -170,8 +170,12 @@ fields:
 This gives ids such as `FEAT-FE-15`, `FEAT-16` (layer `cross`), `DB-33` (area `misc`) and `TIK-7`
 (no value adds a segment).
 
-- Segments join with `-` in the order the fields are declared. A value without `prefix:` adds no
-  segment; when no value adds one, the top-level `prefix` is used.
+- Segments join in the order the fields are declared. A value without `prefix:` adds no segment;
+  when no value adds one, the top-level `prefix` is used.
+- `prefixSeparator:` joins the segments and the number: `-` (the default, `FEAT-FE-15`), `_`
+  (`FEAT_FE_15`) or `""` for none (`FEATFE15`, `B95`). With no separator the number is the trailing
+  digits, so every prefix must end in a letter, and no two combinations of values may compose the
+  same prefix. Changing the separator later affects only new ids.
 - Each combination has its own numbers: `FEAT-FE` and `FEAT` count separately.
 - A prefix is uppercase letters and digits, starting with a letter. A value prefix may be used only
   once across all fields, and never equal to the top-level `prefix`.

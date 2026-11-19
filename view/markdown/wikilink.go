@@ -20,7 +20,7 @@ import (
 // function (Go regexp has no lookbehind), so `![[ABC123]]` — obsidian-style
 // image embed — is recognized and skipped rather than rewritten into a
 // broken markdown image link.
-var wikilinkPattern = regexp.MustCompile(`\[\[([A-Z0-9][A-Z0-9-]*)\]\]`)
+var wikilinkPattern = regexp.MustCompile(`\[\[([A-Z0-9][A-Z0-9_-]*)\]\]`)
 
 // Resolver looks up a document id and returns its title and current on-disk
 // path. Callers pass a concrete implementation backed by store.Store so the
@@ -193,6 +193,5 @@ func (p *WikilinkProvider) FetchContent(elem nav.NavElement) (string, error) {
 // isTikiIDShape keeps prose like [[UTF-8]] from being marked as a broken tiki link:
 // an unresolved prefixed shape counts only when the workflow can compose its prefix.
 func isTikiIDShape(id string) bool {
-	prefix, _, ok := idfmt.SplitPrefixed(id)
-	return !ok || workflow.IsKnownIDPrefix(prefix)
+	return idfmt.IsLegacyID(id) || workflow.MatchesIDScheme(id)
 }

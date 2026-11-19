@@ -25,6 +25,7 @@ func registerImmutableFields(t *testing.T) {
 	if err := teststatuses.InitWith(extra); err != nil {
 		t.Fatal(err)
 	}
+	workflow.SetProjectPrefix("TIK")
 	t.Cleanup(func() {
 		workflow.ClearWorkflowFields()
 		teststatuses.Init()

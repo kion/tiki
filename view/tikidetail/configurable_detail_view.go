@@ -23,7 +23,6 @@ import (
 
 	nav "github.com/boolean-maybe/navidown/navidown"
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
-	"github.com/boolean-maybe/ruki/idfmt"
 	"github.com/rivo/tview"
 )
 
@@ -1441,7 +1440,7 @@ func (cv *ConfigurableDetailView) isLockedForCurrentTiki(name string) bool {
 	if fieldHasValue(saved, name) {
 		return true
 	}
-	return fd.HasPrefixes() && idfmt.IsPrefixedID(saved.ID())
+	return fd.HasPrefixes() && workflow.MatchesIDScheme(saved.ID())
 }
 
 // isHiddenForCurrentTiki reports whether name is hidden from the metadata grid

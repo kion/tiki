@@ -116,8 +116,8 @@ tiki live clear X7F4K2; git status --short
 ## Rules
 
 - Change a tiki that has workflow fields only through `tiki exec`, never by editing its file.
-- An id is 6 characters of `[A-Z0-9]` (`X7F4K2`), or a prefix and a number (`FEAT-12`) when the schema
-  shows a `prefix:` line. tiki assigns it: take ids from a query or from `created <ID>`; never invent,
+- An id is 6 characters of `[A-Z0-9]` (`X7F4K2`), or a prefix and a number when the schema shows a
+  `prefix:` line, in the form that line gives (`FEAT-12`, `FEAT_12` or `B95`). tiki assigns it: take ids from a query or from `created <ID>`; never invent,
   reformat or guess the next one. Change an id only when the user asks, with
   `tiki ids rename <OLD> <NEW>`, which also rewrites references to it.
 - `tiki exec` never touches git. Don't stage or commit tiki files unless the user asks.

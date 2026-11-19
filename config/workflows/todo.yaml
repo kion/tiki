@@ -7,6 +7,8 @@ description: |
 # For readable ids like BUG-12 instead of X7F4K2, uncomment the lines marked #id-example.
 # Two machines can hand out the same number until their work is merged.
 # prefix: TODO  #id-example
+# prefixSeparator joins the prefix and the number: "-" (BUG-12), "_" (BUG_12) or "" (BUG12).
+# prefixSeparator: "-"  #id-example
 fields:
   - name: status
     type: enum

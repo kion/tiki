@@ -93,3 +93,34 @@ func TestUnknownEnumValueKeyListsPrefix(t *testing.T) {
 		t.Fatalf("error = %v, want the valid keys to include prefix", err)
 	}
 }
+
+func TestLoadWorkflowFieldsReadsPrefixSeparator(t *testing.T) {
+	tests := []struct {
+		line, want, wantErr string
+	}{
+		{"", "-", ""},
+		{"prefixSeparator: \"\"\n", "", ""},
+		{"prefixSeparator: _\n", "_", ""},
+		{"prefixSeparator: \".\"\n", "", `prefix separator "."`},
+	}
+	for _, tt := range tests {
+		cwdDir := setupLoadWorkflowFieldsTest(t)
+		content := "prefix: TIK\n" + tt.line + "fields:\n  - name: status\n    type: enum\n    values: [open, done]\n"
+		if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+		err := LoadWorkflowFields()
+		if tt.wantErr != "" {
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("%q: error = %v, want %q", tt.line, err, tt.wantErr)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("%q: %v", tt.line, err)
+		}
+		if got := workflow.PrefixSeparator(); got != tt.want {
+			t.Errorf("%q: PrefixSeparator = %q, want %q", tt.line, got, tt.want)
+		}
+	}
+}

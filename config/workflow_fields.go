@@ -28,10 +28,12 @@ type customFieldYAML struct {
 // workflow.yaml. statuses: and types: are accepted only to produce a clear
 // migration error if a legacy file is encountered.
 type customFieldFileData struct {
-	Prefix   string            `yaml:"prefix"`
-	Fields   []customFieldYAML `yaml:"fields"`
-	Statuses yaml.Node         `yaml:"statuses"`
-	Types    yaml.Node         `yaml:"types"`
+	Prefix string `yaml:"prefix"`
+	// a pointer, so an explicit "" (no separator) differs from leaving the key out
+	PrefixSeparator *string           `yaml:"prefixSeparator"`
+	Fields          []customFieldYAML `yaml:"fields"`
+	Statuses        yaml.Node         `yaml:"statuses"`
+	Types           yaml.Node         `yaml:"types"`
 }
 
 // enumValueYAML is one entry in fields[].values. Both scalar form ("foo")
@@ -135,11 +137,11 @@ func LoadWorkflowFields() error {
 		return fmt.Errorf("no workflow.yaml found; workflow fields must be defined in workflow.yaml")
 	}
 
-	defs, prefix, err := loadWorkflowFieldsFromFile(files[0])
+	defs, prefix, sep, err := loadWorkflowFieldsFromFile(files[0])
 	if err != nil {
 		return fmt.Errorf("loading workflow fields from %s: %w", files[0], err)
 	}
-	if err := workflow.ValidateIDScheme(prefix, defs); err != nil {
+	if err := workflow.ValidateIDScheme(prefix, sep, defs); err != nil {
 		return fmt.Errorf("loading workflow fields from %s: %w", files[0], err)
 	}
 
@@ -147,6 +149,7 @@ func LoadWorkflowFields() error {
 		return fmt.Errorf("registering workflow fields from %s: %w", files[0], err)
 	}
 	workflow.SetProjectPrefix(prefix)
+	workflow.SetPrefixSeparator(sep)
 
 	workflowFieldsLoaded.Store(true)
 	slog.Debug("loaded workflow fields", "count", len(defs), "file", files[0])
@@ -160,14 +163,14 @@ func LoadWorkflowFieldsFromFile(path string) ([]workflow.FieldDef, error) {
 	if err := CheckFileVersionCompatibility(path); err != nil {
 		return nil, err
 	}
-	defs, prefix, err := loadWorkflowFieldsFromFile(path)
+	defs, prefix, sep, err := loadWorkflowFieldsFromFile(path)
 	if err != nil {
 		return nil, err
 	}
 	if err := workflow.ValidateWorkflowFields(defs); err != nil {
 		return nil, err
 	}
-	if err := workflow.ValidateIDScheme(prefix, defs); err != nil {
+	if err := workflow.ValidateIDScheme(prefix, sep, defs); err != nil {
 		return nil, err
 	}
 	return defs, nil
@@ -195,24 +198,28 @@ func FindRegistryWorkflowFiles() []string {
 	return FindWorkflowFiles()
 }
 
-func loadWorkflowFieldsFromFile(path string) ([]workflow.FieldDef, string, error) {
+func loadWorkflowFieldsFromFile(path string) ([]workflow.FieldDef, string, string, error) {
 	fileData, err := readCustomFieldsFromFile(path)
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 	defs := make([]workflow.FieldDef, 0, len(fileData.Fields))
 	for _, raw := range fileData.Fields {
 		if workflow.IsSystemField(raw.Name) {
-			return nil, "", fmt.Errorf("workflow field %q collides with reserved system field; remove it from workflow.yaml", raw.Name)
+			return nil, "", "", fmt.Errorf("workflow field %q collides with reserved system field; remove it from workflow.yaml", raw.Name)
 		}
 		def, err := convertWorkflowFieldDef(raw)
 		if err != nil {
-			return nil, "", fmt.Errorf("field %q: %w", raw.Name, err)
+			return nil, "", "", fmt.Errorf("field %q: %w", raw.Name, err)
 		}
 		defs = append(defs, def)
 	}
+	sep := workflow.DefaultPrefixSeparator
+	if fileData.PrefixSeparator != nil {
+		sep = *fileData.PrefixSeparator
+	}
 	// Preserve declaration order from workflow.yaml — no name-based ranking.
-	return defs, fileData.Prefix, nil
+	return defs, fileData.Prefix, sep, nil
 }
 
 // readCustomFieldsFromFile reads the fields: section from a single workflow.yaml.

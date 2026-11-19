@@ -409,6 +409,7 @@ func ClearWorkflowFields() {
 	workflowFields = nil
 	workflowFieldByName = nil
 	projectPrefix = ""
+	prefixSeparator = DefaultPrefixSeparator
 	workflowMu.Unlock()
 }
 

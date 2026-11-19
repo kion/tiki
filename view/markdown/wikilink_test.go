@@ -278,3 +278,18 @@ func TestRewriteWikilinks_UnknownPrefixedShapeMarkedOnlyForTheWorkflowsPrefixes(
 		t.Errorf("with prefix TIK: got %q, want %q", got, want)
 	}
 }
+
+func TestRewriteWikilinks_FollowsTheWorkflowSeparator(t *testing.T) {
+	t.Cleanup(workflow.ClearWorkflowFields)
+	workflow.SetProjectPrefix("B")
+	workflow.SetPrefixSeparator("")
+	resolver := &fakeResolver{entries: map[string]fakeEntry{}}
+	if got, want := RewriteWikilinks("[[B95]] and [[A1]]", resolver), "[[B95]] *(not found)* and [[A1]]"; got != want {
+		t.Errorf("without a separator: got %q, want %q", got, want)
+	}
+	workflow.SetPrefixSeparator("_")
+	found := &fakeResolver{entries: map[string]fakeEntry{"B_95": {title: "Ninety-five"}}}
+	if got, want := RewriteWikilinks("see [[B_95]]", found), "see [Ninety-five](B_95)"; got != want {
+		t.Errorf("with an underscore: got %q, want %q", got, want)
+	}
+}

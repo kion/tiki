@@ -242,7 +242,7 @@ func (s *TikiStore) validateTikiIDListFieldsLocked(tk *tikipkg.Tiki) error {
 		for _, referenceID := range references {
 			normalized := normalizeTikiID(referenceID)
 			if !idfmt.IsValidID(normalized) {
-				return fmt.Errorf("%s reference %q is not a valid document id (expected %d uppercase letters or digits, or a prefixed id such as ABC-12)",
+				return fmt.Errorf("%s reference %q is not a valid document id (expected %d uppercase letters or digits, or a prefixed id such as ABC-12, ABC_12 or ABC12)",
 					field.Name, normalized, idfmt.IDLength)
 			}
 			if _, exists := s.tikis[normalized]; !exists {

@@ -12,7 +12,8 @@ Adds readable sequential ids and two field attributes:
 
 - a top-level `prefix:` numbers new tikis (`TIK-1`, `TIK-2`) instead of giving them random ids;
 - enum values may carry a `prefix:` that becomes a segment of the id (`FEAT-FE-15`);
-- any field may be marked `required: true` and `immutable: true`; a field with value prefixes must be both.
+- any field may be marked `required: true` and `immutable: true`; a field with value prefixes must be both;
+- `prefixSeparator:` joins prefix segments and the number: `-` (default), `_`, or `""` for none (`B95`).
 
 ```yaml
 prefix: TIK
@@ -28,7 +29,7 @@ fields:
 
 The bundled workflows still give random ids; each carries a commented example (the lines ending in
 `#id-example`). Earlier tiki versions reject a value-level `prefix:` and silently ignore the
-top-level `prefix:`, `required:` and `immutable:`, so set `version: "0.6.2"` in a workflow that uses
+top-level `prefix:`, `prefixSeparator:`, `required:` and `immutable:`, so set `version: "0.6.2"` in a workflow that uses
 them. See
 [Readable sequential ids](customization/customization.md#readable-sequential-ids).
 

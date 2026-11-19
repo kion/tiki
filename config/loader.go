@@ -202,15 +202,16 @@ func GetConfig() *Config {
 // plugin package. All top-level sections must be listed to survive
 // round-trip serialization.
 type workflowFileData struct {
-	Version     string                   `yaml:"version,omitempty"`
-	Description string                   `yaml:"description,omitempty"`
-	Prefix      string                   `yaml:"prefix,omitempty"`
-	Statuses    []map[string]interface{} `yaml:"statuses,omitempty"`
-	Types       []map[string]interface{} `yaml:"types,omitempty"`
-	Views       []map[string]interface{} `yaml:"views,omitempty"`
-	Actions     []map[string]interface{} `yaml:"actions,omitempty"`
-	Triggers    []map[string]interface{} `yaml:"triggers,omitempty"`
-	Fields      []map[string]interface{} `yaml:"fields,omitempty"`
+	Version         string                   `yaml:"version,omitempty"`
+	Description     string                   `yaml:"description,omitempty"`
+	Prefix          string                   `yaml:"prefix,omitempty"`
+	PrefixSeparator *string                  `yaml:"prefixSeparator,omitempty"`
+	Statuses        []map[string]interface{} `yaml:"statuses,omitempty"`
+	Types           []map[string]interface{} `yaml:"types,omitempty"`
+	Views           []map[string]interface{} `yaml:"views,omitempty"`
+	Actions         []map[string]interface{} `yaml:"actions,omitempty"`
+	Triggers        []map[string]interface{} `yaml:"triggers,omitempty"`
+	Fields          []map[string]interface{} `yaml:"fields,omitempty"`
 }
 
 // readWorkflowFile reads and unmarshals workflow.yaml from the given path.

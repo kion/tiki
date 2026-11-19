@@ -28,7 +28,7 @@ the values, expressions, built-in functions, and tiki fields you use.
 | `timestamp` | timestamp values such as `createdAt` and `updatedAt` |
 | `duration` | duration literals and date or timestamp differences |
 | `bool` | boolean result type (reserved, not currently produced by any expression) |
-| `id` | document identifier: 6 uppercase letters or digits (`X7F4K2`), or a prefixed id (`FEAT-12`) |
+| `id` | document identifier: 6 uppercase letters or digits (`X7F4K2`), or a prefixed id (`FEAT-12`, `FEAT_12` or `B95`) |
 | `ref` | document reference (same format as `id`) |
 | `recurrence` | recurrence value |
 | `list<string>` | list of strings |

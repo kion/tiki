@@ -221,3 +221,19 @@ fields:
 		}
 	}
 }
+
+func TestWorkflowSchema_UnseparatedPrefixHint(t *testing.T) {
+	setupWorkflowTest(t)
+	t.Cleanup(workflow.ClearWorkflowFields)
+	writeCwdWorkflow(t, `version: "0.6.2"
+prefix: T
+prefixSeparator: ""
+fields:
+  - name: status
+    type: enum
+    values: [open, done]
+`)
+	if out := workflowSchemaOutput(t); !strings.Contains(out, "\nprefix: T (tiki assigns new ids as <prefix><number>)\n") {
+		t.Errorf("schema lacks the separator-less hint\n%s", out)
+	}
+}

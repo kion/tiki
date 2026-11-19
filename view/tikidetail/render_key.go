@@ -67,9 +67,9 @@ func referencedIDs(tk *tikipkg.Tiki) map[string]struct{} {
 	return ids
 }
 
-// prefixedIDPattern catches ids like MEM-DB-35,
-// which the tokenizer below would split at every hyphen.
-var prefixedIDPattern = regexp.MustCompile(`(?i)[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*-[0-9]+`)
+// prefixedIDPattern catches ids like MEM-DB-35 and MEM_DB_35,
+// which the tokenizer below would split at every separator.
+var prefixedIDPattern = regexp.MustCompile(`(?i)[a-z][a-z0-9]*(?:[-_][a-z][a-z0-9]*)*[-_][0-9]+`)
 
 func addIDTokens(ids map[string]struct{}, text string) {
 	for _, m := range prefixedIDPattern.FindAllString(text, -1) {

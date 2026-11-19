@@ -87,7 +87,7 @@ func (s *TikiStore) allocatePrefixedIDLocked(tk *tiki.Tiki) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("allocate id: %w", err)
 		}
-		id := fmt.Sprintf("%s-%d", prefix, n)
+		id := workflow.FormatID(prefix, n)
 		if !idfmt.IsValidID(id) {
 			return "", fmt.Errorf("the next id would be %s, which is past the largest id tiki accepts", id)
 		}
@@ -102,7 +102,7 @@ func (s *TikiStore) allocatePrefixedIDLocked(tk *tiki.Tiki) (string, error) {
 func (s *TikiStore) highestNumberLocked(prefix string) int {
 	highest := 0
 	consider := func(id string) {
-		if p, n, ok := idfmt.SplitPrefixed(id); ok && p == prefix && n > highest {
+		if p, n, ok := workflow.SplitSchemeID(id); ok && p == prefix && n > highest {
 			highest = n
 		}
 	}

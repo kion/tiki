@@ -26,9 +26,10 @@ func TestExtractTikiID(t *testing.T) {
 		{"TIKI-ABC123", "", false},
 		{"tiki-abc123", "", false},
 		{"Tiki-AbC123", "", false},
-		// negatives: wrong length, wrong charset, empty.
-		{"ABC12", "", false},
-		{"ABC1234", "", false},
+		// valid separator-less ids; an unresolved one falls through to FileHTTP
+		{"ABC12", "ABC12", true},
+		{"ABC1234", "ABC1234", true},
+		// negatives: wrong charset, empty.
 		{"JIRA-ABC123", "", false},
 		{"abc12!", "", false},
 		{"", "", false},

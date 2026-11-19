@@ -168,3 +168,23 @@ func TestImmutableListComparesElements(t *testing.T) {
 		t.Errorf("the same list in another Go type was rejected: %q", r.Reason)
 	}
 }
+
+func TestPrefixFieldFreezesOnAnUnseparatedSchemeID(t *testing.T) {
+	defs := []workflow.FieldDef{{Name: "board", Type: workflow.TypeEnum, Required: true, Immutable: true,
+		EnumValues: []workflow.EnumValue{{Value: "backlog", Prefix: "B"}, {Value: "watch", Prefix: "W"}}}}
+	if err := workflow.RegisterWorkflowFields(defs); err != nil {
+		t.Fatal(err)
+	}
+	workflow.SetProjectPrefix("T")
+	workflow.SetPrefixSeparator("")
+	t.Cleanup(restoreTestFields)
+	fill := map[string]interface{}{"board": "backlog"}
+	if r := validateImmutableOnUpdate(ruleTiki("B95", nil), ruleTiki("B95", fill), nil); r == nil {
+		t.Error("filling the prefix field of B95 (already a scheme id) passed")
+	}
+	for _, legacy := range []string{"14SIOZ", "X7F4K2"} {
+		if r := validateImmutableOnUpdate(ruleTiki(legacy, nil), ruleTiki(legacy, fill), nil); r != nil {
+			t.Errorf("filling the prefix field of legacy %s was refused: %q", legacy, r.Reason)
+		}
+	}
+}

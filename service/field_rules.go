@@ -6,7 +6,6 @@ import (
 	"slices"
 	"time"
 
-	"github.com/boolean-maybe/ruki/idfmt"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
@@ -113,7 +112,7 @@ func validateImmutableOnUpdate(old, new *tikipkg.Tiki, _ []*tikipkg.Tiki) *Rejec
 		switch {
 		case had && (!has || !sameValue(oldV, newV)):
 			return &Rejection{Reason: fmt.Sprintf("%s is immutable", f.Name)}
-		case !had && has && f.HasPrefixes() && idfmt.IsPrefixedID(old.ID()):
+		case !had && has && f.HasPrefixes() && workflow.MatchesIDScheme(old.ID()):
 			return &Rejection{Reason: fmt.Sprintf("%s is immutable", f.Name)}
 		}
 	}

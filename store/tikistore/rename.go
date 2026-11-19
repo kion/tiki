@@ -41,7 +41,7 @@ func (s *TikiStore) checkRenameLocked(oldID, newID string) error {
 		return fmt.Errorf("no tiki with id %s", oldID)
 	}
 	if !idfmt.IsValidID(newID) {
-		return fmt.Errorf("%s is not a valid id (expected %d uppercase letters or digits, or a prefixed id such as ABC-12)", newID, idfmt.IDLength)
+		return fmt.Errorf("%s is not a valid id (expected %d uppercase letters or digits, or a prefixed id such as ABC-12, ABC_12 or ABC12)", newID, idfmt.IDLength)
 	}
 	if newID == oldID {
 		return fmt.Errorf("%s already has that id", oldID)
@@ -60,13 +60,19 @@ func (s *TikiStore) checkRenameLocked(oldID, newID string) error {
 			}
 		}
 	}
-	if idfmt.IsLegacyID(oldID) && idfmt.IsPrefixedID(newID) && workflow.PrefixedIDsEnabled() {
+	if workflow.PrefixedIDsEnabled() && !idfmt.IsLegacyID(newID) {
+		if _, _, ok := workflow.SplitSchemeID(newID); !ok {
+			return fmt.Errorf("%s doesn't use this workflow's prefix separator %q (for example %s)",
+				newID, workflow.PrefixSeparator(), workflow.FormatID(fieldPrefix(tk), 1))
+		}
+	}
+	if !workflow.MatchesIDScheme(oldID) && workflow.MatchesIDScheme(newID) {
 		if missing := missingPrefixFields(tk); len(missing) > 0 {
 			return fmt.Errorf("%s has no value in %s, and prefix fields can't be filled once the id is prefixed: set it first, for example %s",
 				oldID, strings.Join(missing, ", "), FillExample(oldID, missing[0]))
 		}
 	}
-	if prefix, _, ok := idfmt.SplitPrefixed(newID); ok && workflow.PrefixedIDsEnabled() {
+	if prefix, _, ok := workflow.SplitSchemeID(newID); ok && workflow.PrefixedIDsEnabled() {
 		if want := fieldPrefix(tk); prefix != want {
 			return fmt.Errorf("%s's fields give the prefix %s, so its new id must start with %s-", oldID, want, want)
 		}
@@ -125,7 +131,8 @@ func (s *TikiStore) PlanMigration() (renames []Rename, missing []MissingPrefix, 
 
 	var legacy []*tiki.Tiki
 	for id, tk := range s.tikis {
-		if idfmt.IsLegacyID(id) {
+		// a scheme id can be legacy-shaped without a separator (B12345), and is already migrated
+		if idfmt.IsLegacyID(id) && !workflow.MatchesIDScheme(id) {
 			legacy = append(legacy, tk)
 		}
 	}
@@ -152,7 +159,7 @@ func (s *TikiStore) PlanMigration() (renames []Rename, missing []MissingPrefix, 
 			last[prefix] = max(stored, s.highestNumberLocked(prefix))
 		}
 		last[prefix]++
-		renames = append(renames, Rename{Old: tk.ID(), New: fmt.Sprintf("%s-%d", prefix, last[prefix])})
+		renames = append(renames, Rename{Old: tk.ID(), New: workflow.FormatID(prefix, last[prefix])})
 
 		if fields := missingPrefixFields(tk); len(fields) > 0 {
 			missing = append(missing, MissingPrefix{ID: tk.ID(), Fields: fields})
@@ -260,7 +267,7 @@ func (s *TikiStore) applyRenamesLocked(renames []Rename, dryRun bool) ([]string,
 	}
 	// raised before writing: a gap is harmless, a number issued twice is not
 	for _, newID := range mapping {
-		if prefix, n, ok := idfmt.SplitPrefixed(newID); ok {
+		if prefix, n, ok := workflow.SplitSchemeID(newID); ok {
 			alloc, err := s.allocatorLocked()
 			if err != nil {
 				return nil, err
@@ -449,11 +456,11 @@ func mapIDs(ids []string, mapping map[string]string) ([]string, bool) {
 
 // The renderer resolves [[ID]] only in uppercase, but a link destination in any case.
 var (
-	wikilinkRefPattern = regexp.MustCompile(`\[\[([A-Z0-9][A-Z0-9-]*)\]\]`)
+	wikilinkRefPattern = regexp.MustCompile(`\[\[([A-Z0-9][A-Z0-9_-]*)\]\]`)
 	// the label is left out of inline-link matching: it may wrap lines or hold brackets
-	idLabelPattern    = regexp.MustCompile(`\[([A-Za-z0-9][A-Za-z0-9-]*)\](\([ \t]*<?)([A-Za-z0-9][A-Za-z0-9-]*)`)
-	inlineDestPattern = regexp.MustCompile(`\]\(([ \t]*)(<?)([A-Za-z0-9][A-Za-z0-9-]*)(>?)((?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\)))?[ \t]*\))`)
-	refDefPattern     = regexp.MustCompile(`(?m)^([ ]{0,3}\[[^\]\n]+\]:[ \t]*)(<?)([A-Za-z0-9][A-Za-z0-9-]*)(>?)([ \t].*)?$`)
+	idLabelPattern    = regexp.MustCompile(`\[([A-Za-z0-9][A-Za-z0-9_-]*)\](\([ \t]*<?)([A-Za-z0-9][A-Za-z0-9_-]*)`)
+	inlineDestPattern = regexp.MustCompile(`\]\(([ \t]*)(<?)([A-Za-z0-9][A-Za-z0-9_-]*)(>?)((?:[ \t]+(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\)))?[ \t]*\))`)
+	refDefPattern     = regexp.MustCompile(`(?m)^([ ]{0,3}\[[^\]\n]+\]:[ \t]*)(<?)([A-Za-z0-9][A-Za-z0-9_-]*)(>?)([ \t].*)?$`)
 )
 
 func rewriteLinks(text string, mapping map[string]string) string {

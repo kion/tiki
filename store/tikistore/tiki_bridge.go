@@ -61,7 +61,7 @@ func loadTikiFromBytes(path string, content []byte) (*parsedTiki, error) {
 	id := document.NormalizeID(rawID)
 	if !idfmt.IsValidID(id) {
 		return nil, newLoadError(LoadReasonInvalidID,
-			fmt.Errorf("%s: invalid document id %q: expected %d uppercase letters or digits, or a prefixed id such as ABC-12",
+			fmt.Errorf("%s: invalid document id %q: expected %d uppercase letters or digits, or a prefixed id such as ABC-12, ABC_12 or ABC12",
 				path, id, idfmt.IDLength))
 	}
 

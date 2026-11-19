@@ -55,7 +55,7 @@ Markdown body.
 
 - **`id`** — required, globally unique across the scan root, and assigned by tiki. Either 6 uppercase
   letters or digits (`X7F4K2`, the default), or a prefixed sequential id such as `FEAT-12` or `MEM-DB-35`
-  when the workflow sets a `prefix` (see
+  when the workflow sets a `prefix` (`FEAT_12` or `B95` when its `prefixSeparator` is `_` or empty; see
   [Readable sequential ids](customization/customization.md#readable-sequential-ids)). The old `TIKI-XXXXXX`
   form is not recognized; edit such ids by hand, or with `tiki ids rename`.
 - **`formerIds`** — optional, written by `tiki ids rename` and `tiki ids migrate`: the ids the tiki had
