@@ -23,6 +23,7 @@ type NavigationController struct {
 	onViewChanged    func(viewID model.ViewID, params map[string]interface{}) // callback when view changes (for layoutModel sync)
 	editorOpener     func(string) error
 	commandRunner    func(name string, args ...string) error
+	afterResume      func()
 }
 
 // NewNavigationController creates a navigation controller
@@ -154,7 +155,19 @@ func (nc *NavigationController) SuspendAndEdit(filePath string) error {
 	if !ok {
 		return fmt.Errorf("could not suspend application")
 	}
+	nc.resumed()
 	return editorErr
+}
+
+// SetAfterResume sets a hook run after the app resumes from a suspend.
+func (nc *NavigationController) SetAfterResume(fn func()) {
+	nc.afterResume = fn
+}
+
+func (nc *NavigationController) resumed() {
+	if nc.afterResume != nil {
+		nc.afterResume()
+	}
 }
 
 // SetCommandRunner overrides the default command runner (useful for tests).
@@ -175,6 +188,7 @@ func (nc *NavigationController) SuspendAndRun(name string, args ...string) {
 			slog.Error("command failed", "command", name, "error", err)
 		}
 	})
+	nc.resumed()
 }
 
 // defaultRunCommand runs a command with stdin/stdout/stderr connected to the terminal.

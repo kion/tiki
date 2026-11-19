@@ -159,6 +159,7 @@ func Bootstrap() (*Result, error) {
 	// Phase 7: Application and controllers
 	application := app.NewApp()
 	app.SetupSignalHandler(application)
+	rearmTitle := app.InstallTitle(application, config.TerminalTitle())
 
 	// Progress hub: drains consumer progress events off the UI goroutine and
 	// pushes state to the statusline via QueueUpdateDraw. Constructed before
@@ -180,6 +181,8 @@ func Bootstrap() (*Result, error) {
 		progressHub,
 		schema,
 	)
+
+	controllers.Nav.SetAfterResume(rearmTitle)
 
 	// Phase 8: Input routing
 	inputRouter := controller.NewInputRouter(
