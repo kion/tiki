@@ -202,3 +202,21 @@ func TestIDsMigrateRefusesEmptyPrefixFields(t *testing.T) {
 		t.Error("a refused migrate changed a.md")
 	}
 }
+
+func TestIDsCounterShowsThisProjectsFile(t *testing.T) {
+	dir := setupIDsProject(t, idsWorkflow, map[string]string{
+		"a.md": "---\nid: XXXXXX\ntitle: a\nstatus: open\narea: feature\n---\n",
+	})
+	code, out, errOut := runIDsTest(t, dir, "counter")
+	if code != exitOK || !strings.Contains(out, "counter file: ") || !strings.Contains(out, "not created yet") {
+		t.Fatalf("before any prefixed id: exit %d, stdout %q, stderr %q", code, out, errOut)
+	}
+	if code, _, errOut := runIDsTest(t, dir, "rename", "XXXXXX", "FEAT-55"); code != exitOK {
+		t.Fatalf("rename: exit %d, %s", code, errOut)
+	}
+	code, out, _ = runIDsTest(t, dir, "counter")
+	wantPrefix := filepath.Join(os.Getenv("XDG_STATE_HOME"), "tiki", "sequences", filepath.Base(dir)+"-")
+	if code != exitOK || !strings.Contains(out, "counter file: "+wantPrefix) || !strings.Contains(out, "  FEAT: 55") || strings.Contains(out, "not created") {
+		t.Errorf("after the rename: exit %d, output:\n%s\nwant the file under %s… holding FEAT: 55", code, out, wantPrefix)
+	}
+}

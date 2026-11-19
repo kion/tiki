@@ -372,6 +372,7 @@ Usage:
   tiki live clear <ID>       Remove a tiki's live status
   tiki ids rename <OLD> <NEW>  Give a tiki a new id and rewrite references to it
   tiki ids migrate           Give every 6-character id a prefixed id (--dry-run to preview)
+  tiki ids counter           Show this project's id counter file and its numbers
   tiki workflow reset [target]  Reset config files (--global, --current)
   tiki workflow install <source> Install a workflow (--global, --current)
   tiki workflow schema       Print the current workflow's fields and triggers, for AI agents

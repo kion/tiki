@@ -4,6 +4,10 @@
 // so every clone, branch and worktree on the machine draws from the same counters.
 // Each read-increment-write runs under an exclusive OS file lock,
 // so concurrent tiki processes never issue the same number.
+//
+// A file is named <label>-<hash of the repository key>.yaml.
+// It is found by the hash alone, so the readable label can follow a renamed folder
+// without the counters ever being lost or split.
 package idseq
 
 import (
@@ -14,6 +18,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -25,7 +30,9 @@ const lockTimeout = 5 * time.Second
 
 // File is one repository's counter file.
 type File struct {
-	path       string
+	dir        string
+	key        string
+	label      string
 	lastUsedBy string
 }
 
@@ -34,11 +41,15 @@ type fileData struct {
 	Counters   map[string]int `yaml:"counters"`
 }
 
-// FileName names a repository's counter file: its folder name for humans,
-// plus a hash of its key so two folders with the same name never share counters.
-func FileName(folder, key string) string {
+func keyHash(key string) string {
 	sum := sha256.Sum256([]byte(key))
-	return sanitize(folder) + "-" + hex.EncodeToString(sum[:])[:8] + ".yaml"
+	return hex.EncodeToString(sum[:])[:8]
+}
+
+// FileName names a repository's counter file: a readable label for humans,
+// plus a hash of its key, which is what finds the file.
+func FileName(label, key string) string {
+	return sanitize(label) + "-" + keyHash(key) + ".yaml"
 }
 
 func sanitize(s string) string {
@@ -57,9 +68,28 @@ func sanitize(s string) string {
 	return b.String()
 }
 
-// Open returns the counter file at path; each write records lastUsedBy in it for humans.
-func Open(path, lastUsedBy string) *File {
-	return &File{path: path, lastUsedBy: lastUsedBy}
+// Open returns the counter file for key in dir.
+// Writes name it after label and record lastUsedBy in it, both for humans.
+func Open(dir, key, label, lastUsedBy string) *File {
+	return &File{dir: dir, key: key, label: label, lastUsedBy: lastUsedBy}
+}
+
+// Path returns the file holding the counters, or where the first write will create it.
+func (f *File) Path() (string, bool, error) {
+	files, err := f.existing()
+	if err != nil {
+		return "", false, err
+	}
+	if len(files) == 0 {
+		return f.wanted(), false, nil
+	}
+	return files[0], true, nil
+}
+
+// Counters returns every stored counter without writing anything.
+func (f *File) Counters() (map[string]int, error) {
+	d, _, err := f.read()
+	return d.Counters, err
 }
 
 // Next returns the next number for prefix:
@@ -83,59 +113,93 @@ func (f *File) Raise(prefix string, atLeast int) error {
 
 // Peek returns prefix's stored counter without writing anything.
 func (f *File) Peek(prefix string) (int, error) {
-	d, err := f.read()
+	d, _, err := f.read()
 	if err != nil {
 		return 0, err
 	}
 	return d.Counters[prefix], nil
 }
 
+func (f *File) wanted() string {
+	return filepath.Join(f.dir, FileName(f.label, f.key))
+}
+
+// existing lists the files holding this key's counters, whatever their label.
+func (f *File) existing() ([]string, error) {
+	files, err := filepath.Glob(filepath.Join(f.dir, "*-"+keyHash(f.key)+".yaml"))
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(files)
+	return files, nil
+}
+
 func (f *File) update(change func(*fileData)) error {
-	if err := os.MkdirAll(filepath.Dir(f.path), 0o750); err != nil {
+	if err := os.MkdirAll(f.dir, 0o750); err != nil {
 		return fmt.Errorf("create id sequence dir: %w", err)
 	}
-	unlock, err := lockFile(f.path+".lock", lockTimeout)
+	// named by the key alone, so checkouts with different labels still take turns
+	unlock, err := lockFile(filepath.Join(f.dir, "."+keyHash(f.key)+".lock"), lockTimeout)
 	if err != nil {
 		return err
 	}
 	defer unlock()
 
-	d, err := f.read()
+	d, files, err := f.read()
 	if err != nil {
 		return err
 	}
 	change(&d)
 	d.LastUsedBy = f.lastUsedBy
-	return f.write(d)
+	wanted := f.wanted()
+	if err := write(wanted, d); err != nil {
+		return err
+	}
+	for _, old := range files {
+		if old != wanted {
+			_ = os.Remove(old)
+		}
+		// lock files of the earlier per-file locking
+		_ = os.Remove(old + ".lock")
+	}
+	return nil
 }
 
-// read treats a missing or unreadable file as empty:
-// callers' floors rebuild the counters from the ids they can see.
-func (f *File) read() (fileData, error) {
+// read merges every file holding this key, taking the larger counter for each prefix:
+// two files only appear when checkouts with different labels raced to create the first one.
+// A missing or unreadable file counts as empty: callers' floors rebuild from the ids they can see.
+func (f *File) read() (fileData, []string, error) {
 	d := fileData{Counters: map[string]int{}}
-	data, err := os.ReadFile(f.path)
-	if errors.Is(err, os.ErrNotExist) {
-		return d, nil
-	}
+	files, err := f.existing()
 	if err != nil {
-		return d, fmt.Errorf("read id sequence file: %w", err)
+		return d, nil, err
 	}
-	if err := yaml.Unmarshal(data, &d); err != nil {
-		slog.Warn("id sequence file unreadable, rebuilding it from loaded ids", "path", f.path, "error", err)
-		return fileData{Counters: map[string]int{}}, nil
+	for _, path := range files {
+		data, err := os.ReadFile(path)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return d, nil, fmt.Errorf("read id sequence file: %w", err)
+		}
+		var one fileData
+		if err := yaml.Unmarshal(data, &one); err != nil {
+			slog.Warn("id sequence file unreadable, rebuilding it from loaded ids", "path", path, "error", err)
+			continue
+		}
+		for prefix, n := range one.Counters {
+			d.Counters[prefix] = max(d.Counters[prefix], n)
+		}
 	}
-	if d.Counters == nil {
-		d.Counters = map[string]int{}
-	}
-	return d, nil
+	return d, files, nil
 }
 
-func (f *File) write(d fileData) error {
+func write(path string, d fileData) error {
 	data, err := yaml.Marshal(d)
 	if err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(f.path), filepath.Base(f.path)+".tmp-*")
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".tmp-*")
 	if err != nil {
 		return fmt.Errorf("write id sequence file: %w", err)
 	}
@@ -148,7 +212,7 @@ func (f *File) write(d fileData) error {
 		_ = os.Remove(tmp.Name())
 		return fmt.Errorf("write id sequence file: %w", err)
 	}
-	if err := os.Rename(tmp.Name(), f.path); err != nil {
+	if err := os.Rename(tmp.Name(), path); err != nil {
 		_ = os.Remove(tmp.Name())
 		return fmt.Errorf("write id sequence file: %w", err)
 	}

@@ -3,7 +3,6 @@ package tikistore
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"path/filepath"
 
 	"github.com/boolean-maybe/ruki/idfmt"
@@ -29,45 +28,67 @@ func WithIDAllocator(a IDAllocator) Option {
 // so workflows without prefixed ids never touch the state dir.
 func (s *TikiStore) allocatorLocked() (IDAllocator, error) {
 	if s.idAlloc == nil {
-		name, checkout, err := s.sequenceFileName()
+		f, err := s.counterFile()
 		if err != nil {
 			return nil, err
 		}
-		state := config.GetStateDir()
-		if state == "" {
-			return nil, errors.New("no state directory for the id counter: set XDG_STATE_HOME or HOME")
-		}
-		path := filepath.Join(state, "sequences", name)
-		slog.Debug("id sequence file", "path", path)
-		s.idAlloc = idseq.Open(path, checkout)
+		s.idAlloc = f
 	}
 	return s.idAlloc, nil
 }
 
-// sequenceFileName keys the counter file by the repository's root commit,
+// CounterFile reports this project's counter file and what it holds;
+// exists is false until the first prefixed id or rename writes it.
+func (s *TikiStore) CounterFile() (path string, counters map[string]int, exists bool, err error) {
+	f, err := s.counterFile()
+	if err != nil {
+		return "", nil, false, err
+	}
+	if path, exists, err = f.Path(); err != nil {
+		return "", nil, false, err
+	}
+	counters, err = f.Counters()
+	return path, counters, exists, err
+}
+
+func (s *TikiStore) counterFile() (*idseq.File, error) {
+	key, label, checkout, err := s.sequenceKey()
+	if err != nil {
+		return nil, err
+	}
+	state := config.GetStateDir()
+	if state == "" {
+		return nil, errors.New("no state directory for the id counter: set XDG_STATE_HOME or HOME")
+	}
+	return idseq.Open(filepath.Join(state, "sequences"), key, label, checkout), nil
+}
+
+// sequenceKey keys the counter file by the repository's root commit,
 // which every clone, branch and worktree shares;
 // a repository without commits falls back to its shared git dir,
 // and a project without git to the scan root.
 // Any other git failure is an error rather than a fallback:
 // a silent fallback would give the repository a second counter.
-func (s *TikiStore) sequenceFileName() (name, checkout string, err error) {
+// The label is the main checkout's folder name, which worktrees share.
+func (s *TikiStore) sequenceKey() (key, label, checkout string, err error) {
 	checkout = s.dir
 	if abs, err := filepath.Abs(s.dir); err == nil {
 		checkout = abs
 	}
 	if s.gitUtil != nil {
 		if common, err := s.gitUtil.CommonDir(); err == nil && common != "" {
+			label = filepath.Base(filepath.Dir(common))
 			roots, err := s.gitUtil.RootCommits()
 			if err != nil {
-				return "", "", fmt.Errorf("can't key the id counter: %w", err)
+				return "", "", "", fmt.Errorf("can't key the id counter: %w", err)
 			}
 			if len(roots) > 0 {
-				return idseq.FileName("commit", "commit:"+roots[0]), checkout, nil
+				return "commit:" + roots[0], label, checkout, nil
 			}
-			return idseq.FileName(filepath.Base(filepath.Dir(common)), "gitdir:"+common), checkout, nil
+			return "gitdir:" + common, label, checkout, nil
 		}
 	}
-	return idseq.FileName(filepath.Base(checkout), "dir:"+checkout), checkout, nil
+	return "dir:" + checkout, filepath.Base(checkout), checkout, nil
 }
 
 // allocatePrefixedIDLocked gives tk the next id for the prefix its fields compose.

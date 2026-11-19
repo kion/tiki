@@ -188,8 +188,12 @@ This gives ids such as `FEAT-FE-15`, `FEAT-16` (layer `cross`), `DB-33` (area `m
 **Where the numbers come from.** tiki keeps one counter file per repository in your state directory:
 `$XDG_STATE_HOME/tiki/sequences/` or `~/.local/state/tiki/sequences/` on Linux,
 `~/Library/Application Support/tiki/state/sequences/` on macOS, `%LOCALAPPDATA%\tiki\state\sequences\`
-on Windows. Every clone, branch and worktree of the repository on your machine shares it, and a file
-lock makes tiki processes take turns, so they never hand out the same number. Each number is one above
+on Windows. The file is named after your project's folder plus a short hash of the repository's first
+commit, like `myproject-26f2089a.yaml`; `tiki ids counter` prints this project's file and its
+numbers. tiki finds the file by the hash, so it follows a renamed folder without losing anything, and two
+projects never share a file even when they use the same prefixes. Every clone, branch and worktree of
+the repository on your machine shares it, and a file lock makes tiki processes take turns, so they never
+hand out the same number. Each number is one above
 the larger of the counter and the highest number among the loaded tikis (former ids included), so
 tikis merged in from elsewhere are counted too. A project that
 isn't a git repository has one counter per folder tiki runs in. A shallow clone (`git clone --depth`)
@@ -211,8 +215,8 @@ counter can't know about numbers it never saw:
   skips the second file until one of them gets a new id (`tiki ids rename`, then check the references
   to it). A number deleted on one machine can be issued on another.
 - **Migrating from another numbering scheme:** numbers it used for tikis that no longer exist are
-  unknown to tiki. Raise the counter in the counter file (the one whose `lastUsedBy:` is your
-  repository) before creating new tikis.
+  unknown to tiki. Raise the counter in the counter file (`tiki ids counter` shows which) before
+  creating new tikis.
 
 If these matter for your project, keep random ids, as the shipped workflows do. Each shipped workflow
 carries a commented example of prefixed ids: uncomment the lines ending in `#id-example`.

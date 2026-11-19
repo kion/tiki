@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
@@ -64,9 +65,9 @@ func parseIDsArgs(args []string) (idsCommand, error) {
 			return cmd, errors.New("rename takes an old and a new id")
 		}
 		cmd.old, cmd.new = document.NormalizeID(positional[1]), document.NormalizeID(positional[2])
-	case "migrate":
+	case "migrate", "counter":
 		if len(positional) != 1 {
-			return cmd, errors.New("migrate takes no arguments")
+			return cmd, fmt.Errorf("%s takes no arguments", cmd.name)
 		}
 	default:
 		return cmd, fmt.Errorf("unknown ids command: %s", cmd.name)
@@ -98,6 +99,8 @@ func runIDsIn(root string, args []string, stdout, stderr io.Writer) int {
 
 	var renames []tikistore.Rename
 	switch cmd.name {
+	case "counter":
+		return printCounterFile(s, stdout, stderr)
 	case "rename":
 		if err := s.CheckRename(cmd.old, cmd.new); err != nil {
 			_, _ = fmt.Fprintln(stderr, "error:", err)
@@ -163,12 +166,35 @@ func printMissingPrefixes(w io.Writer, missing []tikistore.MissingPrefix) {
 	_, _ = fmt.Fprintln(w, "then run tiki ids migrate again.")
 }
 
+func printCounterFile(s *tikistore.TikiStore, stdout, stderr io.Writer) int {
+	path, counters, exists, err := s.CounterFile()
+	if err != nil {
+		_, _ = fmt.Fprintln(stderr, "error:", err)
+		return exitQueryError
+	}
+	if !exists {
+		_, _ = fmt.Fprintf(stdout, "counter file: %s (not created yet: the first prefixed id creates it)\n", path)
+		return exitOK
+	}
+	_, _ = fmt.Fprintf(stdout, "counter file: %s\n", path)
+	prefixes := make([]string, 0, len(counters))
+	for prefix := range counters {
+		prefixes = append(prefixes, prefix)
+	}
+	sort.Strings(prefixes)
+	for _, prefix := range prefixes {
+		_, _ = fmt.Fprintf(stdout, "  %s: %d\n", prefix, counters[prefix])
+	}
+	return exitOK
+}
+
 func printIDsUsage(w io.Writer) {
 	_, _ = fmt.Fprint(w, `Usage: tiki ids <command> [--dry-run]
 
 Commands:
   rename <OLD> <NEW>   Give a tiki a new id
   migrate              Give every tiki with a 6-character id a prefixed id, oldest first
+  counter              Show this project's counter file and its numbers
 
 Both rewrite every reference: id-list fields, and [[ID]] and [text](ID) links in all
 Markdown files, wiki pages included. Plain-text mentions are left alone.

@@ -201,7 +201,7 @@ func TestDefaultAllocatorFileIsKeyedByRootCommit(t *testing.T) {
 	if got := createTitled(t, s, "one", nil).ID(); got != "TIK-1" {
 		t.Fatalf("id = %q, want TIK-1", got)
 	}
-	want := filepath.Join(state, "tiki", "sequences", idseq.FileName("commit", "commit:"+root))
+	want := filepath.Join(state, "tiki", "sequences", idseq.FileName(filepath.Base(repo), "commit:"+root))
 	data, err := os.ReadFile(want)
 	if err != nil {
 		t.Fatalf("counter file %s: %v", want, err)
@@ -326,5 +326,35 @@ func TestAllocationRefusesAnIDTheLoaderWouldReject(t *testing.T) {
 	tk.SetTitle("one too many")
 	if err := s.CreateTiki(tk); err == nil || !strings.Contains(err.Error(), "TIK-1000000000") {
 		t.Fatalf("create past the number cap = %v, want an error naming TIK-1000000000", err)
+	}
+}
+
+func TestCounterFileIsLabelledAfterTheMainCheckout(t *testing.T) {
+	usePrefixedWorkflow(t)
+	base := t.TempDir()
+	repo := filepath.Join(base, "myproject")
+	if err := os.Mkdir(repo, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, repo, "init", "-q")
+	runGit(t, repo, "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "root")
+	root := strings.TrimSpace(runGit(t, repo, "rev-list", "--max-parents=0", "HEAD"))
+	wt := filepath.Join(base, "side-work")
+	runGit(t, repo, "worktree", "add", "-q", "-b", "side", wt)
+	t.Chdir(wt)
+	state := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", state)
+	config.ResetPathManager()
+	t.Cleanup(config.ResetPathManager)
+
+	s, err := NewTikiStore(wt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	createTitled(t, s, "from the worktree", nil)
+	want := filepath.Join(state, "tiki", "sequences", idseq.FileName("myproject", "commit:"+root))
+	path, counters, exists, err := s.CounterFile()
+	if err != nil || !exists || path != want || counters["TIK"] != 1 {
+		t.Errorf("CounterFile = %q, %v, %v, %v; want %q holding TIK: 1", path, counters, exists, err, want)
 	}
 }
