@@ -186,8 +186,8 @@ This gives ids such as `FEAT-FE-15`, `FEAT-16` (layer `cross`), `DB-33` (area `m
 `~/Library/Application Support/tiki/state/sequences/` on macOS, `%LOCALAPPDATA%\tiki\state\sequences\`
 on Windows. Every clone, branch and worktree of the repository on your machine shares it, and a file
 lock makes tiki processes take turns, so they never hand out the same number. Each number is one above
-the larger of the counter and the highest number among the loaded tikis (former ids included), so a
-lost counter file, or tikis merged in from elsewhere, are picked up on the next create. A project that
+the larger of the counter and the highest number among the loaded tikis (former ids included), so
+tikis merged in from elsewhere are counted too. A project that
 isn't a git repository has one counter per folder tiki runs in. A shallow clone (`git clone --depth`)
 can't create prefixed ids until `git fetch --unshallow`: its first commit, which names the counter,
 is unknown.
@@ -195,11 +195,23 @@ is unknown.
 A before-create trigger sees the new tiki's placeholder id in `new.id`, not the prefixed one: the id
 is assigned when the tiki is saved, after the trigger has run.
 
-**Working in a team.** The counter is per machine. Two machines creating tikis before their work is
-merged can hand out the same id; tiki then reports the duplicate when it loads and skips the second
-file until one of them gets a new id (`tiki ids rename`, then check the references to it). Random ids
-have no such risk, which is why the shipped workflows keep them. Each shipped workflow carries a
-commented example: uncomment the lines ending in `#id-example`.
+**What sequential ids trade away.** Random ids need no coordination; sequential ids rely on the
+counter on your machine. In normal use a number is never issued twice: the counter only goes up, and
+deleting a tiki doesn't free its number (after deleting `TIK-3`, the next tiki is `TIK-4`). But the
+counter can't know about numbers it never saw:
+
+- **Lost counter file** (state directory wiped, new install): tiki restarts above the highest number
+  still in the tikis, so numbers of deleted tikis above it can be issued again.
+- **Another machine or a teammate:** each machine has its own counter. Two machines creating tikis
+  before their work is merged can hand out the same id; tiki reports the duplicate when it loads and
+  skips the second file until one of them gets a new id (`tiki ids rename`, then check the references
+  to it). A number deleted on one machine can be issued on another.
+- **Migrating from another numbering scheme:** numbers it used for tikis that no longer exist are
+  unknown to tiki. Raise the counter in the counter file (the one whose `lastUsedBy:` is your
+  repository) before creating new tikis.
+
+If these matter for your project, keep random ids, as the shipped workflows do. Each shipped workflow
+carries a commented example of prefixed ids: uncomment the lines ending in `#id-example`.
 
 ## Required and immutable fields
 
