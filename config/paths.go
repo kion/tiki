@@ -196,9 +196,13 @@ func (pm *PathManager) ProjectConfigDir() string {
 	return pm.projectRoot
 }
 
-// UserConfigWorkflowFile returns the path to workflow.yaml in the user config directory
+// UserConfigWorkflowFile returns the workflow file the user config directory uses,
+// or the tiki- name there when it has none.
 func (pm *PathManager) UserConfigWorkflowFile() string {
-	return filepath.Join(pm.configDir, defaultWorkflowFilename)
+	if chosen := ResolveInFolder(KindWorkflow, pm.configDir, true).Chosen; chosen != "" {
+		return chosen
+	}
+	return filepath.Join(pm.configDir, WorkflowFileName)
 }
 
 // EnsureDirs creates the user config and cache directories. The document scan
@@ -343,49 +347,18 @@ func findHighestPriorityFile(candidates []string) string {
 	return best
 }
 
-// workflowCandidates returns the standard workflow.yaml search paths in
-// priority order: user config (lowest) → cwd (highest). The scan root is the
-// current working directory, so a project-level workflow.yaml lives at the cwd
-// root — there is no separate ".doc" project tier. When neither file exists the
-// embedded default is seeded into the user config at launch
-// (config.InstallDefaultWorkflow), so the chain still resolves to the embedded
-// default in practice.
-func workflowCandidates() []string {
-	pm := mustGetPathManager()
-	return []string{
-		pm.UserConfigWorkflowFile(),
-		filepath.Join(pm.ProjectConfigDir(), defaultWorkflowFilename), // cwd root
-	}
-}
-
-// findWorkflowFileWithScope walks the workflow candidates in priority order
-// and returns both the winning path and its classified scope. This is the
-// single source of truth — FindWorkflowFile and FindWorkflowFiles delegate here.
+// findWorkflowFileWithScope returns the workflow file that applies and its scope:
+// the project folder's when it contributes one, otherwise the user config folder's.
+// This is the single source of truth — FindWorkflowFile and FindWorkflowFiles delegate here.
 func findWorkflowFileWithScope() (string, Scope) {
-	scopes := []Scope{ScopeGlobal, ScopeCurrent}
-	candidates := workflowCandidates()
-
-	var bestPath string
-	var bestScope Scope
-	seen := make(map[string]bool)
-
-	for i, path := range candidates {
-		abs, err := filepath.Abs(path)
-		if err != nil {
-			abs = path
-		}
-		if seen[abs] {
-			continue
-		}
-		if _, err := os.Stat(path); err != nil {
-			continue
-		}
-		seen[abs] = true
-		bestPath = path
-		bestScope = scopes[i]
+	r := ResolveFiles(KindWorkflow)
+	if r.Local != nil && r.Local.Chosen != "" {
+		return r.Local.Chosen, ScopeCurrent
 	}
-
-	return bestPath, bestScope
+	if r.Global.Chosen != "" {
+		return r.Global.Chosen, ScopeGlobal
+	}
+	return "", ""
 }
 
 // FindWorkflowFileWithScope returns the highest-priority workflow.yaml path

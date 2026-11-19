@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -32,7 +33,7 @@ func workflowSchemaOutput(t *testing.T) string {
 
 func writeCwdWorkflow(t *testing.T, content string) {
 	t.Helper()
-	if err := os.WriteFile("workflow.yaml", []byte(content), 0600); err != nil {
+	if err := os.WriteFile(config.WorkflowFileName, []byte(content), 0600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -88,7 +89,7 @@ triggers:
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "workflow: " + filepath.Join(cwd, "workflow.yaml") + "\n\n" + intrinsicSchemaBlock + `
+	want := "workflow: " + filepath.Join(cwd, config.WorkflowFileName) + "\n\n" + intrinsicSchemaBlock + `
 workflow fields (* = default on create):
   stage     enum          open* "on hold" closed
   tally     string
@@ -115,7 +116,7 @@ func TestWorkflowSchema_BuiltInWorkflow(t *testing.T) {
 	out := workflowSchemaOutput(t)
 
 	for _, want := range []string{
-		"workflow: " + filepath.Join(tikiDir, "workflow.yaml") + "\n",
+		"workflow: " + filepath.Join(tikiDir, config.WorkflowFileName) + "\n",
 		intrinsicSchemaBlock,
 		"  status      enum          inbox* ready inProgress done\n",
 		"  points      enum          10 9 8 7 6 5 4 3 2 1\n",

@@ -146,13 +146,13 @@ func legacyRejection(kind FileKind, path string, global bool) string {
 	if global {
 		return ""
 	}
+	// a broken tiki file should report its read or parse error, not vanish
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "unreadable: " + err.Error()
+		return ""
 	}
 	top, err := topLevelKeys(data)
 	if err != nil {
-		// a broken tiki file should report its parse error, not vanish
 		if _, isShape := err.(shapeError); !isShape {
 			return ""
 		}

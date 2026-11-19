@@ -331,7 +331,7 @@ func TestFindWorkflowFileWithScope_CwdWins(t *testing.T) {
 	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(userTikiDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(userTikiDir, "workflow.yaml"), []byte("version: 1\nfields: []\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -341,7 +341,7 @@ func TestFindWorkflowFileWithScope_CwdWins(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte("version: 1\nfields: []\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -374,12 +374,12 @@ func TestFindWorkflowFileWithScope_CwdRootWinsOverUser(t *testing.T) {
 	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(userTikiDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(userTikiDir, "workflow.yaml"), []byte("version: 1\nfields: []\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
 	projectDir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(projectDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectDir, "workflow.yaml"), []byte("version: 1\nfields: []\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -404,7 +404,7 @@ func TestFindWorkflowFileWithScope_GlobalFallback(t *testing.T) {
 	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(userTikiDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(userTikiDir, "workflow.yaml"), []byte("version: 1\nfields: []\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -466,7 +466,7 @@ func TestFindWorkflowFileWithScope_CwdRootResolvesAsCurrent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(projectDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(projectDir, "workflow.yaml"), []byte("version: 1\nfields: []\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -508,7 +508,7 @@ func TestFindWorkflowFile_DelegatesToWithScope(t *testing.T) {
 	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(userTikiDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(userTikiDir, "workflow.yaml"), []byte("version: 1\nfields: []\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -576,5 +576,54 @@ func TestPathManagerWorksWithoutAStateDir(t *testing.T) {
 	}
 	if _, err := newPathManager(); err != nil {
 		t.Fatalf("newPathManager without HOME or XDG_STATE_HOME: %v (only prefixed ids need the state dir)", err)
+	}
+}
+
+func setupWorkflowScopeTest(t *testing.T) (userTikiDir, projectDir string) {
+	t.Helper()
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	userTikiDir = filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	projectDir = t.TempDir()
+	t.Chdir(projectDir)
+	ResetPathManager()
+	t.Cleanup(ResetPathManager)
+	mustGetPathManager().projectRoot = projectDir
+	return userTikiDir, projectDir
+}
+
+func TestFindWorkflowFileWithScope_TikiNameWins(t *testing.T) {
+	_, projectDir := setupWorkflowScopeTest(t)
+	want := filepath.Join(projectDir, WorkflowFileName)
+	for _, name := range []string{WorkflowFileName, LegacyWorkflowFileName} {
+		if err := os.WriteFile(filepath.Join(projectDir, name), []byte("fields: []\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	path, scope := FindWorkflowFileWithScope()
+
+	if path != want || scope != ScopeCurrent {
+		t.Errorf("got (%q, %q), want (%q, %q)", path, scope, want, ScopeCurrent)
+	}
+}
+
+func TestFindWorkflowFileWithScope_ForeignLocalFallsBackToGlobal(t *testing.T) {
+	userTikiDir, projectDir := setupWorkflowScopeTest(t)
+	want := filepath.Join(userTikiDir, LegacyWorkflowFileName)
+	if err := os.WriteFile(want, []byte("fields: []\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(projectDir, LegacyWorkflowFileName), []byte("name: CI\non: push\njobs: {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	path, scope := FindWorkflowFileWithScope()
+
+	if path != want || scope != ScopeGlobal {
+		t.Errorf("got (%q, %q), want (%q, %q)", path, scope, want, ScopeGlobal)
 	}
 }
