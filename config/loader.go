@@ -76,6 +76,12 @@ type Config struct {
 		Name  string `mapstructure:"name"`  // display name for the current user
 		Email string `mapstructure:"email"` // email for the current user
 	} `mapstructure:"identity"`
+
+	Project struct {
+		Name  string `mapstructure:"name"`
+		Color string `mapstructure:"color"`
+		Logo  string `mapstructure:"logo"`
+	} `mapstructure:"project"`
 }
 
 var appConfig *Config
@@ -159,6 +165,9 @@ func setDefaults() {
 	// Identity defaults — empty so env overrides (TIKI_IDENTITY_*) bind correctly
 	viper.SetDefault("identity.name", "")
 	viper.SetDefault("identity.email", "")
+	viper.SetDefault("project.name", "")
+	viper.SetDefault("project.color", "")
+	viper.SetDefault("project.logo", "")
 }
 
 // bindFlags binds supported command line flags to viper so they can override config values.
