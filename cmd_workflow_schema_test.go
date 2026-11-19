@@ -31,8 +31,22 @@ func workflowSchemaOutput(t *testing.T) string {
 	return out
 }
 
+// minimalView keeps a fixture loadable: tiki, and so the schema check, refuses a workflow without views.
+const minimalView = `
+views:
+  - name: All
+    kind: board
+    layout: title
+    lanes:
+      - name: All
+        filter: select
+`
+
 func writeCwdWorkflow(t *testing.T, content string) {
 	t.Helper()
+	if !strings.Contains(content, "\nviews:") {
+		content += minimalView
+	}
 	if err := os.WriteFile(config.WorkflowFileName, []byte(content), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -67,6 +81,11 @@ fields:
     type: user
 views:
   - name: ignored
+    kind: board
+    layout: title
+    lanes:
+      - name: All
+        filter: select
 triggers:
   - description: closed tikis cannot be deleted
     ruki: >
@@ -237,4 +256,59 @@ fields:
 	if out := workflowSchemaOutput(t); !strings.Contains(out, "\nprefix: T (tiki assigns new ids as <prefix><number>)\n") {
 		t.Errorf("schema lacks the separator-less hint\n%s", out)
 	}
+}
+
+func TestWorkflowSchema_BrokenViewFails(t *testing.T) {
+	setupWorkflowTest(t)
+	writeCwdWorkflow(t, `version: "0.6.1"
+fields:
+  - name: status
+    type: enum
+    values:
+      - {value: open, default: true}
+views:
+  - name: Board
+    kind: board
+    lanes:
+      - name: Open
+        filter: select where nosuch = "x"
+`)
+
+	var code int
+	stderr := captureStderr(t, func() {
+		captureStdout(t, func() { code = runWorkflow([]string{"schema"}) })
+	})
+	if code != exitInternal {
+		t.Errorf("broken view: exit %d, want %d", code, exitInternal)
+	}
+	if !strings.Contains(stderr, `"Board"`) {
+		t.Errorf("error should name the view, got %q", stderr)
+	}
+}
+
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	orig := os.Stderr
+	os.Stderr = w
+	done := make(chan string)
+	go func() {
+		var b strings.Builder
+		buf := make([]byte, 4096)
+		for {
+			n, err := r.Read(buf)
+			b.Write(buf[:n])
+			if err != nil {
+				break
+			}
+		}
+		done <- b.String()
+	}()
+	fn()
+	os.Stderr = orig
+	_ = w.Close()
+	return <-done
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/internal/bootstrap"
 	"github.com/boolean-maybe/tiki/internal/ruki/runtime"
+	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -29,7 +30,8 @@ var intrinsicFieldNotes = map[string]string{
 
 // runWorkflowSchema implements `tiki workflow schema`:
 // the fields and triggers of the workflow that applies to the cwd, for AI agents.
-// It leaves out views, actions, captions and visuals, which an agent has no use for.
+// It validates views and actions like startup does, but leaves them out of the output,
+// along with captions and visuals, which an agent has no use for.
 func runWorkflowSchema(args []string) int {
 	positional, err := parsePositionalOnly(args)
 	if errors.Is(err, errHelpRequested) {
@@ -62,6 +64,11 @@ func runWorkflowSchema(args []string) int {
 	}
 	triggers, err := config.LoadTriggerDefs()
 	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		return exitInternal
+	}
+	// startup refuses a workflow whose views or actions don't load, so the check an agent relies on must too
+	if _, _, err := plugin.LoadPluginsAndGlobals(runtime.NewSchema()); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		return exitInternal
 	}
