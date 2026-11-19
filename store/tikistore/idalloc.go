@@ -37,11 +37,15 @@ func (s *TikiStore) allocatorLocked() (IDAllocator, error) {
 	return s.idAlloc, nil
 }
 
-// CounterFile reports this project's counter file and what it holds;
+// CounterFile reports this project's counter file and what it holds,
+// first renaming it to follow the project folder;
 // exists is false until the first prefixed id or rename writes it.
 func (s *TikiStore) CounterFile() (path string, counters map[string]int, exists bool, err error) {
 	f, err := s.counterFile()
 	if err != nil {
+		return "", nil, false, err
+	}
+	if err := f.Relabel(); err != nil {
 		return "", nil, false, err
 	}
 	if path, exists, err = f.Path(); err != nil {

@@ -82,7 +82,8 @@ tiki ids counter
   tiki's fields give.
 - `migrate` gives every tiki that still has a 6-character id the next prefixed id for its fields,
   oldest first. It needs a top-level `prefix` in the workflow.
-- `counter` prints this project's counter file and the last number issued for each prefix.
+- `counter` prints this project's counter file and the last number issued for each prefix. It first
+  renames the file to follow the project folder, if the folder was renamed or the file has an older name.
 - Prefix fields can't be filled once a tiki's id is prefixed, so both refuse while a tiki with
   workflow fields has an empty prefix field. They list those tikis with a command that fills one.
   Notes-only tikis, which have no workflow fields at all, take the top-level prefix.

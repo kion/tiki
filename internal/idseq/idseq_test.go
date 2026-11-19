@@ -215,3 +215,25 @@ func TestConcurrentHandlesNeverShareANumber(t *testing.T) {
 		}
 	}
 }
+
+func TestRelabelRenamesAnExistingFileOnly(t *testing.T) {
+	dir := t.TempDir()
+	if err := Open(dir, "k", "p", "o").Relabel(); err != nil {
+		t.Fatal(err)
+	}
+	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
+		t.Fatalf("Relabel created files for a project with no counter: %v", entries)
+	}
+	if err := Open(dir, "k", "old", "o").Raise("B", 204); err != nil {
+		t.Fatal(err)
+	}
+	if err := Open(dir, "k", "new", "o").Relabel(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, FileName("old", "k"))); !os.IsNotExist(err) {
+		t.Errorf("old name still there (stat err %v)", err)
+	}
+	if n, _ := Open(dir, "k", "new", "o").Peek("B"); n != 204 {
+		t.Errorf("counter after Relabel = %d, want 204", n)
+	}
+}

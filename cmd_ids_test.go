@@ -220,3 +220,31 @@ func TestIDsCounterShowsThisProjectsFile(t *testing.T) {
 		t.Errorf("after the rename: exit %d, output:\n%s\nwant the file under %s… holding FEAT: 55", code, out, wantPrefix)
 	}
 }
+
+func TestIDsCounterRenamesAnOlderFile(t *testing.T) {
+	dir := setupIDsProject(t, idsWorkflow, map[string]string{
+		"a.md": "---\nid: XXXXXX\ntitle: a\nstatus: open\narea: feature\n---\n",
+	})
+	if code, _, errOut := runIDsTest(t, dir, "rename", "XXXXXX", "FEAT-55"); code != exitOK {
+		t.Fatalf("rename: exit %d, %s", code, errOut)
+	}
+	seq := filepath.Join(os.Getenv("XDG_STATE_HOME"), "tiki", "sequences")
+	current, err := filepath.Glob(filepath.Join(seq, "*.yaml"))
+	if err != nil || len(current) != 1 {
+		t.Fatalf("counter files = %v, %v", current, err)
+	}
+	hash := strings.TrimPrefix(filepath.Base(current[0]), filepath.Base(dir)+"-")
+	older := filepath.Join(seq, "commit-"+hash)
+	//nolint:gosec // G703: paths inside the test's own temporary state dir
+	if err := os.Rename(current[0], older); err != nil {
+		t.Fatal(err)
+	}
+	code, out, _ := runIDsTest(t, dir, "counter")
+	if code != exitOK || !strings.Contains(out, "counter file: "+current[0]) || !strings.Contains(out, "  FEAT: 55") {
+		t.Errorf("exit %d, output:\n%s\nwant %s holding FEAT: 55", code, out, current[0])
+	}
+	//nolint:gosec // G703: a path inside the test's own temporary state dir
+	if _, err := os.Stat(older); !os.IsNotExist(err) {
+		t.Errorf("the older file is still there (stat err %v)", err)
+	}
+}

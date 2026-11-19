@@ -111,6 +111,16 @@ func (f *File) Raise(prefix string, atLeast int) error {
 	})
 }
 
+// Relabel renames an existing file to the current label, merging any others for the key.
+// It never creates one: a project that has issued no prefixed id has no counter yet.
+func (f *File) Relabel() error {
+	files, err := f.existing()
+	if err != nil || len(files) == 0 || (len(files) == 1 && files[0] == f.wanted()) {
+		return err
+	}
+	return f.update(func(*fileData) {})
+}
+
 // Peek returns prefix's stored counter without writing anything.
 func (f *File) Peek(prefix string) (int, error) {
 	d, _, err := f.read()
