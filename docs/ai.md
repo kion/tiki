@@ -57,6 +57,11 @@ The same copy works in every project. The skill doesn't describe any workflow's 
 triggers of the project it is in, so it stays correct when a `tiki-workflow.yaml` changes. This needs a `tiki`
 that has the command; with an older one the skill falls back to reading the project's `workflow.yaml`.
 
+The skill also knows how to change a project's setup when you ask: the workflow (fields, statuses,
+views, actions, readable ids) and the settings (the project's name, colour, logo or theme, and your own
+AI agent or identity). It checks which files tiki uses with [`tiki config`](command-line.md#config),
+keeps personal settings out of project files, and runs `tiki workflow schema` after each workflow edit.
+
 When you update tiki, run the script again to pick up changes to the skill.
 
 ## Chat with AI

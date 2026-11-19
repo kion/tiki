@@ -1,7 +1,7 @@
 ---
 name: tiki
-description: Use when working with tikis (Markdown tasks, docs and notes that carry an `id` in their frontmatter) - finding, creating, updating, deleting or estimating them, managing their dependencies, or implementing one, e.g. "implement X7F4K2" or "implement BUG-12"
-allowed-tools: Read, Grep, Glob, Write, WebFetch, Bash(tiki exec:*), Bash(tiki live:*), Bash(tiki workflow schema:*), Bash(tiki ids:*), Bash(git log:*), Bash(git blame:*), Bash(jq:*)
+description: Use when working with tikis (Markdown tasks, docs and notes that carry an `id` in their frontmatter) - finding, creating, updating, deleting or estimating them, managing their dependencies, or implementing one, e.g. "implement X7F4K2" or "implement BUG-12" - or when changing how tiki is set up for a project - its workflow (fields, statuses, views, actions, id prefixes) or its settings (name, colour, logo, theme)
+allowed-tools: Read, Grep, Glob, Write, WebFetch, Bash(tiki exec:*), Bash(tiki live:*), Bash(tiki workflow schema:*), Bash(tiki config:*), Bash(tiki --help), Bash(tiki ids:*), Bash(git log:*), Bash(git blame:*), Bash(jq:*)
 ---
 
 # tiki
@@ -26,6 +26,7 @@ error. Pass enum values as strings (`"3"`, `"done"`).
 
 If tiki answers `unknown workflow command`, it is older than this skill: read `workflow.yaml` in the
 current directory, or `~/.config/tiki/workflow.yaml` when there is none.
+Newer tikis name the file `tiki-workflow.yaml`; the schema's first line gives its path.
 
 In the examples below, `<field>` and `<value>` stand for a field and a value from the schema.
 
@@ -136,3 +137,5 @@ you have seen the schema:
 | A query needs dates, sorting on several fields, lists, or subqueries | `references/queries.md` |
 | Editing a notes-only tiki by hand, or asked where tiki files live | `references/files.md` |
 | Asked who created or changed a tiki | `references/provenance.md` |
+| Asked to change this project's workflow: fields, statuses, types, views/boards, actions, triggers or id prefixes | `references/customize-workflow.md` |
+| Asked to change a tiki setting: the project's name, colour, logo, theme or header, the AI agent, live reload, identity, or which config file tiki reads | `references/customize-config.md` |
